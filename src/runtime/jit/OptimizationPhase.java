@@ -1,8 +1,14 @@
 package runtime.jit;
 
+import runtime.core.Data;
+
 public class OptimizationPhase<R, P> extends SimpleTreeVisitor<R, P> {
 
     private boolean optimizationPerformed = false;
+
+    protected Data[] args;
+
+    protected JIT jit;
 
     public OptimizationPhase(){
     }
@@ -11,7 +17,9 @@ public class OptimizationPhase<R, P> extends SimpleTreeVisitor<R, P> {
         super(defaultValue);
     }
 
-    public BytecodeParser.Tree performOptimization(BytecodeParser.Tree tree){
+    public BytecodeParser.Tree performOptimization(BytecodeParser.Tree tree, Data[] args, JIT jit){
+        this.args = args;
+        this.jit = jit;
         tree.accept(this);
         return tree;
     }

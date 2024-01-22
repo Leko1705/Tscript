@@ -8,7 +8,13 @@ public interface TObject extends Data {
 
     Member get(int index);
 
-    Member get(String key);
+    default Member get(String key){
+        int idx = getIndex(key);
+        if (idx < 0) return null;
+        return get(idx);
+    }
+
+    int getIndex(String key);
 
     Iterable<Member> getMembers();
 

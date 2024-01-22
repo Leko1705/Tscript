@@ -138,7 +138,7 @@ class BytecodeParser {
                 }
                 case LOAD_MEMBER -> {
                     String name = (String) function.getPool().load(scanner.getArg(0), null);
-                    stack.push(new LoadMemberTree(name));
+                    stack.push(new LoadMemberTree(name, stack.pop()));
                 }
                 case STORE_STATIC -> {
                     String name = (String) function.getPool().load(scanner.getArg(0), null);
@@ -723,10 +723,33 @@ class BytecodeParser {
         }
     }
 
-    public record LoadMemberTree(String address) implements Tree {
+    public static class LoadMemberTree implements Tree {
+
+        public String address;
+        public Tree exp;
+        public LoadMemberTree(String address, Tree exp){
+            this.address = address;
+            this.exp = exp;
+        }
+
         @Override
         public <R, P> R accept(TreeVisitor<R, P> visitor, P p) {
             return visitor.visitLoadMemberTree(this, p);
+        }
+    }
+
+    public static class AccessUnknownFastTree implements Tree {
+
+        public int address;
+        public Tree exp;
+        public AccessUnknownFastTree(int address, Tree exp){
+            this.address = address;
+            this.exp = exp;
+        }
+
+        @Override
+        public <R, P> R accept(TreeVisitor<R, P> visitor, P p) {
+            return visitor.visitAccessUnknownFastTree(this, p);
         }
     }
 

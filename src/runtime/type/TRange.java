@@ -97,8 +97,8 @@ public class TRange extends PrimitiveObject<Tuple<TInteger, TInteger>>
         }
 
         @Override
-        public Member get(String key) {
-            return null;
+        public int getIndex(String key) {
+            return -1;
         }
 
         @Override

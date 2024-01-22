@@ -206,6 +206,11 @@ public class SimpleTreeVisitor<R, P> implements TreeVisitor<R, P> {
     }
 
     @Override
+    public R visitAccessUnknownFastTree(AccessUnknownFastTree accessTre, P p) {
+        return defaultValue;
+    }
+
+    @Override
     public R visitLoadStaticTree(LoadStaticTree loadTree, P p) {
         return defaultValue;
     }

@@ -19,8 +19,7 @@ public abstract class Scope {
     }
     public void putIfAbsent(SymbolKind kind, String name, Set<Modifier> modifiers){
         if (content.containsKey(name)) return;
-        Symbol symbol = new Symbol(this, kind, name, nextFreeAddress++);
-        symbol.getModifiers().addAll(modifiers);
+        Symbol symbol = new Symbol(this, kind, name, nextFreeAddress++, modifiers);
         content.put(name, symbol);
         notifyVariableAdded(nextFreeAddress);
     }

@@ -164,7 +164,7 @@ public class TreeCopier extends SimpleTreeVisitor<Tree, Void> {
 
     @Override
     public Tree visitLoadMemberTree(LoadMemberTree loadTree, Void unused) {
-        return new LoadMemberTree(loadTree.address());
+        return new LoadMemberTree(loadTree.address, scan(loadTree.exp));
     }
 
     @Override

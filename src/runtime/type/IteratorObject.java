@@ -36,8 +36,8 @@ public interface IteratorObject extends TObject, Iterator<Data> {
         public Member get(int index) {
             throw new UnsupportedOperationException("get");
         }
-        public Member get(String key) {
-            return null;
+        public int getIndex(String key) {
+            return -1;
         }
         public Iterable<Member> getMembers() {
             return List.of();

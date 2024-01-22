@@ -1,6 +1,7 @@
 package runtime.core;
 
 import runtime.tni.NativeCollection;
+import runtime.tni.NativeFunction;
 import runtime.type.*;
 
 import java.util.Arrays;
@@ -102,11 +103,11 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         }
     }
 
-    public record Native(String name) implements Entry<Callable> {
+    public record Native(String name) implements Entry<NativeFunction> {
         @Override
-        public Callable load(TThread thread) {
-            Callable nat = NativeCollection.load(name);
-            if (nat == null)
+        public NativeFunction load(TThread thread) {
+            NativeFunction nat = NativeCollection.load(name);
+            if (nat == null && thread != null)
                 thread.reportRuntimeError("native function '" + name + "' does not exist");
             return nat;
         }

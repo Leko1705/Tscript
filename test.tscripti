@@ -2,55 +2,89 @@ magic number: 0xDEAD
 minor: 0
 major: 0
 entry-point: 0
-globals: 2
+globals: 3
 
 constant-pool:
 	0: FUNCTION __main__
 	1: NATIVE print
 	2: FUNCTION foo
-	3: INTEGER 10000000
+	3: INTEGER 1000000
+	4: STRING hi
+	5: FUNCTION constructor of X
+	6: FUNCTION X@static
+	7: TYPE X
 
-__main__: params=[] stack=4 locals=2
+__main__: params=[] stack=5 locals=3
 	LOAD_CONST 1
 	STORE_GLOBAL 0
 	LOAD_CONST 2
 	STORE_GLOBAL 1
-	NEW_LINE 12
+	NEW_LINE 13
 	PUSH_INT 0
 	LOAD_CONST 3
 	MAKE_RANGE
 	GET_ITR
 	BRANCH_ITR 0 18
 	ITR_NEXT
-	POP
-	PUSH_INT 9
+	STORE_LOCAL 0
+	PUSH_INT 1
 	LOAD_GLOBAL 1
-	NEW_LINE 13
+	NEW_LINE 14
 	CALL 1
 	POP
 	GOTO 0 9
+	NEW_LINE 16
+	PUSH_INT 0
+	LOAD_CONST 3
+	MAKE_RANGE
+	GET_ITR
+	BRANCH_ITR 0 32
+	ITR_NEXT
+	STORE_LOCAL 0
+	LOAD_CONST 4
+	LOAD_GLOBAL 1
+	NEW_LINE 17
+	CALL 1
+	POP
+	GOTO 0 23
+	PUSH_INT 1
+	LOAD_GLOBAL 1
+	NEW_LINE 21
+	CALL 1
+	LOAD_GLOBAL 0
+	CALL 1
+	POP
+	LOAD_CONST 4
+	LOAD_GLOBAL 1
+	NEW_LINE 22
+	CALL 1
+	LOAD_GLOBAL 0
+	CALL 1
+	POP
 	PUSH_NULL
 	RETURN
 
-foo: params=[y] stack=4 locals=2
+X@static: params=[] stack=1 locals=0
+	PUSH_NULL
+	RETURN
+
+foo: params=[x] stack=2 locals=1
 	STORE_LOCAL 0
-	PUSH_INT 10
-	STORE_LOCAL 1
-	NEW_LINE 6
-	PUSH_INT 0
 	LOAD_LOCAL 0
-	MAKE_RANGE
-	GET_ITR
-	BRANCH_ITR 0 17
-	ITR_NEXT
-	POP
-	LOAD_LOCAL 1
-	PUSH_INT 1
-	NEW_LINE 7
-	ADD
-	STORE_LOCAL 1
-	GOTO 0 8
-	LOAD_LOCAL 1
+	LOAD_CONST 4
+	NEW_LINE 5
+	EQUALS
 	RETURN
 	PUSH_NULL
 	RETURN
+
+constructor of X: params=[] stack=1 locals=0
+	PUSH_INT 3
+	STORE_MEMBER_FAST 0
+	PUSH_THIS
+	RETURN
+
+Type X:
+	 constructor at: 5
+	 @static at: 6
+	y [IMMUTABLE, PUBLIC]

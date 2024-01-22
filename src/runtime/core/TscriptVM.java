@@ -1,10 +1,10 @@
 package runtime.core;
 
+import runtime.debug.DebugAction;
 import runtime.debug.Debugger;
 import runtime.debug.NoDebugger;
 import runtime.heap.GenerationalHeap;
 import runtime.heap.Heap;
-import runtime.heap.SimpleHeap;
 import runtime.heap.gc.GarbageCollector;
 import runtime.heap.gc.SerialMSGC;
 import runtime.jit.JIT;
@@ -13,6 +13,7 @@ import runtime.type.Callable;
 import java.io.File;
 import java.io.OutputStream;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TscriptVM {
 
@@ -40,7 +41,7 @@ public class TscriptVM {
     private final JIT jit;
 
     private final Queue<Integer> freeThreadIDQueue = new ArrayDeque<>();
-    private final HashMap<Integer, TThread> threads = new HashMap<>();
+    private final Map<Integer, TThread> threads = new ConcurrentHashMap<>();
     private final Set<Reference> roots = new HashSet<>();
 
 
@@ -50,7 +51,7 @@ public class TscriptVM {
         this.heap = heap;
         this.gc = gc;
         this.debugger = debugger != null ? debugger : new NoDebugger();
-        this.jit = new JIT();
+        this.jit = new JIT(heap);
     }
 
 
@@ -69,7 +70,7 @@ public class TscriptVM {
         return 0;
     }
 
-    public synchronized void startNewThread(Callable callable){
+    public void startNewThread(Callable callable){
         int nextID = freeThreadIDQueue.isEmpty()
                 ? threads.size()
                 : freeThreadIDQueue.poll();
@@ -79,43 +80,49 @@ public class TscriptVM {
         thread.start();
     }
 
-    public synchronized void killThread(int id){
+    public void killThread(int id){
         TThread thread = threads.remove(id);
         if (thread != null)
             thread.interrupt();
     }
 
-    public synchronized Data storeGlobal(int addr, Data data){
+    public Data storeGlobal(int addr, Data data){
         Data displaced = globals[addr];
         globals[addr] = data;
         return displaced;
     }
 
-    public synchronized Data loadGlobal(int addr){
+    public Data loadGlobal(int addr){
         return globals[addr];
     }
 
-    public synchronized Heap getHeap() {
+    public Heap getHeap() {
         return heap;
     }
 
-    public synchronized Set<Reference> getRootPointers() {
+    public Set<Reference> getRootPointers() {
         return roots;
     }
 
-    protected synchronized void gc(TThread caller){
+    protected void gc(TThread caller){
         gc(caller, null, null);
     }
 
-    protected synchronized void gc(TThread caller, Reference prevPtr, Reference assignPtr) {
+    protected void gc(TThread caller, Reference prevPtr, Reference assignPtr) {
         gc.onAction(caller.getThreadID(), heap, assignPtr, prevPtr, roots);
     }
 
-    protected void debug(TThread caller){
-        debugger.onBreakPoint(this, caller);
+    protected DebugAction debug(TThread caller){
+        return debugger.onBreakPoint(this, caller);
     }
 
-    public synchronized JIT getJit() {
+    public JIT getJit() {
         return jit;
     }
+
+
+    public void quit() {
+        threads.clear();
+    }
+
 }

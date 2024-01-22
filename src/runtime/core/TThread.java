@@ -1,5 +1,6 @@
 package runtime.core;
 
+import runtime.debug.DebugAction;
 import runtime.heap.Heap;
 import runtime.jit.JIT;
 import runtime.jit.JITSensitive;
@@ -19,6 +20,10 @@ public class TThread extends Thread {
 
     private int frameExitThreshold = 0;
     private Data returnValue;
+
+
+    private final Interpreter DEFAULT_INTERPRETER = new SimpleInterpreter();
+    private Interpreter interpreter = DEFAULT_INTERPRETER;
 
 
     public TThread(TscriptVM vm, Callable callable, int threadID) {
@@ -61,52 +66,53 @@ public class TThread extends Thread {
         decodeAndExecute(instruction);
     }
 
+
     private void decodeAndExecute(byte[] instruction){
         Opcode opcode = Opcode.of(instruction[0]);
         switch (opcode){
-            case PUSH_NULL -> push(TNull.NULL);
-            case PUSH_INT -> push(new TInteger((int) instruction[1]));
-            case PUSH_BOOL -> push(TBoolean.of(instruction[1]));
-            case STORE_GLOBAL -> storeGlobal(instruction[1]);
-            case LOAD_GLOBAL -> push(vm.loadGlobal(instruction[1]));
-            case STORE_LOCAL -> storeLocal(instruction[1]);
-            case LOAD_LOCAL -> push(frame().load(instruction[1]));
-            case LOAD_CONST -> loadConst(instruction[1]);
-            case CONTAINER_READ -> containerRead();
-            case CONTAINER_WRITE -> containerWrite();
-            case RETURN -> returnVirtual();
-            case WRAP_ARGUMENT -> wrapArgument(instruction[1]);
-            case CALL -> call(instruction[1]);
-            case POP -> pop();
-            case MAKE_RANGE -> makeRange();
-            case MAKE_ARRAY -> makeArray(instruction[1]);
-            case MAKE_DICT -> makeDict(instruction[1]);
-            case ENTER_TRY -> frame().enterSafeSpot(instruction[1]);
-            case LEAVE_TRY -> frame().leaveSafeSpot();
-            case THROW -> reportRuntimeError(pop());
-            case GOTO -> jumpTo(instruction[1], instruction[2]);
-            case GET_ITR -> getItr();
-            case ITR_NEXT -> itrNext();
-            case BRANCH_ITR -> branchItr(instruction[1], instruction[2]);
-            case BRANCH_IF_FALSE -> branchOnBoolean(false, instruction[1], instruction[2]);
-            case BRANCH_IF_TRUE -> branchOnBoolean(true, instruction[1], instruction[2]);
-            case LOAD_MEMBER -> unsafeMemberAccess(instruction[1]);
-            case STORE_MEMBER -> unsafeMemberWrite(instruction[1]);
-            case LOAD_MEMBER_FAST -> fastMemberAccess(instruction[1]);
-            case STORE_MEMBER_FAST -> fastMemberWrite(instruction[1]);
-            case EQUALS -> push(TBoolean.of(pop().equals(pop())));
-            case NOT_EQUALS -> push(TBoolean.of(!pop().equals(pop())));
+            case PUSH_NULL -> interpreter.pushNull();
+            case PUSH_INT -> interpreter.pushInt(instruction[1]);
+            case PUSH_BOOL -> interpreter.pushBool(instruction[1] == 1);
+            case STORE_GLOBAL -> interpreter.storeGlobal(instruction[1]);
+            case LOAD_GLOBAL -> interpreter.loadGlobal(instruction[1]);
+            case STORE_LOCAL -> interpreter.storeLocal(instruction[1]);
+            case LOAD_LOCAL -> interpreter.loadLocal(instruction[1]);
+            case LOAD_CONST -> interpreter.loadConst(instruction[1]);
+            case CONTAINER_READ -> interpreter.containerRead();
+            case CONTAINER_WRITE -> interpreter.containerWrite();
+            case RETURN -> interpreter.returnVirtual();
+            case WRAP_ARGUMENT -> interpreter.wrapArgument(instruction[1]);
+            case CALL -> interpreter.call(instruction[1]);
+            case POP -> interpreter.pop();
+            case MAKE_RANGE -> interpreter.makeRange();
+            case MAKE_ARRAY -> interpreter.makeArray(instruction[1]);
+            case MAKE_DICT -> interpreter.makeDict(instruction[1]);
+            case ENTER_TRY -> interpreter.enterTry(instruction[1]);
+            case LEAVE_TRY -> interpreter.leaveTry();
+            case THROW -> interpreter.throwError();
+            case GOTO -> interpreter.jumpTo(jumpAddress(instruction[1], instruction[2]));
+            case GET_ITR -> interpreter.getIterator();
+            case ITR_NEXT -> interpreter.iteratorNext();
+            case BRANCH_ITR -> interpreter.branchIterator(jumpAddress(instruction[1], instruction[2]));
+            case BRANCH_IF_FALSE -> interpreter.branchOn(false, jumpAddress(instruction[1], instruction[2]));
+            case BRANCH_IF_TRUE -> interpreter.branchOn(true, jumpAddress(instruction[1], instruction[2]));
+            case LOAD_MEMBER -> interpreter.loadMember(instruction[1]);
+            case STORE_MEMBER -> interpreter.storeMember(instruction[1]);
+            case LOAD_MEMBER_FAST -> interpreter.storeMemberFast(instruction[1]);
+            case STORE_MEMBER_FAST -> interpreter.loadMemberFast(instruction[1]);
+            case EQUALS -> interpreter.compare(true);
+            case NOT_EQUALS -> interpreter.compare(false);
             case ADD, SUB, MUL, DIV, IDIV, MOD, POW,
                     AND, OR, XOR, LT, GT, LEQ, GEQ,
-                    SLA, SRA, SRL -> operateBinary(opcode);
-            case NOT, NEG, POS -> operateUnary(opcode);
-            case PUSH_THIS -> push(frame().getOwner());
-            case GET_TYPE -> push((unpack(pop())).getType());
-            case CALL_SUPER -> callSuperConstructor(instruction[1]);
-            case LOAD_ABSTRACT_IMPL -> loadAbstractMethod(instruction[1]);
-            case LOAD_STATIC -> loadStatic(instruction[1]);
-            case STORE_STATIC -> storeStatic(instruction[1]);
-            case BREAK_POINT -> vm.debug(this);
+                    SLA, SRA, SRL -> interpreter.binaryOperation(opcode);
+            case NOT, NEG, POS -> interpreter.unaryOperation(opcode);
+            case PUSH_THIS -> interpreter.pushThis();
+            case GET_TYPE -> interpreter.getType();
+            case CALL_SUPER -> interpreter.callSuper(instruction[1]);
+            case LOAD_ABSTRACT_IMPL -> interpreter.loadAbstractMethod(instruction[1]);
+            case LOAD_STATIC -> interpreter.loadStatic(instruction[1]);
+            case STORE_STATIC -> interpreter.storeStatic(instruction[1]);
+            case BREAK_POINT -> interpreter.onBreakPoint();
             case NEW_LINE -> setLine(Conversion.fromBytes(
                     instruction[1],
                     instruction[2],
@@ -116,19 +122,24 @@ public class TThread extends Thread {
             default ->
                     throw new IllegalStateException("invalid opcode " + opcode + " 0x" + Integer.toHexString(instruction[0]));
         }
+
+    }
+
+    private int jumpAddress(byte b1, byte b2){
+        return ((b1 & 0xff) << 8) | (b2 & 0xff);
     }
 
     private Frame frame(){
         return frameStack.element();
     }
 
-    private void storeGlobal(byte addr){
+    private void storeGlobal(int addr){
         Data dataToWrite = pop();
         Data displaced = vm.storeGlobal(addr, dataToWrite);
         reassignValue(displaced, dataToWrite);
     }
 
-    private void storeLocal(byte addr){
+    private void storeLocal(int addr){
         Data dataToWrite = pop();
         Frame frame = frame();
         Data displaced = frame.store(addr, dataToWrite);
@@ -167,14 +178,14 @@ public class TThread extends Thread {
             push(result);
     }
 
-    private void loadStatic(byte poolAddr){
+    private void loadStatic(int poolAddr){
         String memberName = (String) loadFromPool(poolAddr);
         Member member = searchStaticMember(memberName);
         if (member == null) return;
         push(member.data);
     }
 
-    private void storeStatic(byte poolAddr){
+    private void storeStatic(int poolAddr){
         Data dataToWrite = pop();
         String memberName = (String) loadFromPool(poolAddr);
         Member member = searchStaticMember(memberName);
@@ -254,7 +265,7 @@ public class TThread extends Thread {
         TObject owner = unpack(frame.getOwner());
         Member member = owner.get(addr);
         Data assigned  = pop();
-        if (member.data == null){
+        if (member.kind == null && member.data == null){
             // member was not initialized yet
             member.kind = unpack(assigned) instanceof Callable
                     ? Member.Kind.IMMUTABLE
@@ -263,7 +274,7 @@ public class TThread extends Thread {
         member.data = assigned;
     }
 
-    private void loadAbstractMethod(byte poolAddr){
+    private void loadAbstractMethod(int poolAddr){
         String methodName = (String) loadFromPool(poolAddr);
         Frame frame = frame();
         TObject owner = unpack(frame.getOwner());
@@ -279,9 +290,7 @@ public class TThread extends Thread {
         }
         reportRuntimeError("can not find implementation of '" + methodName + "'");
     }
-
-    private void jumpTo(byte b1, byte b2){
-        int addr = ((b1 & 0xff) << 8) | (b2 & 0xff);
+    private void jumpTo(int addr){
         frame().jumpTo(addr);
     }
 
@@ -324,19 +333,19 @@ public class TThread extends Thread {
         push(itr.next());
     }
 
-    private void branchItr(byte b1, byte b2){
+    private void branchItr(int addr){
         IteratorObject itr = (IteratorObject) pop();
         if (!itr.hasNext()) {
-            jumpTo(b1, b2);
+            jumpTo(addr);
             return;
         }
         push(itr);
     }
 
-    private void branchOnBoolean(boolean when, byte b1, byte b2){
+    private void branchOnBoolean(boolean when, int addr){
         Data data = pop();
         if (isTrue(data) == when){
-            jumpTo(b1, b2);
+            jumpTo(addr);
         }
     }
 
@@ -377,12 +386,12 @@ public class TThread extends Thread {
         push(dict);
     }
 
-    private void wrapArgument(byte poolAddr){
+    private void wrapArgument(int poolAddr){
         String refName = (String) loadFromPool(poolAddr);
         push(new Argument(refName, pop()));
     }
 
-    private void call(byte argc){
+    private void call(int argc){
 
         if (!checkStackOverflowError())
             return;
@@ -398,7 +407,7 @@ public class TThread extends Thread {
             push(res);
     }
 
-    private void callSuperConstructor(byte argc){
+    private void callSuperConstructor(int argc){
         Frame frame = frame();
         TObject owner = unpack(frame.getOwner());
         TType type = owner.getType();
@@ -409,7 +418,7 @@ public class TThread extends Thread {
         superConstructor.call(this, argList);
     }
 
-    private List<Argument> getCallerArguments(byte argc){
+    private List<Argument> getCallerArguments(int argc){
         ArrayList<Argument> argList = new ArrayList<>();
         for (int i = 0; i < argc; i++){
             Data d = pop();
@@ -569,14 +578,14 @@ public class TThread extends Thread {
             roots.add(assignPtr);
 
         vm.gc(this, prevPtr, assignPtr);
-
     }
 
+    @JITSensitive
     public void gc(){
         vm.gc(this);
     }
 
-    public JIT getJIT(){
+    protected JIT getJIT(){
         return vm.getJit();
     }
 
@@ -590,5 +599,222 @@ public class TThread extends Thread {
         return vm.storeGlobal(index, data);
     }
 
+
+    private interface Interpreter {
+        void pushNull();
+        void pushInt(int i);
+        void pushBool(boolean b);
+        void pushThis();
+        void storeGlobal(int address);
+        void loadGlobal(int address);
+        void storeLocal(int address);
+        void loadLocal(int address);
+        void loadConst(int address);
+        void containerRead();
+        void containerWrite();
+        void returnVirtual();
+        void wrapArgument(int utf8Address);
+        void call(int argc);
+        void pop();
+        void makeRange();
+        void makeArray(int cnt);
+        void makeDict(int cnt);
+        void enterTry(int safeAddress);
+        void leaveTry();
+        void throwError();
+        void jumpTo(int address);
+        void getIterator();
+        void iteratorNext();
+        void branchIterator(int address);
+        void branchOn(boolean when, int address);
+        void loadMember(int utf8Address);
+        void storeMember(int utf8Address);
+        void loadMemberFast(int address);
+        void storeMemberFast(int address);
+        void compare(boolean onTrue);
+        void binaryOperation(Opcode operation);
+        void unaryOperation(Opcode operation);
+        void getType();
+        void callSuper(int argc);
+        void loadAbstractMethod(int utf8Address);
+        void loadStatic(int utf8Address);
+        void storeStatic(int utf8Address);
+        void onBreakPoint();
+    }
+    private class SimpleInterpreter implements Interpreter {
+        public void pushNull() {
+            push(TNull.NULL);
+        }
+        public void pushInt(int i) {
+            push(new TInteger(i));
+        }
+        public void pushBool(boolean b) {
+            push(TBoolean.of(b));
+        }
+        public void pushThis() {
+            push(frame().getOwner());
+        }
+        public void storeGlobal(int address) {
+            TThread.this.storeGlobal(address);
+        }
+        public void loadGlobal(int address) {
+            push(vm.loadGlobal(address));
+        }
+        public void storeLocal(int address) {
+            TThread.this.storeLocal(address);
+        }
+        public void loadLocal(int address) {
+            push(frame().load(address));
+        }
+        public void loadConst(int address) {
+            TThread.this.loadConst(address);
+        }
+        public void containerRead() {
+            TThread.this.containerRead();
+        }
+        public void containerWrite() {
+            TThread.this.containerWrite();
+        }
+        public void returnVirtual() {
+            TThread.this.returnVirtual();
+        }
+        public void wrapArgument(int utf8Address) {
+            TThread.this.wrapArgument(utf8Address);
+        }
+        public void call(int argc) {
+            TThread.this.call(argc);
+        }
+        public void pop() {
+            TThread.this.pop();
+        }
+        public void makeRange() {
+            TThread.this.makeRange();
+        }
+        public void makeArray(int cnt) {
+            TThread.this.makeArray(cnt);
+        }
+        public void makeDict(int cnt) {
+            TThread.this.makeDict(cnt);
+        }
+        public void enterTry(int safeAddress) {
+            frame().enterSafeSpot(safeAddress);
+        }
+        public void leaveTry() {
+            frame().leaveSafeSpot();
+        }
+        public void throwError() {
+            reportRuntimeError(TThread.this.pop());
+        }
+        public void jumpTo(int address) {
+            TThread.this.jumpTo(address);
+        }
+        public void getIterator() {
+            getItr();
+        }
+        public void iteratorNext() {
+            itrNext();
+        }
+        public void branchIterator(int address) {
+            branchItr(address);
+        }
+        public void branchOn(boolean when, int address) {
+            branchOnBoolean(when, address);
+        }
+        public void loadMember(int utf8Address) {
+            unsafeMemberAccess(utf8Address);
+        }
+        public void storeMember(int utf8Address) {
+            unsafeMemberWrite(utf8Address);
+        }
+        public void loadMemberFast(int address) {
+            TThread.this.fastMemberAccess(address);
+        }
+        public void storeMemberFast(int address) {
+            TThread.this.fastMemberWrite(address);
+        }
+        public void compare(boolean onTrue) {
+            boolean b = TThread.this.pop().equals(TThread.this.pop());
+            push(TBoolean.of(b == onTrue));
+        }
+        public void binaryOperation(Opcode operation) {
+            operateBinary(operation);
+        }
+        public void unaryOperation(Opcode operation) {
+            operateUnary(operation);
+        }
+        public void getType() {
+            push((unpack(TThread.this.pop())).getType());
+        }
+        public void callSuper(int argc) {
+            callSuperConstructor(argc);
+        }
+        public void loadAbstractMethod(int utf8Address) {
+            TThread.this.loadAbstractMethod(utf8Address);
+        }
+        public void loadStatic(int utf8Address) {
+            TThread.this.loadStatic(utf8Address);
+        }
+        public void storeStatic(int utf8Address) {
+            TThread.this.storeStatic(utf8Address);
+        }
+        public void onBreakPoint() {
+            vm.debug(TThread.this);
+            interpreter = new DebugInterpreter(this);
+        }
+    }
+    private class DebugInterpreter extends SimpleInterpreter {
+        private final Interpreter prev;
+        private DebugInterpreter(Interpreter prev) {
+            this.prev = prev;
+        }
+        public void onBreakPoint() {
+            haltDebug();
+        }
+        public void containerWrite() {
+            super.containerWrite();
+            haltDebug();
+        }
+        public void storeLocal(int address) {
+            super.storeLocal(address);
+            haltDebug();
+        }
+        public void storeGlobal(int address) {
+            super.storeGlobal(address);
+            haltDebug();
+        }
+        public void branchIterator(int address) {
+            super.branchIterator(address);
+            haltDebug();
+        }
+        public void branchOn(boolean when, int address) {
+            super.branchOn(when, address);
+            haltDebug();
+        }
+        public void storeStatic(int utf8Address) {
+            super.storeStatic(utf8Address);
+            haltDebug();
+        }
+        public void call(int argc) {
+            haltDebug();
+            super.call(argc);
+        }
+        public void callSuper(int argc) {
+            haltDebug();
+            super.callSuper(argc);
+        }
+        public void throwError() {
+            haltDebug();
+            super.throwError();
+        }
+        private void haltDebug(){
+            DebugAction action = vm.debug(TThread.this);
+            switch (action){
+                case STEP -> { /* simply run until next halt */ }
+                case RESUME -> interpreter = prev;
+                case QUIT -> vm.quit();
+                default -> throw new IllegalStateException("unsupported DebugAction: " + action);
+            }
+        }
+    }
 
 }

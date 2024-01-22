@@ -25,4 +25,13 @@ public class Member {
     public Visibility visibility;
     public Kind kind;
 
+    @Override
+    public String toString() {
+        return "Member{" +
+                "name='" + name + '\'' +
+                ", data=" + data +
+                ", visibility=" + visibility +
+                ", kind=" + kind +
+                '}';
+    }
 }

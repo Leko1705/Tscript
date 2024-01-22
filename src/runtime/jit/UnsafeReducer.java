@@ -105,7 +105,7 @@ public class UnsafeReducer extends ParentDelegationPhase<Void> {
 
     @Override
     public Void visitLoadMemberTree(LoadMemberTree loadTree, Tree parent) {
-        return handleUnsafe(loadTree);
+        return handleUnsafe(loadTree.exp);
     }
 
     @Override

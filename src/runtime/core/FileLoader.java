@@ -152,7 +152,8 @@ public class FileLoader {
                 Visibility v = getVisibility(specs);
 
                 List<Member> list = isStatic(specs) ? statics : members;
-                list.add(new Member(memberName, v, Member.Kind.MUTABLE, null));
+                Member m = new Member(memberName, v, (specs >> 5) == 1 ? Member.Kind.IMMUTABLE : Member.Kind.MUTABLE, null);
+                list.add(m);
             }
             TType type = new TType(name, null, isAbstract, statics, members);
 

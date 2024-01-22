@@ -23,7 +23,7 @@ public class NativeCollection {
 
     private NativeCollection(){}
 
-    public static Callable load(String name){
+    public static NativeFunction load(String name){
         return collection.get(name);
     }
 

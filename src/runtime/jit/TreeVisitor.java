@@ -62,6 +62,8 @@ public interface TreeVisitor<R, P> {
 
     R visitStoreMemberTree(BytecodeParser.StoreMemberTree storeTree, P p);
 
+    R visitAccessUnknownFastTree(BytecodeParser.AccessUnknownFastTree accessTre, P p);
+
     R visitLoadStaticTree(BytecodeParser.LoadStaticTree loadTree, P p);
 
     R visitStoreStaticTree(BytecodeParser.StoreStaticTree storeTree, P p);

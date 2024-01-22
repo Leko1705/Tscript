@@ -80,8 +80,8 @@ public class TString extends PrimitiveObject<String>
         }
 
         @Override
-        public Member get(String key) {
-            return null;
+        public int getIndex(String key) {
+            return -1;
         }
 
         @Override

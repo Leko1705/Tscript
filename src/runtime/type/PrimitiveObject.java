@@ -24,7 +24,8 @@ public abstract class PrimitiveObject<T> extends BaseObject {
     void initLater(List<Member> members){
         content = members.toArray(new Member[0]);
         keys.clear();
-        for (Member member : content) keys.put(member.name, member);
+        int i = 0;
+        for (Member member : content) keys.put(member.name, i++);
     }
 
     public T get(){

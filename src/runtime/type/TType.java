@@ -102,4 +102,20 @@ public class TType extends Callable {
         return "<Type " + name + ">";
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        TType type = (TType) o;
+        return isAbstract == type.isAbstract
+                && Objects.equals(name, type.name)
+                && Objects.equals(superType, type.superType)
+                && Objects.equals(classMembers, type.classMembers)
+                && Objects.equals(constructor, type.constructor);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, superType, isAbstract, classMembers, constructor);
+    }
 }

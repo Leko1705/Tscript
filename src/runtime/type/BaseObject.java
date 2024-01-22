@@ -8,13 +8,14 @@ public abstract class BaseObject implements TObject {
 
     Member[] content;
 
-    final Map<String, Member> keys;
+    final Map<String, Integer> keys;
 
 
     public BaseObject(List<Member> members){
         content = members.toArray(new Member[0]);
         keys = new HashMap<>();
-        for (Member member : content) keys.put(member.name, member);
+        int i = 0;
+        for (Member member : content) keys.put(member.name, i++);
     }
 
     @Override
@@ -23,8 +24,8 @@ public abstract class BaseObject implements TObject {
     }
 
     @Override
-    public Member get(String key) {
-        return keys.get(key);
+    public int getIndex(String key) {
+        return keys.getOrDefault(key, -1);
     }
 
     @Override

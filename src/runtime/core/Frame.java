@@ -1,5 +1,6 @@
 package runtime.core;
 
+import runtime.jit.JITSensitive;
 import runtime.type.Callable;
 
 import java.util.ArrayDeque;
@@ -100,4 +101,8 @@ public class Frame {
         sp = 0;
     }
 
+    @JITSensitive
+    protected int getIp() {
+        return ip;
+    }
 }

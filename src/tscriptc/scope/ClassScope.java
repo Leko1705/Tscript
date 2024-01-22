@@ -58,8 +58,7 @@ public class ClassScope extends Scope implements Iterable<Symbol> {
     }
 
     public void putAbstractMethod(String name, Set<Modifier> modifiers){
-        Symbol symbol = new Symbol(this, SymbolKind.FUNCTION, name, -1);
-        symbol.getModifiers().addAll(modifiers);
+        Symbol symbol = new Symbol(this, SymbolKind.FUNCTION, name, -1, modifiers);
         abstractMethodSymbols.put(name, symbol);
     }
 

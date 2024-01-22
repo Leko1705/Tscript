@@ -30,7 +30,7 @@ public class JavaCodeGenerator implements TreeVisitor<Void, Void> {
         JavaCodeGenerator generator = new JavaCodeGenerator(javaFileName, function);
         tree.accept(generator);
         String s = generator.finalized();
-        System.out.println(s);
+        // System.out.println(s);
         return s;
     }
 
@@ -79,8 +79,7 @@ public class JavaCodeGenerator implements TreeVisitor<Void, Void> {
                     
                     public Data eval(TThread caller, LinkedHashMap<String, Data> params){
                         {3}
-                        {4}
-                {5}
+                {4}
                     }
                     
                 }
@@ -89,19 +88,13 @@ public class JavaCodeGenerator implements TreeVisitor<Void, Void> {
                 .replace("{6}", constants)
                 .replace("{1}", javaFileName)
                 .replace("{2}", javaFileName)
-                .replace("{5}", code);
-        String paramAssignCode = "";
-        if (!function.getParameters().isEmpty() && localsUsed){
-            paramAssignCode = """
-                    Data[] param_array = params.values().toArray(new Data[0]);
-                        for (int i = param_array.length-1; i >= 0; i--){
-                            locals[i] = param_array[i];
-                        }
-                        """;
-        }
-        fullCode = fullCode.replace("{3}", localsUsed ? "Data[] locals = new Data[" + function.getLocals() + "];\n" : "");
+                .replace("{4}", code);
+        String localsDef =  !function.getParameters().isEmpty() && localsUsed
+                ? "Data[] locals = params.values().toArray(new Data[0]);\n"
+                : "";
+        fullCode = fullCode.replace("{3}", localsDef);
 
-        return fullCode.replace("{4}", paramAssignCode);
+        return fullCode;
     }
 
     private String genConstants(){
@@ -546,6 +539,14 @@ public class JavaCodeGenerator implements TreeVisitor<Void, Void> {
 
     @Override
     public Void visitStoreMemberTree(BytecodeParser.StoreMemberTree storeTree, Void unused) {
+        return null;
+    }
+
+    @Override
+    public Void visitAccessUnknownFastTree(BytecodeParser.AccessUnknownFastTree accessTre, Void unused) {
+        accessTre.exp.accept(this);
+        String s = "caller.unpack(" + valueStack.pop() + ").get(" + accessTre.address + ").data";
+        valueStack.push(s);
         return null;
     }
 

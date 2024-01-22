@@ -137,9 +137,9 @@ public class TscriptParser implements Parser {
                     isStatic = true;
                     lexer.consume();
                 }
-                else if (token.hasTag(TokenKind.VAR)) {
+                else if (token.hasTag(TokenKind.VAR, TokenKind.CONST)) {
                     lexer.consume();
-                    defTree = parseVarDec(false);
+                    defTree = parseVarDec(token.getTag() == TokenKind.CONST);
                 }
                 else if (token.hasTag(TokenKind.FUNCTION)) {
                     defTree = parseFunctionDef();
@@ -429,6 +429,7 @@ public class TscriptParser implements Parser {
             error("identifier expected", ident);
 
         Trees.BasicVarDecTree varNode = new Trees.BasicVarDecTree(ident.getLocation(), isConstant, ident.getLexem());
+        if (isConstant) varNode.getModifiers().add(Modifier.IMMUTABLE);
 
         Token next = lexer.peek();
         if (!next.hasTag(TokenKind.SEMI)){
