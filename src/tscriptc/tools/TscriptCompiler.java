@@ -6,14 +6,12 @@ import tscriptc.generation.Generator;
 import tscriptc.log.Logger;
 import tscriptc.log.StdLogger;
 import tscriptc.parse.*;
+import tscriptc.parse.Scanner;
 import tscriptc.tree.RootTree;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 class TscriptCompiler implements Compiler {
 
@@ -21,6 +19,8 @@ class TscriptCompiler implements Compiler {
             List.of(new DefinitionChecker(), new EscapeChecker(), new TypeChecker());
 
     private Compiled compiled;
+
+    private Set<Integer> breakPoints = Set.of();
 
     public TscriptCompiler(){}
 
@@ -32,7 +32,7 @@ class TscriptCompiler implements Compiler {
     @Override
     public int run(InputStream in, OutputStream out, Logger logger, String... args) {
 
-        compiled = compile0(in, out, logger, args);
+        compiled = compile0(in, logger, args);
         if (compiled == null) return -1;
 
         try {
@@ -44,9 +44,8 @@ class TscriptCompiler implements Compiler {
 
     @Override
     public int dis(InputStream in, OutputStream out, Logger logger, String... args) {
-
         if (compiled == null) {
-            compiled = compile0(in, out, logger, args);
+            compiled = compile0(in, logger, args);
             if (compiled == null)
                 return -1;
         }
@@ -58,25 +57,33 @@ class TscriptCompiler implements Compiler {
         return 1;
     }
 
-    public Compiled compile0(InputStream in, OutputStream out, Logger logger, String... args) {
+    public Compiled compile0(InputStream in, Logger logger, String... args) {
         Objects.requireNonNull(in, "InputStream must not be null");
 
         if (logger == null)
             logger = StdLogger.getLogger();
 
-        RootTree ast = parse(in, logger);
-        if (!analyze(ast, logger)) return null;
+        loadBreakPoints(args);
 
+        RootTree ast = parse(in, logger, breakPoints);
+        if (!analyze(ast, logger)) return null;
 
         Generator generator = new Generator();
         ast.accept(generator);
         return generator.getCompiled();
     }
 
-    private RootTree parse(InputStream in, Logger logger){
+    private void loadBreakPoints(String[] args){
+        breakPoints = new HashSet<>();
+        for (String arg : args)
+            breakPoints.add(Integer.parseInt(arg));
+
+    }
+
+    private RootTree parse(InputStream in, Logger logger, Set<Integer> breakPoints){
         UnicodeReader reader = new UnicodeReader(in);
         Lexer lexer = new Scanner(reader, logger);
-        Parser parser = new TscriptParser(lexer, logger);
+        Parser parser = new TscriptParser(lexer, logger, breakPoints);
         return parser.parseProgram();
     }
 

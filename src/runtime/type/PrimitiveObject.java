@@ -44,7 +44,7 @@ public abstract class PrimitiveObject<T> extends BaseObject {
 
     @Override
     public int hashCode() {
-        return value.hashCode();
+        return Objects.hashCode(value);
     }
 
 }

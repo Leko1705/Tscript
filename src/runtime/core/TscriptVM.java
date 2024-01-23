@@ -1,8 +1,6 @@
 package runtime.core;
 
-import runtime.debug.DebugAction;
-import runtime.debug.Debugger;
-import runtime.debug.NoDebugger;
+import runtime.debug.*;
 import runtime.heap.GenerationalHeap;
 import runtime.heap.Heap;
 import runtime.heap.gc.GarbageCollector;
@@ -15,7 +13,7 @@ import java.io.OutputStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class TscriptVM {
+public class TscriptVM implements Debuggable<VMInfo> {
 
     public static int run(File file, OutputStream out, OutputStream err){
         return run(file, out, err, null);
@@ -50,7 +48,7 @@ public class TscriptVM {
         this.err = err;
         this.heap = heap;
         this.gc = gc;
-        this.debugger = debugger != null ? debugger : new NoDebugger();
+        this.debugger = Objects.requireNonNullElse(debugger, Debugger.getVoidDebugger());
         this.jit = new JIT(heap);
     }
 
@@ -113,7 +111,7 @@ public class TscriptVM {
     }
 
     protected DebugAction debug(TThread caller){
-        return debugger.onBreakPoint(this, caller);
+        return debugger.onBreakPoint(caller.getThreadID(), loadInfo(heap));
     }
 
     public JIT getJit() {
@@ -122,7 +120,35 @@ public class TscriptVM {
 
 
     public void quit() {
+        for (TThread thread : threads.values())
+            thread.terminate();
         threads.clear();
+    }
+
+    @Override
+    public VMInfo loadInfo(Heap heap) {
+        return new VMInfoImpl();
+    }
+
+    private class VMInfoImpl implements VMInfo {
+
+        private final List<ThreadInfo> threadTrees;
+
+        private VMInfoImpl() {
+            threadTrees = new ArrayList<>();
+            for (TThread thread : threads.values())
+                threadTrees.add(thread.loadInfo(heap));
+        }
+
+        @Override
+        public List<ThreadInfo> getThreadTrees() {
+            return threadTrees;
+        }
+
+        @Override
+        public HeapInfo getHeapTree() {
+            return heap.loadInfo(heap);
+        }
     }
 
 }

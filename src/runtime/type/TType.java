@@ -2,6 +2,7 @@ package runtime.type;
 
 import runtime.core.Argument;
 import runtime.core.Data;
+import runtime.core.Reference;
 import runtime.core.TThread;
 
 import java.util.*;
@@ -66,9 +67,12 @@ public class TType extends Callable {
         }
 
         VirtualObject object = new VirtualObject(this, classMembers());
+        Reference ref = ctx.storeHeap(object);
+
         if (constructor != null) {
-            constructor.setOwner(ctx.storeHeap(object));
-            constructor.call(ctx, args);
+            constructor.setOwner(ref);
+            return constructor.call(ctx, args);
+            // TODO protect not stored object on stack from gc
         }
 
         return null;

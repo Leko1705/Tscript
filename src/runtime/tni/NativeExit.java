@@ -32,6 +32,6 @@ public class NativeExit extends NativeFunction {
         }
 
         System.exit(i.get());
-        return null;
+        return TNull.NULL;
     }
 }

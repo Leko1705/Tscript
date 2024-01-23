@@ -12,8 +12,9 @@ public record OptimizeVirtualTask(VirtualFunction called, Data[] args) implement
         if (jit.hasOptimization(called, args)) return;
         BytecodeParser.Tree tree = BytecodeParser.parse(called);
         tree = Optimizer.optimize(tree, args, jit);
-        String javaCode = JavaCodeGenerator.generate(called.getName(), tree, called);
-        Callable optimized = Compiler.compile(called.getName(), javaCode);
+        String fileName = called.getName().replaceAll(" ", "_");
+        String javaCode = JavaCodeGenerator.generate(fileName, tree, called);
+        Callable optimized = Compiler.compile(fileName, javaCode);
         jit.setOptimized(called, optimized, args);
     }
 

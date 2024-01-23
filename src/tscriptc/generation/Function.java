@@ -15,6 +15,7 @@ public class Function implements Writeable {
 
     private final String name;
     private final String[] params;
+    private final int[] defaultAddresses;
     private int stackSize = 0;
     private int locals = 0;
 
@@ -26,6 +27,7 @@ public class Function implements Writeable {
     public Function(String name, int params) {
         this.name = name;
         this.params = new String[params];
+        this.defaultAddresses = new int[params];
     }
 
     public void addInstruction(Instruction instruction){
@@ -49,9 +51,11 @@ public class Function implements Writeable {
         out.write(name.getBytes(StandardCharsets.UTF_8));
         out.write('\0');
         out.write(Conversion.getBytes(params.length));
-        for (String param : params){
-            out.write(param.getBytes(StandardCharsets.UTF_8));
+
+        for (int i = 0; i < params.length; i++){
+            out.write(params[i].getBytes(StandardCharsets.UTF_8));
             out.write('\0');
+            out.write(defaultAddresses[i]);
         }
         out.write(Conversion.getBytes(stackSize + params.length));
         out.write(Conversion.getBytes(locals));
@@ -76,7 +80,8 @@ public class Function implements Writeable {
         this.locals = locals;
     }
 
-    public void addParam(String name){
+    public void addParam(String name, int defaultAddress){
+        defaultAddresses[currParam] = defaultAddress;
         params[currParam++] = name;
     }
 }

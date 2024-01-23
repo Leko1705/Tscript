@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Compiled implements Writeable {
@@ -67,6 +68,26 @@ public class Compiled implements Writeable {
 
     public int putType(String s){
         return pool.putType(s);
+    }
+
+    public int putBool(boolean b){
+        return pool.putBool(b);
+    }
+
+    public int putNull(){
+        return pool.putNull();
+    }
+
+    public int putArray(List<Integer> references) {
+        return pool.putArray(references);
+    }
+
+    public int putDict(List<Integer> references){
+        return pool.putDict(references);
+    }
+
+    public int putRange(int from, int to) {
+        return pool.putRange(from, to);
     }
 
     public int loadConst(CallableTree def) {
@@ -157,12 +178,13 @@ public class Compiled implements Writeable {
         functionStack.element().setLocals(locals);
     }
 
-    public void addParameter(String name) {
+    public void addParameter(String name, int address) {
         Function function = functionStack.element();
-        function.addParam(name);
+        function.addParam(name, address);
     }
 
     public void addType(Type type) {
         types.put(type.getName(), type);
     }
+
 }

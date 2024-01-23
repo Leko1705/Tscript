@@ -16,8 +16,6 @@ public class VirtualFunction extends Callable {
     private final int locals;
     private final Pool pool;
 
-    private int hotness = 0;
-
     public VirtualFunction(String name,
                            byte[][] instructions,
                            int stackSize,
@@ -47,17 +45,11 @@ public class VirtualFunction extends Callable {
 
     @Override
     public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
-        if (isHot())
+        JIT jit = caller.getJIT();
+        if (jit.isHot(name))
             return callAsHotSpot(caller, params);
         else
             return callDefault(caller, flatten(params));
-    }
-
-    private boolean isHot(){
-        if (!JIT.enabled) return false;
-        if (hotness >= JIT.HOTSPOT_THRESHOLD) return true;
-        hotness++;
-        return false;
     }
 
     private Data callAsHotSpot(TThread caller, LinkedHashMap<String, Data> params){

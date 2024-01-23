@@ -1,9 +1,6 @@
 package runtime.core;
 
-import runtime.type.Callable;
-import runtime.type.Member;
-import runtime.type.TType;
-import runtime.type.Visibility;
+import runtime.type.*;
 import tscriptc.generation.Opcode;
 import tscriptc.generation.Type;
 import tscriptc.tree.Modifier;
@@ -84,6 +81,26 @@ public class FileLoader {
                     pool.put(i, type);
                     types.put(name, type);
                 }
+                case 7 -> pool.put(i, new Pool.Bool(consume() == 1 ? TBoolean.TRUE : TBoolean.FALSE));
+                case 8 -> pool.put(i, new Pool.Null());
+                case 9 -> {
+                    int length = consume();
+                    int[] references = new int[length];
+                    for (int j = 0; j < length; j++)
+                        references[j] = consume();
+                    pool.put(i, new Pool.Array(references));
+                }
+                case 10 -> {
+                    int length = consume();
+                    int[] keyRefs = new int[length];
+                    int[] valRefs = new int[length];
+                    for (int j = 0; j < length; j++) {
+                        keyRefs[j] = consume();
+                        valRefs[j] = consume();
+                    }
+                    pool.put(i, new Pool.Dict(keyRefs, valRefs));
+                }
+                case 11 -> pool.put(i, new Pool.Range(consume(), consume()));
             }
         }
 
@@ -96,14 +113,19 @@ public class FileLoader {
             int paramc = loadInt();
             LinkedHashMap<String, Data> params = new LinkedHashMap<>();
             for (int k = 0; k < paramc; k++){
-                params.put(loadString(), null);
+                String paramName = loadString();
+                int poolAddress = consume();
+                Data defaultValue = null;
+                if (poolAddress >= 0)
+                    defaultValue = (Data) pool.load(poolAddress, null);
+                params.put(paramName, defaultValue);
             }
             int stackSize = loadInt();
             int locals = loadInt();
             byte[][] instructions = loadInstructions();
 
             Pool.Func func = virtualFunctions.get(name);
-            func.init(pool, params, instructions, stackSize, locals);
+            func.init(params, instructions, stackSize, locals);
         }
     }
 
@@ -169,13 +191,13 @@ public class FileLoader {
         for (String type : inheritances.keySet()){
             String superType = inheritances.get(type);
             if (superType == null) continue;
-            TType t = types.get(type).load(null);
-            t.setSuperType(types.get(superType).load(null));
+            TType t = types.get(type).load();
+            t.setSuperType(types.get(superType).load());
         }
 
         // invoke all statics
         for (Pool.Type t : types.values()){
-            TType type = t.load(null);
+            TType type = t.load();
             Callable staticBlock = (Callable) pool.load(t.getStaticBlockAddress(), null);
             staticBlock.setOwner(type);
             TThread thread = new TThread(vm, staticBlock, 0);

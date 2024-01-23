@@ -1,13 +1,22 @@
 package runtime.heap;
 
 import runtime.core.Reference;
+import runtime.debug.DataInfo;
+import runtime.debug.HeapInfo;
 import runtime.type.TObject;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 
 public class SimpleHeap implements Heap {
 
     private final HashMap<Reference, TObject> memory = new HashMap<>();
+
+    @Override
+    public String getName() {
+        return "simpleHeap";
+    }
 
     @Override
     public Reference store(TObject object) {
@@ -34,6 +43,24 @@ public class SimpleHeap implements Heap {
     @Override
     public void free(Reference ptr) {
         memory.remove(ptr);
+    }
+
+    @Override
+    public HeapInfo loadInfo(Heap heap) {
+        return new HeapInfo() {
+            @Override
+            public String getName() {
+                return SimpleHeap.this.getName();
+            }
+
+            @Override
+            public Collection<DataInfo> getData() {
+                Collection<DataInfo> dataInfos = new ArrayList<>();
+                for (TObject obj : memory.values())
+                    dataInfos.add(obj.loadInfo(SimpleHeap.this));
+                return dataInfos;
+            }
+        };
     }
 
 }

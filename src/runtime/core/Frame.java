@@ -1,24 +1,28 @@
 package runtime.core;
 
+import runtime.debug.DataInfo;
+import runtime.debug.Debuggable;
+import runtime.debug.FrameInfo;
+import runtime.heap.Heap;
 import runtime.jit.JITSensitive;
 import runtime.type.Callable;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
-public class Frame {
+public class Frame implements Debuggable<FrameInfo> {
 
     public static Frame createFakeFrame(Callable callable){
        return new Frame(callable.getOwner(), callable.getName(), null, 0, 0, null);
     }
-
 
     private final Data owner;
     private final String name;
     private final byte[][] instructions;
 
     private int ip = 0, sp = 0;
-
-    private byte[] lastInstruction;
 
     private final Data[] stack;
     private final Data[] locals;
@@ -47,7 +51,7 @@ public class Frame {
     }
 
     public byte[] fetch(){
-        return lastInstruction = instructions[ip++];
+        return instructions[ip++];
     }
 
     public void push(Data data){
@@ -105,4 +109,53 @@ public class Frame {
     protected int getIp() {
         return ip;
     }
+
+    @Override
+    public String toString() {
+        return name;
+    }
+
+
+
+
+    @Override
+    public FrameInfo loadInfo(Heap heap) {
+        return new FrameInfoImpl(heap);
+    }
+
+
+    private class FrameInfoImpl implements FrameInfo {
+
+        private final List<DataInfo> locals;
+        private final List<DataInfo> stack;
+
+        FrameInfoImpl(Heap heap){
+            stack = listOf(Frame.this.stack, heap);
+            locals = listOf(Frame.this.locals, heap);
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+        @Override
+        public List<DataInfo> getStack() {
+            return stack;
+        }
+
+        @Override
+        public List<DataInfo> getLocals() {
+            return locals;
+        }
+
+        private List<DataInfo> listOf(Data[] data, Heap heap){
+            List<DataInfo> list = new ArrayList<>(data.length);
+            for (Data value : data){
+                list.add(value != null ? value.loadInfo(heap) : null);
+            }
+            return list;
+        }
+
+    }
+
 }

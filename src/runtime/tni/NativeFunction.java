@@ -11,8 +11,7 @@ public abstract class NativeFunction extends Callable {
 
     @Override
     public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
-        Data res = run(caller, params);
-        return res != null ? res : TNull.NULL;
+        return run(caller, params);
     }
 
     public abstract Data run(TThread caller, LinkedHashMap<String, Data> params);

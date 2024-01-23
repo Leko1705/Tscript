@@ -1,12 +1,11 @@
 package runtime.heap;
 
 import runtime.core.Reference;
+import runtime.debug.DataInfo;
+import runtime.debug.HeapInfo;
 import runtime.type.TObject;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.PriorityQueue;
+import java.util.*;
 
 public class GenerationalHeap implements Heap {
 
@@ -27,6 +26,11 @@ public class GenerationalHeap implements Heap {
             this.generations.add(gen);
             PQ.add(gen);
         }
+    }
+
+    @Override
+    public String getName() {
+        return "GenHeap";
     }
 
     @Override
@@ -75,6 +79,24 @@ public class GenerationalHeap implements Heap {
             }
         }
 
+    }
+
+    @Override
+    public HeapInfo loadInfo(Heap heap) {
+        return new HeapInfo() {
+            @Override
+            public String getName() {
+                return GenerationalHeap.this.getName();
+            }
+
+            @Override
+            public Collection<DataInfo> getData() {
+                Collection<DataInfo> dataInfos = new ArrayList<>();
+                for (Reference ref : getReferences())
+                    dataInfos.add(load(ref).loadInfo(GenerationalHeap.this));
+                return dataInfos;
+            }
+        };
     }
 
 

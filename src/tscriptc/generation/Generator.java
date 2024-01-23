@@ -2,6 +2,7 @@ package tscriptc.generation;
 
 import tscriptc.scope.*;
 import tscriptc.tree.*;
+import tscriptc.util.Assertion;
 import tscriptc.util.Conversion;
 import tscriptc.util.Location;
 import tscriptc.util.TreeScanner;
@@ -340,6 +341,7 @@ public class Generator extends TreeScanner<Scope, Void> {
 
         currentClass.setStaticBlockID(poolID);
     }
+
 
     @Override
     public Void visitFunctionTree(FunctionTree functionTree, Scope scope) {
@@ -798,7 +800,9 @@ public class Generator extends TreeScanner<Scope, Void> {
 
     @Override
     public Void visitParameterTree(ParameterTree parameterTree, Scope scope) {
-        compiled.addParameter(parameterTree.getName());
+
+        int defaultAddress = getDefaultValueAddress(parameterTree.getInitializer());
+        compiled.addParameter(parameterTree.getName(), defaultAddress);
 
         SymbolKind kind = parameterTree.isConstant() ? SymbolKind.CONSTANT : SymbolKind.VARIABLE;
         scope.putIfAbsent(kind, parameterTree.getName(), Set.of());
@@ -808,6 +812,46 @@ public class Generator extends TreeScanner<Scope, Void> {
         compiled.addInstruction(new Instruction(Opcode.STORE_LOCAL, (byte) varAddr));
         compiled.stackGrows(-1);
         return null;
+    }
+
+    private int getDefaultValueAddress(ExpressionTree exp){
+        if (exp == null) return -1;
+        if (exp instanceof IntegerLiteralTree i)
+            return compiled.putInt(i.get());
+        else if (exp instanceof FloatLiteralTree f)
+            return compiled.putReal(f.get());
+        else if (exp instanceof StringLiteralTree s)
+            return compiled.putStr(s.get());
+        else if (exp instanceof BooleanLiteralTree b)
+            return compiled.putBool(b.get());
+        else if (exp instanceof NullLiteralTree)
+            return compiled.putNull();
+        else if (exp instanceof ArrayTree a) {
+            List<ExpressionTree> content = a.getContent();
+            List<Integer> references = new ArrayList<>();
+            for (ExpressionTree value : content)
+                references.add(getDefaultValueAddress(value));
+            return compiled.putArray(references);
+        }
+        else if (exp instanceof DictionaryTree d){
+            List<Integer> references = new ArrayList<>();
+            Iterator<ExpressionTree> keyItr = d.getKeys().iterator();
+            Iterator<ExpressionTree> valueItr = d.getValues().iterator();
+            while (keyItr.hasNext()){
+                int keyReference = getDefaultValueAddress(keyItr.next());
+                int valueReference = getDefaultValueAddress(valueItr.next());
+                references.add(keyReference);
+                references.add(valueReference);
+            }
+            return compiled.putDict(references);
+        }
+        else if (exp instanceof RangeTree r){
+            int from = ((IntegerLiteralTree) r.getFrom()).get();
+            int to = ((IntegerLiteralTree) r.getTo()).get();
+            return compiled.putRange(from, to);
+        }
+        else
+            return Assertion.error("should have been checked earlier");
     }
 
     @Override
@@ -885,4 +929,9 @@ public class Generator extends TreeScanner<Scope, Void> {
     }
 
 
+    @Override
+    public Void visitBreakPointTree(BreakPointTree bpTree, Scope scope) {
+        compiled.addInstruction(new Instruction(Opcode.BREAK_POINT));
+        return null;
+    }
 }

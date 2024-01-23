@@ -1,6 +1,7 @@
 package tscriptc.tree;
 
 import tscriptc.util.Location;
+import tscriptc.util.TreeVisitor;
 
 import java.util.*;
 
@@ -746,6 +747,18 @@ public class Trees {
         @Override
         public ExpressionTree getCondition() {
             return condition;
+        }
+    }
+
+    public static class BasicBreakPointTree extends AbstractTree implements BreakPointTree {
+
+        public BasicBreakPointTree() {
+            super(null);
+        }
+
+        @Override
+        public <P, R> R accept(TreeVisitor<P, R> visitor, P p) {
+            return visitor.visitBreakPointTree(this, p);
         }
     }
 

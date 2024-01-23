@@ -285,4 +285,9 @@ public class TreeScanner<P, R> implements TreeVisitor<P, R> {
     public R visitGetTypeTree(GetTypeTree getTypeTree, P p) {
         return scan(getTypeTree.getExpression(), p);
     }
+
+    @Override
+    public R visitBreakPointTree(BreakPointTree bpTree, P p) {
+        return null;
+    }
 }

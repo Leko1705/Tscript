@@ -3,16 +3,23 @@ package tscriptc.parse;
 import tscriptc.log.Logger;
 import tscriptc.tree.*;
 import tscriptc.util.Diagnostics;
+import tscriptc.util.Location;
 import tscriptc.util.Phase;
+
+import java.util.List;
+import java.util.Set;
 
 public class TscriptParser implements Parser {
 
     private final Lexer lexer;
     private final Logger log;
 
-    public TscriptParser(Lexer lexer, Logger logger) {
+    private final Set<Integer> breakPoints;
+
+    public TscriptParser(Lexer lexer, Logger logger, Set<Integer> breakPoints) {
         this.lexer = lexer;
         this.log = logger;
+        this.breakPoints = breakPoints;
     }
 
     private void error(String msg, Token token) {
@@ -40,8 +47,11 @@ public class TscriptParser implements Parser {
                 continue;
             }
             StatementTree stmt = parseStatement();
-            if (stmt != null)
+            if (stmt != null) {
                 rootTree.getStatements().add(stmt);
+                if (requireBreakPoint(token))
+                    rootTree.getStatements().add(new Trees.BasicBreakPointTree());
+            }
 
             token = lexer.peek();
         }
@@ -249,7 +259,10 @@ public class TscriptParser implements Parser {
                 error("missing ')'", token);
         }
 
+        token = lexer.peek();
+        boolean requireBreakPoint = requireBreakPoint(token);
         constructor.body = parseBlock();
+        if (requireBreakPoint) constructor.body.getStatements().add(0, new Trees.BasicBreakPointTree());
 
         return constructor;
     }
@@ -306,7 +319,10 @@ public class TscriptParser implements Parser {
         if (token.hasTag(TokenKind.EOF) || !token.hasTag(TokenKind.PARENTHESES_CLOSED))
             error("missing ')'", token);
 
+        token = lexer.peek();
+        boolean requireBreakPoint = requireBreakPoint(token);
         functionDefNode.body = parseBlock();
+        if (requireBreakPoint) functionDefNode.body.getStatements().add(0, new Trees.BasicBreakPointTree());
 
         Trees.BasicReturnTree returnNode = new Trees.BasicReturnTree(functionDefNode.location, new Trees.BasicNullLiteralTree(functionDefNode.location));
         functionDefNode.body.getStatements().add(returnNode);
@@ -584,6 +600,10 @@ public class TscriptParser implements Parser {
             StatementTree stmtNode = parseStatement();
             if (stmtNode != null)
                 streamNode.getStatements().add(stmtNode);
+
+            if (requireBreakPoint(token))
+                streamNode.getStatements().add(new Trees.BasicBreakPointTree());
+
             token = lexer.peek();
         }
 
@@ -925,5 +945,12 @@ public class TscriptParser implements Parser {
             error("missing ';'", token);
         else
             lexer.consume();
+    }
+
+    private boolean requireBreakPoint(Token token){
+        Location location = token.getLocation();
+        boolean required = breakPoints.contains(location.line()+1);
+        breakPoints.remove(location.line());
+        return required;
     }
 }

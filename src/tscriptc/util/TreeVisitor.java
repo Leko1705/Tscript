@@ -101,4 +101,9 @@ public interface TreeVisitor<P, R> {
 
     R visitGetTypeTree(GetTypeTree getTypeTree, P p);
 
+
+    // others
+
+    R visitBreakPointTree(BreakPointTree bpTree, P p);
+
 }

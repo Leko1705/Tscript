@@ -1,6 +1,6 @@
 package runtime.core;
 
-import runtime.debug.DebugAction;
+import runtime.debug.*;
 import runtime.heap.Heap;
 import runtime.jit.JIT;
 import runtime.jit.JITSensitive;
@@ -11,7 +11,7 @@ import tscriptc.util.Conversion;
 
 import java.util.*;
 
-public class TThread extends Thread {
+public class TThread extends Thread implements Debuggable<ThreadInfo> {
 
     private final TscriptVM vm;
     private final Callable baseFunction;
@@ -20,6 +20,8 @@ public class TThread extends Thread {
 
     private int frameExitThreshold = 0;
     private Data returnValue;
+
+    private boolean running = true;
 
 
     private final Interpreter DEFAULT_INTERPRETER = new SimpleInterpreter();
@@ -41,6 +43,10 @@ public class TThread extends Thread {
         begin();
     }
 
+    public void terminate(){
+        running = false;
+    }
+
     protected void begin(){
         try {
             if (baseFunction instanceof VirtualFunction v) {
@@ -57,11 +63,11 @@ public class TThread extends Thread {
     }
 
     private void execLoop(){
-        while (frameStack.size() > frameExitThreshold)
+        while (frameStack.size() > frameExitThreshold && running)
             processNext();
     }
 
-    protected void processNext(){
+    private void processNext(){
         byte[] instruction = frameStack.element().fetch();
         decodeAndExecute(instruction);
     }
@@ -69,6 +75,7 @@ public class TThread extends Thread {
 
     private void decodeAndExecute(byte[] instruction){
         Opcode opcode = Opcode.of(instruction[0]);
+
         switch (opcode){
             case PUSH_NULL -> interpreter.pushNull();
             case PUSH_INT -> interpreter.pushInt(instruction[1]);
@@ -98,8 +105,8 @@ public class TThread extends Thread {
             case BRANCH_IF_TRUE -> interpreter.branchOn(true, jumpAddress(instruction[1], instruction[2]));
             case LOAD_MEMBER -> interpreter.loadMember(instruction[1]);
             case STORE_MEMBER -> interpreter.storeMember(instruction[1]);
-            case LOAD_MEMBER_FAST -> interpreter.storeMemberFast(instruction[1]);
-            case STORE_MEMBER_FAST -> interpreter.loadMemberFast(instruction[1]);
+            case LOAD_MEMBER_FAST -> interpreter.loadMemberFast(instruction[1]);
+            case STORE_MEMBER_FAST -> interpreter.storeMemberFast(instruction[1]);
             case EQUALS -> interpreter.compare(true);
             case NOT_EQUALS -> interpreter.compare(false);
             case ADD, SUB, MUL, DIV, IDIV, MOD, POW,
@@ -393,7 +400,7 @@ public class TThread extends Thread {
 
     private void call(int argc){
 
-        if (!checkStackOverflowError())
+        if (checkStackOverflowError())
             return;
 
         TObject called = unpack(pop());
@@ -453,7 +460,7 @@ public class TThread extends Thread {
 
     @JITSensitive
     public Data call(Callable callable, List<Argument> args){
-        if (!checkStackOverflowError()) return null;
+        if (checkStackOverflowError()) return null;
         return callFromNativeContext(callable, args);
     }
 
@@ -462,13 +469,12 @@ public class TThread extends Thread {
         frame().setLine(line);
     }
 
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     private boolean checkStackOverflowError(){
         if (frameStack.size() == 30_000){
             reportRuntimeError("stackOverflowError");
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 
     private Data callFromNativeContext(Callable callable, List<Argument> args){
@@ -599,6 +605,9 @@ public class TThread extends Thread {
         return vm.storeGlobal(index, data);
     }
 
+    public Set<Reference> getRootPointers(){
+        return vm.getRootPointers();
+    }
 
     private interface Interpreter {
         void pushNull();
@@ -758,8 +767,14 @@ public class TThread extends Thread {
             TThread.this.storeStatic(utf8Address);
         }
         public void onBreakPoint() {
-            vm.debug(TThread.this);
-            interpreter = new DebugInterpreter(this);
+            DebugAction action = vm.debug(TThread.this);
+            switch (action){
+                case RESUME -> { /* simply run until next halt */ }
+                case STEP -> interpreter = new DebugInterpreter(this);
+                case QUIT -> vm.quit();
+                default -> throw new IllegalStateException("unsupported DebugAction: " + action);
+            }
+
         }
     }
     private class DebugInterpreter extends SimpleInterpreter {
@@ -814,6 +829,35 @@ public class TThread extends Thread {
                 case QUIT -> vm.quit();
                 default -> throw new IllegalStateException("unsupported DebugAction: " + action);
             }
+        }
+    }
+
+
+
+    @Override
+    public ThreadInfo loadInfo(Heap heap) {
+        return new ThreadInfoImpl(heap);
+    }
+
+
+    private class ThreadInfoImpl implements ThreadInfo {
+
+        private final List<FrameInfo> frameTrees;
+
+        public ThreadInfoImpl(Heap heap){
+            frameTrees = new ArrayList<>();
+            for (Frame frame : frameStack)
+                frameTrees.add(frame.loadInfo(heap));
+        }
+
+        @Override
+        public int getID() {
+            return threadID;
+        }
+
+        @Override
+        public List<FrameInfo> getFrameTrees() {
+            return frameTrees;
         }
     }
 

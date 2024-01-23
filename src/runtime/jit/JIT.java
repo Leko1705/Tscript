@@ -1,28 +1,24 @@
 package runtime.jit;
 
 import runtime.core.Data;
-import runtime.core.TThread;
 import runtime.core.VirtualFunction;
 import runtime.heap.Heap;
 import runtime.type.Callable;
 import runtime.type.TObject;
-import runtime.type.TType;
 
 import java.io.Closeable;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 
 public class JIT extends Thread implements Closeable {
-
-
-
 
     public static final boolean enabled = true;
     public static final int HOTSPOT_THRESHOLD = 100_000;
 
 
     private boolean running = true;
+
+    private final Map<String, Integer> hotness = new HashMap<>();
 
     private final LinkedBlockingDeque<JITTask> queue = new LinkedBlockingDeque<>();
 
@@ -65,6 +61,18 @@ public class JIT extends Thread implements Closeable {
     @Override
     public void close() {
         running = false;
+    }
+
+    public boolean isHot(String name) {
+        if (!hotness.containsKey(name)) {
+            hotness.put(name, 0);
+            return false;
+        }
+        int hotness = this.hotness.get(name);
+        if (hotness >= HOTSPOT_THRESHOLD)
+            return true;
+        this.hotness.put(name, hotness+1);
+        return false;
     }
 
 

@@ -1,23 +1,6 @@
 
 native function print;
 
-function foo(x){
-    return x == "hi";
-}
 
-class X {
-    public:
-    const y = 3;
-}
-
-for var i in 0:1_000_000 do {
-    foo(1);
-}
-for var i in 0:1_000_000 do {
-    foo("hi");
-}
-
-
-print(foo(1));
-print(foo("hi"));
-
+var x = 1;
+print(x);

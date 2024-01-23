@@ -29,8 +29,8 @@ public class JavaCodeGenerator implements TreeVisitor<Void, Void> {
     public static String generate(String javaFileName, BytecodeParser.Tree tree, VirtualFunction function){
         JavaCodeGenerator generator = new JavaCodeGenerator(javaFileName, function);
         tree.accept(generator);
-        String s = generator.finalized();
-        // System.out.println(s);
+        String s = generator.finalized(function);
+        System.out.println(s);
         return s;
     }
 
@@ -53,7 +53,7 @@ public class JavaCodeGenerator implements TreeVisitor<Void, Void> {
         return newConstName;
     }
 
-    public String finalized(){
+    public String finalized(VirtualFunction function){
 
         String constants = genConstants();
 
@@ -87,9 +87,9 @@ public class JavaCodeGenerator implements TreeVisitor<Void, Void> {
         fullCode = fullCode
                 .replace("{6}", constants)
                 .replace("{1}", javaFileName)
-                .replace("{2}", javaFileName)
+                .replace("{2}", function.getName())
                 .replace("{4}", code);
-        String localsDef =  !function.getParameters().isEmpty() && localsUsed
+        String localsDef =  !this.function.getParameters().isEmpty() && localsUsed
                 ? "Data[] locals = params.values().toArray(new Data[0]);\n"
                 : "";
         fullCode = fullCode.replace("{3}", localsDef);

@@ -42,6 +42,26 @@ public class ConstantPool implements Writeable {
         return addIfAbsent(new Type(s));
     }
 
+    public int putBool(boolean b){
+        return addIfAbsent(new Bool(b));
+    }
+
+    public int putNull(){
+        return addIfAbsent(new Null());
+    }
+
+    public int putArray(List<Integer> references) {
+        return addIfAbsent(new Array(references));
+    }
+
+    public int putDict(List<Integer> references) {
+        return addIfAbsent(new Dict(references));
+    }
+
+    public int putRange(int from, int to) {
+        return addIfAbsent(new Range(putInt(from), putInt(to)));
+    }
+
     private int addIfAbsent(Entry<?> entry){
         int index = entries.indexOf(entry);
         if (index != -1) return index;
@@ -69,11 +89,10 @@ public class ConstantPool implements Writeable {
     }
 
 
-
     private static abstract class Entry<T> implements Writeable {
         final T value;
         private Entry(T value) {
-            this.value = Objects.requireNonNull(value);
+            this.value = value;
         }
         abstract int getPoolKind();
         abstract byte[] inBytes();
@@ -202,6 +221,134 @@ public class ConstantPool implements Writeable {
         @Override
         public void writeReadable(OutputStream out) throws IOException {
             out.write(("TYPE " + value).getBytes());
+        }
+    }
+
+
+    private static class Bool extends Entry<Boolean> {
+
+        private Bool(boolean value) {
+            super(value);
+        }
+
+        @Override
+        int getPoolKind() {
+            return 7;
+        }
+        @Override
+        byte[] inBytes() {
+            return new byte[]{(byte)(value ? 1 : 0)};
+        }
+
+        @Override
+        public void writeReadable(OutputStream out) throws IOException {
+            out.write(("BOOLEAN " + value).getBytes());
+        }
+    }
+
+    private static class Null extends Entry<Void> {
+
+        private Null() {
+            super(null);
+        }
+
+        @Override
+        int getPoolKind() {
+            return 8;
+        }
+
+        @Override
+        byte[] inBytes() {
+            return new byte[0];
+        }
+
+        @Override
+        public void writeReadable(OutputStream out) throws IOException {
+            out.write(("NULL").getBytes());
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Null;
+        }
+    }
+
+    private static class Array extends Entry<List<Integer>> {
+        private Array(List<Integer> references) {
+            super(references);
+        }
+
+        @Override
+        int getPoolKind() {
+            return 9;
+        }
+
+        @Override
+        byte[] inBytes() {
+            byte[] bytes = new byte[value.size()+1];
+            bytes[0] = (byte) value.size();
+            int i = 1;
+            for (int ref : value)
+                bytes[i++] = (byte) ref;
+            return bytes;
+        }
+
+        @Override
+        public void writeReadable(OutputStream out) throws IOException {
+            out.write(("ARRAY " + value).getBytes());
+        }
+    }
+
+    public static class Dict extends Entry<List<Integer>> {
+
+        private Dict(List<Integer> references) {
+            super(references);
+        }
+
+        @Override
+        int getPoolKind() {
+            return 10;
+        }
+
+        @Override
+        byte[] inBytes() {
+            byte[] bytes = new byte[value.size()+1];
+            bytes[0] = (byte) (value.size() / 2);
+            int i = 1;
+            for (int ref : value)
+                bytes[i++] = (byte) ref;
+            return bytes;
+        }
+
+        @Override
+        public void writeReadable(OutputStream out) throws IOException {
+            out.write(("DICTIONARY " + value).getBytes());
+        }
+    }
+
+    private static class Range extends Entry<Void> {
+
+        private final int fromAddress, toAddress;
+
+        private Range(int fromAddress, int toAddress) {
+            super(null);
+            this.fromAddress = fromAddress;
+            this.toAddress = toAddress;
+        }
+
+        @Override
+        int getPoolKind() {
+            return 11;
+        }
+
+        @Override
+        byte[] inBytes() {
+            return new byte[]{(byte) fromAddress, (byte) toAddress};
+        }
+
+        @Override
+        public void writeReadable(OutputStream out) throws IOException {
+            out.write(("RANGE " + fromAddress + " " + toAddress).getBytes());
         }
     }
 

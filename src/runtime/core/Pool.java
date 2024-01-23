@@ -21,7 +21,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
     }
 
     public Object load(int index, TThread thread){
-        return pool[index].load(thread);
+        return pool[index].load(thread, this);
     }
 
     @Override
@@ -30,7 +30,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
     }
 
     public interface Entry<T> {
-        T load(TThread thread);
+        T load(TThread thread, Pool pool);
     }
 
     public static class Int implements Entry<TInteger> {
@@ -39,7 +39,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             this.i = new TInteger(i);
         }
         @Override
-        public TInteger load(TThread thread) {
+        public TInteger load(TThread thread, Pool pool) {
             return i;
         }
     }
@@ -50,7 +50,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             this.d = new TReal(d);
         }
         @Override
-        public TReal load(TThread thread) {
+        public TReal load(TThread thread, Pool pool) {
             return d;
         }
     }
@@ -61,7 +61,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             this.s = new TString(s);
         }
         @Override
-        public TString load(TThread thread) {
+        public TString load(TThread thread, Pool pool) {
             return s;
         }
     }
@@ -69,7 +69,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
 
     public record UTF8(String i) implements Entry<String> {
         @Override
-        public String load(TThread thread) {
+        public String load(TThread thread, Pool pool) {
             return i;
         }
     }
@@ -80,13 +80,11 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         private int stackSize;
         private int locals;
         private LinkedHashMap<String, Data> params;
-        private Pool pool;
 
         public Func(String name) {
             this.name = name;
         }
-        public void init(Pool pool,
-                         LinkedHashMap<String, Data> params,
+        public void init(LinkedHashMap<String, Data> params,
                          byte[][] instructions,
                          int stackSize,
                          int locals){
@@ -94,18 +92,17 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             this.instructions = instructions;
             this.stackSize = stackSize;
             this.locals = locals;
-            this.pool = pool;
         }
 
         @Override
-        public VirtualFunction load(TThread thread) {
+        public VirtualFunction load(TThread thread, Pool pool) {
             return new VirtualFunction(name, instructions, stackSize, locals, params, pool);
         }
     }
 
     public record Native(String name) implements Entry<NativeFunction> {
         @Override
-        public NativeFunction load(TThread thread) {
+        public NativeFunction load(TThread thread, Pool pool) {
             NativeFunction nat = NativeCollection.load(name);
             if (nat == null && thread != null)
                 thread.reportRuntimeError("native function '" + name + "' does not exist");
@@ -116,8 +113,11 @@ public class Pool implements Iterable<Pool.Entry<?>> {
     public static class Type implements Entry<TType> {
         private TType type;
         private int staticBlockAddress;
+        public TType load(){
+            return type;
+        }
         @Override
-        public TType load(TThread thread) {
+        public TType load(TThread thread, Pool pool) {
             return type;
         }
         public void init(TType type, int staticBlockAddress){
@@ -130,5 +130,62 @@ public class Pool implements Iterable<Pool.Entry<?>> {
     }
 
 
+    public record Bool(TBoolean bool) implements Entry<TBoolean> {
+        @Override
+        public TBoolean load(TThread thread, Pool pool) {
+            return bool;
+        }
+    }
 
+    public static class Null implements Entry<TNull> {
+        @Override
+        public TNull load(TThread thread, Pool pool) {
+            return TNull.NULL;
+        }
+    }
+
+    public static class Array implements Entry<TArray> {
+        private final int[] references;
+
+        public Array(int[] references) {
+            this.references = references;
+        }
+
+        @Override
+        public TArray load(TThread thread, Pool pool) {
+            TArray array = new TArray();
+            for (int ref : references)
+                array.get().add((Data) pool.load(ref, thread));
+            return array;
+        }
+    }
+
+    public static class Dict implements Entry<TDictionary> {
+        private final int[] keyRefs, valueRefs;
+
+        public Dict(int[] keyRefs, int[] valueRefs) {
+            this.keyRefs = keyRefs;
+            this.valueRefs = valueRefs;
+        }
+
+        @Override
+        public TDictionary load(TThread thread, Pool pool) {
+            TDictionary dict = new TDictionary();
+            for (int i = 0; i < keyRefs.length; i++){
+                Data key = (Data) pool.load(keyRefs[i], thread);
+                Data value = (Data) pool.load(valueRefs[i], thread);
+                dict.get().put(key, value);
+            }
+            return dict;
+        }
+    }
+
+    public record Range(int fromAddress, int toAddress) implements Entry<TRange> {
+
+        @Override
+        public TRange load(TThread thread, Pool pool) {
+
+            return new TRange((TInteger) pool.load(fromAddress, thread), (TInteger) pool.load(toAddress, thread));
+        }
+    }
 }
