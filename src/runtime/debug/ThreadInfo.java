@@ -6,6 +6,8 @@ public interface ThreadInfo extends DebugInfo {
 
     int getID();
 
+    int getLine();
+
     List<FrameInfo> getFrameTrees();
 
     @Override

@@ -3,6 +3,7 @@ package tscriptc.tree;
 import tscriptc.util.Location;
 import tscriptc.util.TreeVisitor;
 
+import java.nio.file.Path;
 import java.util.*;
 
 @SuppressWarnings("unused")
@@ -437,15 +438,16 @@ public class Trees {
     }
 
     public static class BasicImportTree extends AbstractTree implements ImportTree {
-        public String name;
-        public BasicImportTree(Location location, String name) {
+        public String[] path;
+        public BasicImportTree(Location location, String... path) {
             super(location);
-            this.name = name;
+            this.path = Objects.requireNonNull(path);
         }
         @Override
-        public String getName() {
-            return name;
+        public String[] getPath() {
+            return path;
         }
+
     }
 
     public static class BasicIntegerLiteralTree extends AbstractTree implements IntegerLiteralTree {
@@ -725,6 +727,18 @@ public class Trees {
         @Override
         public ExpressionTree getInitializer() {
             return initializer;
+        }
+    }
+
+    public static class BasicMultiVarDecTree extends AbstractTree implements MultiVarDecTree {
+        public final List<VarDecTree> declarations;
+        public BasicMultiVarDecTree(Location location, List<VarDecTree> declarations) {
+            super(location);
+            this.declarations = declarations;
+        }
+        @Override
+        public List<VarDecTree> getDeclarations() {
+            return declarations;
         }
     }
 

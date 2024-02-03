@@ -96,6 +96,11 @@ public class TreeScanner<P, R> implements TreeVisitor<P, R> {
     }
 
     @Override
+    public R visitMultiVarDecTree(MultiVarDecTree varDecTrees, P p) {
+        return scan(varDecTrees.getDeclarations(), p);
+    }
+
+    @Override
     public R visitIfElseTree(IfElseTree ifElseTree, P p) {
         R r = scan(ifElseTree.getCondition(), p);
         r = scanSelective(ifElseTree.getIfBody(), p, r);

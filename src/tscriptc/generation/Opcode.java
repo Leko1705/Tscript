@@ -52,6 +52,8 @@ public enum Opcode {
     CALL(1), WRAP_ARGUMENT(1), RETURN(0),
     CALL_SUPER(1),
 
+    USE(0), LOAD_NAME(1),
+
     BREAK_POINT(0),
 
     ;Opcode(int argc){

@@ -6,4 +6,5 @@ public enum SymbolKind {
     FUNCTION,
     CLASS,
     NAMESPACE,
+    UNKNOWN
 }

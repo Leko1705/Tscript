@@ -2,7 +2,7 @@ package runtime.jit;
 
 import runtime.jit.BytecodeParser.*;
 
-public class ParentDelegationPhase<R> extends OptimizationPhase<R, Tree> {
+public abstract class ParentDelegationPhase<R> extends OptimizationPhase<R, Tree> {
 
     public ParentDelegationPhase(){
     }

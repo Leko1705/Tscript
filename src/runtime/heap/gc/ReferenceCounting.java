@@ -12,9 +12,17 @@ public class ReferenceCounting implements GarbageCollector {
                          Reference assigned,
                          Reference displaced,
                          Collection<Reference> roots) {
-        assigned.incRC();
-        displaced.decRC();
-        if (displaced.getRC() <= 0)
-            heap.free(displaced);
+        if (assigned != null)
+            assigned.incRC();
+        if (displaced != null) {
+            displaced.decRC();
+            if (displaced.getRC() <= 0)
+                heap.free(displaced);
+        }
+    }
+
+    @Override
+    public GCType getType() {
+        return GCType.COUNTING;
     }
 }

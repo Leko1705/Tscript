@@ -5,7 +5,6 @@ import tscriptc.tools.Compiler;
 import tscriptc.tools.CompilerProvider;
 
 import java.io.*;
-import java.util.List;
 
 public class Main {
 
@@ -13,27 +12,43 @@ public class Main {
 
         String fileName = "test";
 
-        String[] cmdArgs = List.of("6").toArray(new String[0]);
+        compileAndDis(fileName);
+        exec(fileName);
+    }
 
-        try (InputStream in = new FileInputStream(fileName + ".tscript")){
+    private static void compile(String path, String... args){
+        try (InputStream in = new FileInputStream(path + ".tscript")){
             Compiler compiler = CompilerProvider.getDefaultTscriptCompiler();
 
-            OutputStream out = new FileOutputStream(fileName + ".tscriptc");
-            compiler.run(in, out, StdLogger.getLogger(), cmdArgs);
-
-            out = new FileOutputStream(fileName + ".tscripti");
-            compiler.dis(in, out, StdLogger.getLogger(), cmdArgs);
+            OutputStream out = new FileOutputStream(path + ".tscriptc");
+            compiler.run(in, out, StdLogger.getLogger(), args);
 
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
 
+    private static void compileAndDis(String path, String... args){
+        try (InputStream in = new FileInputStream(path + ".tscript")){
+            Compiler compiler = CompilerProvider.getDefaultTscriptCompiler();
+
+            OutputStream out = new FileOutputStream(path + ".tscriptc");
+            compiler.run(in, out, StdLogger.getLogger(), args);
+
+            out = new FileOutputStream(path + ".tscripti");
+            compiler.dis(in, out, StdLogger.getLogger(), args);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void exec(String path){
         long start = System.currentTimeMillis();
-        int exitValue = TscriptVM.run(new File(fileName + ".tscriptc"), System.out, System.err, Debugger.getDefaultDebugger());
+        int exitValue = TscriptVM.run(new File(path + ".tscriptc"), System.out, System.err, Debugger.getDefaultDebugger());
         long end = System.currentTimeMillis();
         System.out.println("exec time: " + (end - start) + "ms");
         System.exit(exitValue);
-
     }
 
 }

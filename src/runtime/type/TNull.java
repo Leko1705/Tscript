@@ -1,6 +1,6 @@
 package runtime.type;
 
-public class TNull extends PrimitiveObject<Void> {
+public final class TNull extends PrimitiveObject<Void> {
 
     private static final TType type = new TType("NullType", null);
 

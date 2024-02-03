@@ -112,6 +112,7 @@ class ConsoleDebugger extends Debugger {
 
             else if (currentInfo instanceof ThreadInfo t){
                 System.out.println("        id: " + t.getID());
+                System.out.println("   in line: " + t.getLine());
                 System.out.println("call-stack: " + getCallStackMsg(t));
             }
 

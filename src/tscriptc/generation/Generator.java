@@ -2,10 +2,7 @@ package tscriptc.generation;
 
 import tscriptc.scope.*;
 import tscriptc.tree.*;
-import tscriptc.util.Assertion;
-import tscriptc.util.Conversion;
-import tscriptc.util.Location;
-import tscriptc.util.TreeScanner;
+import tscriptc.util.*;
 
 import java.util.*;
 
@@ -37,7 +34,15 @@ public class Generator extends TreeScanner<Scope, Void> {
     private void registerDefinitions(Scope scope, Collection<DefinitionTree> defs){
         List<ClassTree> addedClasses = new ArrayList<>();
 
-        for (DefinitionTree def : defs){
+        List<DefinitionTree> copy = new ArrayList<>(defs);
+
+        for (int i = 0; i < copy.size(); i++){
+            DefinitionTree def = copy.get(i);
+
+            if (def instanceof MultiVarDecTree m){
+                copy.addAll(m.getDeclarations());
+                continue;
+            }
 
             if (def instanceof ClassTree c){
                 ClassScope cs = new ClassScope(scope, c);
@@ -279,7 +284,7 @@ public class Generator extends TreeScanner<Scope, Void> {
 
         scan(constructorTree.getBody(), functionScope);
 
-        scan(new Trees.BasicReturnTree(constructorTree.getLocation(), new Trees.BasicThisTree(constructorTree.getLocation())), functionScope);
+        scan(new Trees.BasicReturnTree(constructorTree.getLocation(), new Trees.BasicNullLiteralTree(constructorTree.getLocation())), functionScope);
 
         this.inStaticArea = inStaticArea;
 
@@ -728,7 +733,14 @@ public class Generator extends TreeScanner<Scope, Void> {
 
         Symbol symbol = scope.accept(new SimpleSymbolSearcher(identifierTree.getName()), null);
 
-        if (symbol.getKind() == SymbolKind.CLASS){
+        if (symbol == null){
+            String s = identifierTree.getName();
+            int index = compiled.putUTF8(s);
+            newLine(identifierTree);
+            compiled.addInstruction(new Instruction(Opcode.LOAD_NAME, (byte) index));
+        }
+
+        else if (symbol.getKind() == SymbolKind.CLASS){
             String s = identifierTree.getName();
             int index = compiled.putType(s);
             newLine(identifierTree);
@@ -796,6 +808,28 @@ public class Generator extends TreeScanner<Scope, Void> {
         compiled.stackGrows(-1);
 
         return null;
+    }
+
+    @Override
+    public Void visitImportTree(ImportTree importTree, Scope scope) {
+        String[] path = importTree.getPath();
+        String imported = path[path.length - 1];
+        scope.putIfAbsent(SymbolKind.UNKNOWN, imported, Set.of());
+        int varAddr = scope.get(imported).getAddress();
+        int poolAddress = compiled.putImported(toImportPath(path));
+        compiled.addInstruction(new Instruction(Opcode.LOAD_CONST, (byte) poolAddress));
+        Opcode opcode = scope instanceof GlobalScope ? Opcode.STORE_GLOBAL : Opcode.STORE_LOCAL;
+        compiled.addInstruction(new Instruction(opcode, (byte) varAddr));
+        compiled.stackGrows(-1);
+        return null;
+    }
+
+    private String toImportPath(String[] path){
+        StringBuilder sb = new StringBuilder(path[0]);
+        for (int i = 1; i < path.length; i++){
+            sb.append('.').append(path[i]);
+        }
+        return sb.toString();
     }
 
     @Override
@@ -932,6 +966,16 @@ public class Generator extends TreeScanner<Scope, Void> {
     @Override
     public Void visitBreakPointTree(BreakPointTree bpTree, Scope scope) {
         compiled.addInstruction(new Instruction(Opcode.BREAK_POINT));
+        return null;
+    }
+
+    @Override
+    public Void visitUseTree(UseTree useTree, Scope scope) {
+        Trees.BasicIdentifierTree identifierTree =
+                new Trees.BasicIdentifierTree(useTree.getLocation(), useTree.getName());
+        scan(identifierTree, scope);
+        compiled.addInstruction(new Instruction(Opcode.USE));
+        compiled.stackGrows(-1);
         return null;
     }
 }

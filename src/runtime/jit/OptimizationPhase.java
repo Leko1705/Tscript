@@ -2,7 +2,7 @@ package runtime.jit;
 
 import runtime.core.Data;
 
-public class OptimizationPhase<R, P> extends SimpleTreeVisitor<R, P> {
+public abstract class OptimizationPhase<R, P> extends SimpleTreeVisitor<R, P> {
 
     private boolean optimizationPerformed = false;
 

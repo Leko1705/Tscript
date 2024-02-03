@@ -81,7 +81,6 @@ public class DeadBlockEliminator extends ParentDelegationPhase<Void> {
         return null;
     }
 
-
     private boolean isTrue(Tree tree){
         return (tree instanceof BooleanTree b && b.value)
                 || (tree instanceof IntegerTree i && i.value != 0)

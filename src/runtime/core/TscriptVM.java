@@ -4,9 +4,12 @@ import runtime.debug.*;
 import runtime.heap.GenerationalHeap;
 import runtime.heap.Heap;
 import runtime.heap.gc.GarbageCollector;
+import runtime.heap.gc.ReferenceCounting;
 import runtime.heap.gc.SerialMSGC;
 import runtime.jit.JIT;
 import runtime.type.Callable;
+import runtime.type.Member;
+import runtime.type.TType;
 
 import java.io.File;
 import java.io.OutputStream;
@@ -40,7 +43,6 @@ public class TscriptVM implements Debuggable<VMInfo> {
 
     private final Queue<Integer> freeThreadIDQueue = new ArrayDeque<>();
     private final Map<Integer, TThread> threads = new ConcurrentHashMap<>();
-    private final Set<Reference> roots = new HashSet<>();
 
 
     protected TscriptVM(OutputStream out, OutputStream err, Heap heap, GarbageCollector gc, Debugger debugger){
@@ -55,7 +57,7 @@ public class TscriptVM implements Debuggable<VMInfo> {
 
 
     private int execute(File file){
-        FileLoader fileLoader = new FileLoader(file, this);
+        FileLoader fileLoader = new FileLoader(file, this, null);
         fileLoader.load();
         Pool pool = fileLoader.getPool();
         int entry = fileLoader.getEntryPoint();
@@ -81,7 +83,7 @@ public class TscriptVM implements Debuggable<VMInfo> {
     public void killThread(int id){
         TThread thread = threads.remove(id);
         if (thread != null)
-            thread.interrupt();
+            thread.terminate();
     }
 
     public Data storeGlobal(int addr, Data data){
@@ -98,16 +100,62 @@ public class TscriptVM implements Debuggable<VMInfo> {
         return heap;
     }
 
-    public Set<Reference> getRootPointers() {
-        return roots;
-    }
-
     protected void gc(TThread caller){
         gc(caller, null, null);
     }
 
     protected void gc(TThread caller, Reference prevPtr, Reference assignPtr) {
-        gc.onAction(caller.getThreadID(), heap, assignPtr, prevPtr, roots);
+        switch (gc.getType()){
+            case TRACING -> evalTracingGC(caller);
+            case COUNTING -> evalCountingGC(caller, prevPtr, assignPtr);
+            default -> throw new IllegalStateException("unexpected GCType " + gc.getType());
+        }
+    }
+
+    private void evalTracingGC(TThread caller){
+        Collection<Reference> roots = findRoots();
+        gc.onAction(caller.getThreadID(), heap, null, null, roots);
+    }
+
+    private void evalCountingGC(TThread caller, Reference prevPtr, Reference assignPtr){
+        gc.onAction(caller.getThreadID(), heap, prevPtr, assignPtr, null);
+    }
+
+    private Collection<Reference> findRoots(){
+        // since the tscript tends to have
+        // many references we increase the
+        // initialCapacity
+        Collection<Reference> roots = new ArrayList<>(20);
+
+        // collect globals
+        for (Data data : globals)
+            if (data != null && data.isReference())
+                roots.add(data.asReference());
+
+        // collect locals and current stack operands
+        for (TThread thread : threads.values()){
+            for (Frame frame : thread.frameStack) {
+                for (Data data : frame.stack) {
+                    if (data == null) break;
+                    if (data.isReference())
+                        roots.add(data.asReference());
+                }
+                for (Data data : frame.locals) {
+                    if (data != null && data.isReference())
+                        roots.add(data.asReference());
+                }
+            }
+        }
+
+        // collect statics
+        FileManager manager = FileManager.getManager();
+        for (Collection<TType> tTypes : manager.getTypes().values())
+            for (TType type : tTypes)
+                for (Member member : type.getMembers())
+                    if (member.data != null && member.data.isReference())
+                        roots.add(member.data.asReference());
+
+        return roots;
     }
 
     protected DebugAction debug(TThread caller){

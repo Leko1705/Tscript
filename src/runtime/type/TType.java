@@ -68,11 +68,11 @@ public class TType extends Callable {
 
         VirtualObject object = new VirtualObject(this, classMembers());
         Reference ref = ctx.storeHeap(object);
+        ctx.push(ref);
 
         if (constructor != null) {
             constructor.setOwner(ref);
-            return constructor.call(ctx, args);
-            // TODO protect not stored object on stack from gc
+            ctx.call(constructor, args);
         }
 
         return null;

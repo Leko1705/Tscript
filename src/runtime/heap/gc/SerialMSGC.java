@@ -19,6 +19,11 @@ public class SerialMSGC implements GarbageCollector {
         sweep(heap);
     }
 
+    @Override
+    public GCType getType() {
+        return GCType.TRACING;
+    }
+
     private void mark(Heap heap, Collection<Reference> roots){
         Queue<Reference> queue = new ArrayDeque<>(roots);
         while (!queue.isEmpty()){

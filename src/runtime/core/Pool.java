@@ -4,6 +4,7 @@ import runtime.tni.NativeCollection;
 import runtime.tni.NativeFunction;
 import runtime.type.*;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -11,6 +12,7 @@ import java.util.LinkedHashMap;
 public class Pool implements Iterable<Pool.Entry<?>> {
 
     private final Entry<?>[] pool;
+
 
     public Pool(int size) {
         this.pool = new Entry[size];
@@ -31,6 +33,8 @@ public class Pool implements Iterable<Pool.Entry<?>> {
 
     public interface Entry<T> {
         T load(TThread thread, Pool pool);
+
+        String toString();
     }
 
     public static class Int implements Entry<TInteger> {
@@ -41,6 +45,11 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         @Override
         public TInteger load(TThread thread, Pool pool) {
             return i;
+        }
+
+        @Override
+        public String toString() {
+            return Integer.toString(i.get());
         }
     }
 
@@ -53,6 +62,11 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         public TReal load(TThread thread, Pool pool) {
             return d;
         }
+
+        @Override
+        public String toString() {
+            return Double.toString(d.get());
+        }
     }
 
     public static class Str implements Entry<TString> {
@@ -64,12 +78,22 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         public TString load(TThread thread, Pool pool) {
             return s;
         }
+
+        @Override
+        public String toString() {
+            return s.get();
+        }
     }
 
 
     public record UTF8(String i) implements Entry<String> {
         @Override
         public String load(TThread thread, Pool pool) {
+            return i;
+        }
+
+        @Override
+        public String toString() {
             return i;
         }
     }
@@ -98,6 +122,11 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         public VirtualFunction load(TThread thread, Pool pool) {
             return new VirtualFunction(name, instructions, stackSize, locals, params, pool);
         }
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 
     public record Native(String name) implements Entry<NativeFunction> {
@@ -108,11 +137,17 @@ public class Pool implements Iterable<Pool.Entry<?>> {
                 thread.reportRuntimeError("native function '" + name + "' does not exist");
             return nat;
         }
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 
     public static class Type implements Entry<TType> {
         private TType type;
         private int staticBlockAddress;
+
         public TType load(){
             return type;
         }
@@ -127,6 +162,11 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         public int getStaticBlockAddress() {
             return staticBlockAddress;
         }
+
+        @Override
+        public String toString() {
+            return type.getName();
+        }
     }
 
 
@@ -135,12 +175,21 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         public TBoolean load(TThread thread, Pool pool) {
             return bool;
         }
+
+        @Override
+        public String toString() {
+            return Boolean.toString(bool.get());
+        }
     }
 
     public static class Null implements Entry<TNull> {
         @Override
         public TNull load(TThread thread, Pool pool) {
             return TNull.NULL;
+        }
+        @Override
+        public String toString() {
+            return "null";
         }
     }
 
@@ -157,6 +206,10 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             for (int ref : references)
                 array.get().add((Data) pool.load(ref, thread));
             return array;
+        }
+        @Override
+        public String toString() {
+            return Arrays.toString(references);
         }
     }
 
@@ -178,14 +231,74 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             }
             return dict;
         }
+
+        @Override
+        public String toString() {
+            return Arrays.toString(keyRefs) + Arrays.toString(valueRefs);
+        }
     }
 
     public record Range(int fromAddress, int toAddress) implements Entry<TRange> {
 
         @Override
         public TRange load(TThread thread, Pool pool) {
-
             return new TRange((TInteger) pool.load(fromAddress, thread), (TInteger) pool.load(toAddress, thread));
         }
+
+        @Override
+        public String toString() {
+            return fromAddress + ":" + toAddress;
+        }
     }
+
+    public static class Import implements Entry<Object> {
+        private int address = -1;
+        private final String path;
+        private final String toImport;
+        private final TscriptVM vm;
+
+        public Import(String s, TscriptVM vm) {
+            this.vm = vm;
+            String[] full = s.split("[.]");
+            toImport = full[full.length-1];
+            StringBuilder path = new StringBuilder(full[0]);
+            for (int i = 1; i < full.length-1; i++)
+                path.append(File.separator).append(full[i]);
+            this.path = path.append(".tscriptc").toString();
+        }
+
+        @Override
+        public Object load(TThread thread, Pool pool) {
+            if (address == -1) {
+                if (!loadValue(thread))
+                    return null;
+
+            }
+            FileManager manager = FileManager.getManager();
+            return manager.access(path, address, thread);
+        }
+
+        private boolean loadValue(TThread thread){
+            FileManager manager = FileManager.getManager();
+            if (!manager.hasFile(path)) {
+                try {
+                    manager.loadFile(path, vm, thread);
+                }catch (Exception e){
+                    thread.reportRuntimeError("can not find file '" + path + "'");
+                    return false;
+                }
+            }
+            address = manager.loadAddress(path, toImport);
+            if (address == -1){
+                thread.reportRuntimeError("can not find '" + toImport + "' in file '" + path + "'");
+            }
+            return address != -1;
+        }
+
+        @Override
+        public String toString() {
+            return path + File.separator + toImport;
+        }
+    }
+
 }

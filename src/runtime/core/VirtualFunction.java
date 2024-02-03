@@ -46,14 +46,14 @@ public class VirtualFunction extends Callable {
     @Override
     public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
         JIT jit = caller.getJIT();
+        Data[] args = flatten(params);
         if (jit.isHot(name))
-            return callAsHotSpot(caller, params);
+            return callAsHotSpot(caller, args);
         else
-            return callDefault(caller, flatten(params));
+            return callDefault(caller, args);
     }
 
-    private Data callAsHotSpot(TThread caller, LinkedHashMap<String, Data> params){
-        Data[] args = flatten(params);
+    private Data callAsHotSpot(TThread caller, Data[] args){
         Callable optimized = getOptimized(caller, args);
         if (optimized == null) {
             releaseJITOptimization(caller, args);

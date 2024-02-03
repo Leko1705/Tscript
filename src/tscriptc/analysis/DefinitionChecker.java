@@ -14,10 +14,20 @@ public class DefinitionChecker extends Checker<Scope, Void> {
 
     private boolean inStaticArea = false;
 
+    private boolean useActivated = false;
+
     private void registerDefinitions(Scope scope, Collection<DefinitionTree> defs){
         List<ClassTree> addedClasses = new ArrayList<>();
 
-        for (DefinitionTree def : defs){
+        List<DefinitionTree> copy = new ArrayList<>(defs);
+
+        for (int i = 0; i < copy.size(); i++){
+            DefinitionTree def = copy.get(i);
+
+            if (def instanceof MultiVarDecTree m){
+                copy.addAll(m.getDeclarations());
+                continue;
+            }
 
             if (scope.has(def.getName())) {
                 report(Errors.alreadyDefinedError(def.getName(), def.getLocation()));
@@ -234,10 +244,10 @@ public class DefinitionChecker extends Checker<Scope, Void> {
 
         Symbol symbol = scope.accept(new SimpleSymbolSearcher(identifierTree.getName()), null);
 
-        if (symbol == null)
+        if (symbol == null && !useActivated)
             report(Errors.canNotFindSymbol(identifierTree.getName(), identifierTree.getLocation()));
 
-        else if (inStaticArea && !symbol.getModifiers().contains(Modifier.STATIC) && symbol.getOwner() instanceof ClassScope)
+        else if (!useActivated && inStaticArea && !symbol.getModifiers().contains(Modifier.STATIC) && symbol.getOwner() instanceof ClassScope)
             report(Errors.canNotAccessFromStaticContext(identifierTree.getLocation()));
 
         return null;
@@ -264,9 +274,25 @@ public class DefinitionChecker extends Checker<Scope, Void> {
     }
 
     @Override
+    public Void visitImportTree(ImportTree importTree, Scope scope) {
+
+        String[] path = importTree.getPath();
+        String imported = path[path.length-1];
+
+        boolean alreadyDeclared = scope.accept(new AlreadyDeclaredChecker(), imported);
+        if (alreadyDeclared)
+            report(Errors.alreadyDefinedError(imported, importTree.getLocation()));
+
+        scope.putIfAbsent(SymbolKind.UNKNOWN, imported, Set.of());
+        return null;
+    }
+
+    @Override
     public Void visitBlockTree(BlockTree blockTree, Scope scope) {
+        boolean useActivated = this.useActivated;
         LocalScope localScope = new LocalScope(scope);
         super.visitBlockTree(blockTree, localScope);
+        this.useActivated = useActivated;
         return null;
     }
 
@@ -274,11 +300,14 @@ public class DefinitionChecker extends Checker<Scope, Void> {
     public Void visitIfElseTree(IfElseTree ifElseTree, Scope scope) {
         scan(ifElseTree.getCondition(), scope);
 
+        boolean useActivated = this.useActivated;
         LocalScope body = new LocalScope(scope);
         scan(ifElseTree.getIfBody(), body);
+        this.useActivated = useActivated;
 
         body = new LocalScope(scope);
         scan(ifElseTree.getElseBody(), body);
+        this.useActivated = useActivated;
 
         return null;
     }
@@ -286,7 +315,9 @@ public class DefinitionChecker extends Checker<Scope, Void> {
     @Override
     public Void visitDoWhileTree(DoWhileTree doWhileTree, Scope scope) {
         LocalScope localScope = new LocalScope(scope);
+        boolean useActivated = this.useActivated;
         scan(doWhileTree.getBody(), localScope);
+        this.useActivated = useActivated;
         scan(doWhileTree.getCondition(), localScope);
         return null;
     }
@@ -294,8 +325,10 @@ public class DefinitionChecker extends Checker<Scope, Void> {
     @Override
     public Void visitWhileDoTree(WhileDoTree whileDoTree, Scope scope) {
         scan(whileDoTree.getCondition(), scope);
+        boolean useActivated = this.useActivated;
         LocalScope localScope = new LocalScope(scope);
         scan(whileDoTree.getBody(), localScope);
+        this.useActivated = useActivated;
         return null;
     }
 
@@ -312,7 +345,9 @@ public class DefinitionChecker extends Checker<Scope, Void> {
             scan(runVarTree, localScope);
         }
 
+        boolean useActivated = this.useActivated;
         scan(forLoopTree.getBody(), localScope);
+        this.useActivated = useActivated;
 
         return null;
     }
@@ -322,14 +357,38 @@ public class DefinitionChecker extends Checker<Scope, Void> {
 
         LocalScope localScope = new LocalScope(scope);
 
+        boolean useActivated = this.useActivated;
         scan(tryCatchTree.getTryBody(), localScope);
+        this.useActivated = useActivated;
 
         localScope = new LocalScope(scope);
         VarDecTree exVarDecTree = new Trees.BasicVarDecTree(tryCatchTree.getLocation(), false, tryCatchTree.getExceptionName());
         scan(exVarDecTree, localScope);
 
         scan(tryCatchTree.getCatchBody(), localScope);
+        this.useActivated = useActivated;
         return null;
     }
 
+    @Override
+    public Void visitUseTree(UseTree useTree, Scope scope) {
+        Symbol symbol = scope.accept(new SimpleSymbolSearcher(useTree.getName()), null);
+
+        if (symbol == null && !useActivated)
+            report(Errors.canNotFindSymbol(useTree.getName(), useTree.getLocation()));
+        else
+            useActivated = true;
+
+        return null;
+    }
+
+    @Override
+    public Void visitAssignTree(AssignTree assignTree, Scope scope) {
+        boolean useActivated = this.useActivated;
+        this.useActivated = false;
+        scan(assignTree.getLeft(), scope);
+        this.useActivated = useActivated;
+        scan(assignTree.getRight(), scope);
+        return null;
+    }
 }

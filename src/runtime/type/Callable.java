@@ -14,6 +14,7 @@ public abstract class Callable extends BaseObject {
 
     private Data owner = null;
 
+
     public Callable() {
         super(List.of());
     }

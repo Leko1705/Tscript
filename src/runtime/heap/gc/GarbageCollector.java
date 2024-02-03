@@ -13,4 +13,6 @@ public interface GarbageCollector {
                   Reference displaced,
                   Collection<Reference> roots);
 
+    GCType getType();
+
 }

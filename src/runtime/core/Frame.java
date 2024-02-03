@@ -7,10 +7,7 @@ import runtime.heap.Heap;
 import runtime.jit.JITSensitive;
 import runtime.type.Callable;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class Frame implements Debuggable<FrameInfo> {
 
@@ -24,14 +21,16 @@ public class Frame implements Debuggable<FrameInfo> {
 
     private int ip = 0, sp = 0;
 
-    private final Data[] stack;
-    private final Data[] locals;
+    protected final Data[] stack;
+    protected final Data[] locals;
 
     private final Pool pool;
 
-    private int line;
+    private int line = -1;
 
     private final ArrayDeque<Integer> safeAddresses = new ArrayDeque<>();
+
+    private final Map<String, Data> names = new HashMap<>();
 
     public Frame(Data owner, String name, byte[][] instructions, int stackSize, int locals, Pool pool) {
         this.owner = owner;
@@ -76,6 +75,17 @@ public class Frame implements Debuggable<FrameInfo> {
         return locals[index];
     }
 
+    public Data loadName(String name){
+        return names.get(name);
+    }
+
+    public boolean storeName(String name, Data data){
+        if (names.containsKey(name))
+            return false;
+        names.put(name, data);
+        return true;
+    }
+
     public Pool getPool() {
         return pool;
     }
@@ -115,13 +125,12 @@ public class Frame implements Debuggable<FrameInfo> {
         return name;
     }
 
-
-
-
     @Override
     public FrameInfo loadInfo(Heap heap) {
         return new FrameInfoImpl(heap);
     }
+
+
 
 
     private class FrameInfoImpl implements FrameInfo {

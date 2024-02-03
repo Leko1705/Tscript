@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 public class ConstantPool implements Writeable {
 
@@ -60,6 +59,10 @@ public class ConstantPool implements Writeable {
 
     public int putRange(int from, int to) {
         return addIfAbsent(new Range(putInt(from), putInt(to)));
+    }
+
+    public int putImport(String importPath) {
+        return addIfAbsent(new Import(importPath));
     }
 
     private int addIfAbsent(Entry<?> entry){
@@ -352,5 +355,19 @@ public class ConstantPool implements Writeable {
         }
     }
 
+
+    private static class Import extends Str {
+        private Import(String value) {
+            super(value);
+        }
+        @Override
+        int getPoolKind() {
+            return 12;
+        }
+        @Override
+        public void writeReadable(OutputStream out) throws IOException {
+            out.write(("IMPORT " + value).getBytes());
+        }
+    }
 
 }

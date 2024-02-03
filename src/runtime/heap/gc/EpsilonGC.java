@@ -13,4 +13,9 @@ public class EpsilonGC implements GarbageCollector {
                          Reference displaced,
                          Collection<Reference> roots) {
     }
+
+    @Override
+    public GCType getType() {
+        return GCType.COUNTING; // for faster start-up
+    }
 }

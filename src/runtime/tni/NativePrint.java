@@ -27,10 +27,14 @@ public class NativePrint extends NativeFunction {
 
     @Override
     public Data run(TThread caller, LinkedHashMap<String, Data> params) {
-        String print = makePrintable(caller, params.get("x"));
-        if (print == null) return null;
-        System.out.println(print);
-        return TNull.NULL;
+        try {
+            String print = makePrintable(caller, params.get("x"));
+            if (print == null) return null;
+            System.out.println(print);
+            return TNull.NULL;
+        }catch (Exception e){
+            return null;
+        }
     }
 
     public static String makePrintable(TThread tThread, Data data) {
@@ -50,6 +54,10 @@ public class NativePrint extends NativeFunction {
         if (candidate instanceof Callable c && c.getParameters().isEmpty()){
             Data toPrint = thread.call(c, List.of());
             if (toPrint == null) return null;
+            if (toPrint == c.getOwner()) {
+                thread.reportRuntimeError("internalStackOverflowError in print: unable to print owner recursively");
+                return null;
+            }
             return makePrintable(thread, toPrint);
         }
         else {

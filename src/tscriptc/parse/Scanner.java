@@ -70,7 +70,7 @@ public class Scanner implements Lexer {
     }
 
     private Token scan(){
-        skipWhitespace();
+        skipWhitespaceAndComments();
 
         if (!reader.hasNext())
             return getEOF();
@@ -103,12 +103,36 @@ public class Scanner implements Lexer {
         return c;
     }
 
-    private void skipWhitespace(){
+    private void skipWhitespaceAndComments(){
         char c = peekChar();
-        while (Character.isWhitespace(c)) {
-            if (c == '\n') line++;
-            consumeChar();
-            c = reader.peek();
+        while (Character.isWhitespace(c) || c == '#') {
+            while (Character.isWhitespace(c)) {
+                if (c == '\n') line++;
+                consumeChar();
+                c = reader.peek();
+            }
+            if (c == '#') {
+                consumeChar();
+                c = consumeChar();
+                if (c == '*'){
+                    c = consumeChar();
+                    while (true){
+                        if (c == '*'){
+                            c = consumeChar();
+                            if (c == '#'){
+                                c = consumeChar();
+                                break;
+                            }
+                        }
+                        c = consumeChar();
+                    }
+                }
+                else {
+                    while (c != '\n' && reader.hasNext()) {
+                        c = consumeChar();
+                    }
+                }
+            }
         }
         startPos = endPos;
     }
@@ -163,7 +187,7 @@ public class Scanner implements Lexer {
         StringBuilder buffer = new StringBuilder();
         char c = peekChar();
 
-        while (Character.isLetter(c) || c == '_'){
+        while (Character.isLetter(c) || c == '_' || Character.isDigit(c)){
             buffer.append(c);
             consumeChar();
             if (!reader.hasNext()) break;

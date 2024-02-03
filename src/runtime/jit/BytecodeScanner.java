@@ -6,9 +6,7 @@ import tscriptc.generation.Opcode;
 public class BytecodeScanner {
 
     private final VirtualFunction function;
-
     private int ip = -1;
-
     private byte[] instruction;
 
     public BytecodeScanner(VirtualFunction function) {

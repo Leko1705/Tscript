@@ -2,6 +2,9 @@ package tscriptc.util;
 
 public record Location(int startPos, int endPos, int line) {
 
+    public static Location emptyLocation(){
+        return new Location(0, 0, 0);
+    }
 
     private static int checkNonNegative(String spec, int i) {
         if (i < 0)

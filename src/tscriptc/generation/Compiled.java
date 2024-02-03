@@ -1,7 +1,5 @@
 package tscriptc.generation;
 
-import tscriptc.tree.*;
-import tscriptc.util.Assertion;
 import tscriptc.util.Conversion;
 
 import java.io.IOException;
@@ -66,7 +64,7 @@ public class Compiled implements Writeable {
         return pool.putNative(s);
     }
 
-    public int putType(String s){
+    public int putType(String s) {
         return pool.putType(s);
     }
 
@@ -90,16 +88,9 @@ public class Compiled implements Writeable {
         return pool.putRange(from, to);
     }
 
-    public int loadConst(CallableTree def) {
-        if (def instanceof FunctionTree)
-            return putFunction(def.getName());
-        else if (def instanceof NativeFunctionTree)
-            return putNative(def.getName());
-        else
-            return Assertion.error();
+    public int putImported(String importPath) {
+        return pool.putImport(importPath);
     }
-
-
 
     public void addInstruction(Instruction instruction){
         currentFunction().addInstruction(instruction);

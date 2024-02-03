@@ -1,13 +1,18 @@
 package runtime.core;
 
-import java.util.HashMap;
-import java.util.Map;
+import runtime.type.Callable;
+import runtime.type.TType;
+
+import java.io.File;
+import java.util.*;
 
 public class FileManager {
 
     private static final FileManager manager = new FileManager();
 
-    private final Map<String, Pool> poolMap = new HashMap<>();
+    private final Map<String, Pool> pools = new HashMap<>();
+
+    private final Map<String, Collection<TType>> types = new HashMap<>();
 
     private FileManager(){}
 
@@ -17,20 +22,41 @@ public class FileManager {
 
 
     public boolean hasFile(String fileName){
-        return poolMap.containsKey(fileName);
+        return pools.containsKey(fileName);
     }
 
-    public void putPool(String fileName, Pool pool){
-        poolMap.put(fileName, pool);
+    public void loadFile(String path, TscriptVM vm, TThread thread) {
+        FileLoader loader = new FileLoader(new File(path), vm, thread);
+        loader.load();
+        Pool pool = loader.getPool();
+        pools.put(path, pool);
+
+        List<TType> typesInFile = new ArrayList<>();
+        for (Pool.Entry<?> entry : pool)
+            if (entry instanceof Pool.Type)
+                typesInFile.add(((Pool.Type) entry).load());
+        types.put(path, typesInFile);
     }
 
-    public int loadAddress(String fileName, String accessed){
-        return 0;
+    public int loadAddress(String path, String accessed){
+        Pool pool = pools.get(path);
+        int i = 0;
+        for (Pool.Entry<?> entry : pool) {
+            if (accessed.equals(entry.toString()))
+                return i;
+            i++;
+        }
+        return -1;
     }
 
-    public Object access(String fileName, int index, TThread thread){
-        Pool pool = poolMap.get(fileName);
+    public Object access(String path, int index, TThread thread){
+        Pool pool = pools.get(path);
         return pool.load(index, thread);
     }
+
+    public Map<String, Collection<TType>> getTypes(){
+        return types;
+    }
+
 
 }

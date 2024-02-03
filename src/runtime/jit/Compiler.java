@@ -27,7 +27,7 @@ public class Compiler {
         File root = Files.createTempDirectory("java").toFile();
         File sourceFile = new File(root, javaClassName + ".java");
         sourceFile.getParentFile().mkdirs();
-        Files.write(sourceFile.toPath(), source.getBytes(StandardCharsets.UTF_8));
+        Files.writeString(sourceFile.toPath(), source);
 
         // Compile source file.
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();

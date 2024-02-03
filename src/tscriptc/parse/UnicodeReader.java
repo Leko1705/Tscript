@@ -36,7 +36,7 @@ public class UnicodeReader {
         }
     }
 
-    public void unread(int i){
+    private void unread(int i){
         try {
             in.unread(i);
         }catch (IOException e){

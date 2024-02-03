@@ -29,9 +29,11 @@ public class FileLoader {
     private Map<String, Pool.Type> types;
 
     private final TscriptVM vm;
+    private TThread thread;
 
-    public FileLoader(File file, TscriptVM vm) {
+    public FileLoader(File file, TscriptVM vm, TThread thread) {
         this.vm = vm;
+        this.thread = thread;
         try (FileInputStream in = new FileInputStream(file)){
             this.content = in.readAllBytes();
         } catch (Exception e) {
@@ -101,6 +103,7 @@ public class FileLoader {
                     pool.put(i, new Pool.Dict(keyRefs, valRefs));
                 }
                 case 11 -> pool.put(i, new Pool.Range(consume(), consume()));
+                case 12 -> pool.put(i, new Pool.Import(loadString(), vm));
             }
         }
 
@@ -200,8 +203,13 @@ public class FileLoader {
             TType type = t.load();
             Callable staticBlock = (Callable) pool.load(t.getStaticBlockAddress(), null);
             staticBlock.setOwner(type);
-            TThread thread = new TThread(vm, staticBlock, 0);
-            thread.begin();
+            if (thread == null) {
+                thread = new TThread(vm, staticBlock, 0);
+                thread.begin();
+            }
+            else {
+                thread.call(staticBlock, List.of());
+            }
         }
     }
 

@@ -1,6 +1,10 @@
 
-native function print;
 
+class X {
+}
 
-var x = 1;
-print(x);
+var x = X();
+
+while true do {
+    x = X();
+}

@@ -9,19 +9,20 @@ import runtime.type.*;
 import tscriptc.generation.Opcode;
 import tscriptc.util.Conversion;
 
+import java.io.File;
 import java.util.*;
 
 public class TThread extends Thread implements Debuggable<ThreadInfo> {
 
     private final TscriptVM vm;
     private final Callable baseFunction;
-    private final ArrayDeque<Frame> frameStack = new ArrayDeque<>();
+    protected final ArrayDeque<Frame> frameStack = new ArrayDeque<>();
     private final int threadID;
 
     private int frameExitThreshold = 0;
     private Data returnValue;
 
-    private boolean running = true;
+    private volatile boolean running = true;
 
 
     private final Interpreter DEFAULT_INTERPRETER = new SimpleInterpreter();
@@ -120,12 +121,13 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
             case LOAD_STATIC -> interpreter.loadStatic(instruction[1]);
             case STORE_STATIC -> interpreter.storeStatic(instruction[1]);
             case BREAK_POINT -> interpreter.onBreakPoint();
+            case USE -> interpreter.use();
+            case LOAD_NAME -> interpreter.loadName(instruction[1]);
             case NEW_LINE -> setLine(Conversion.fromBytes(
                     instruction[1],
                     instruction[2],
                     instruction[3],
                     instruction[4]));
-
             default ->
                     throw new IllegalStateException("invalid opcode " + opcode + " 0x" + Integer.toHexString(instruction[0]));
         }
@@ -297,6 +299,30 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         }
         reportRuntimeError("can not find implementation of '" + methodName + "'");
     }
+
+    private void loadName(int poolAddr){
+        String name = (String) loadFromPool(poolAddr);
+        Frame frame = frame();
+        Data data = frame.loadName(name);
+        if (data == null){
+            reportRuntimeError("can not find name '" + name + "'");
+            return;
+        }
+        push(data);
+    }
+
+    private void use(){
+        TObject object = unpack(pop());
+        Frame frame = frame();
+        for (Member member : object.getMembers()){
+            boolean success = frame.storeName(member.name, member.data);
+            if (!success){
+                reportRuntimeError("name '" + member.name + "' already used");
+                return;
+            }
+        }
+    }
+
     private void jumpTo(int addr){
         frame().jumpTo(addr);
     }
@@ -357,8 +383,8 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
     }
 
     private void makeRange(){
-        Data to = pop();
-        Data from = pop();
+        Data to = unpack(pop());
+        Data from = unpack(pop());
 
         if (!(from instanceof TInteger f)) {
             reportRuntimeError("can not build range from " + from);
@@ -408,6 +434,7 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
             reportRuntimeError(called + " is not callable");
             return;
         }
+
         List<Argument> argList = getCallerArguments(argc);
         Data res = c.call(this, argList);
         if (res != null && frameStack.size() > frameExitThreshold)
@@ -446,7 +473,7 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         push(returnValue);
     }
 
-    protected void push(Data data){
+    public void push(Data data){
         frame().push(data);
     }
 
@@ -521,17 +548,25 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
             return;
         }
 
-        StringBuilder errorLog = new StringBuilder(NativePrint.makePrintable(this, data));
+        String msg = NativePrint.makePrintable(this, data);
+        if (msg == null) return;
+
+        StringBuilder errorLog = new StringBuilder(msg);
         errorLog.append('\n');
         do {
             frame = frameStack.pop();
-            errorLog.append("in ").append(frame.getName())
-                    .append(" (line: ").append(frame.line())
-                    .append(")").append('\n');
+            errorLog.append("in ").append(frame.getName());
+            int line = frame.line();
+            if (line != -1)
+                errorLog.append(" (line: ")
+                        .append(frame.line())
+                        .append(")");
+            errorLog.append('\n');
         }while (!frameStack.isEmpty() && !frameStack.element().inSafeSpot());
 
         if (frameStack.isEmpty()){
             System.err.println(errorLog);
+            vm.killThread(threadID);
             return;
         }
 
@@ -578,11 +613,6 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         if (prevPtr == null && assignPtr == null)
             return;
 
-        Set<Reference> roots = vm.getRootPointers();
-        roots.remove(prevPtr);
-        if (assignPtr != null)
-            roots.add(assignPtr);
-
         vm.gc(this, prevPtr, assignPtr);
     }
 
@@ -603,10 +633,6 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
     @JITSensitive
     public Data storeGlobal(int index, Data data){
         return vm.storeGlobal(index, data);
-    }
-
-    public Set<Reference> getRootPointers(){
-        return vm.getRootPointers();
     }
 
     private interface Interpreter {
@@ -649,6 +675,8 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         void loadStatic(int utf8Address);
         void storeStatic(int utf8Address);
         void onBreakPoint();
+        void use();
+        void loadName(byte b);
     }
     private class SimpleInterpreter implements Interpreter {
         public void pushNull() {
@@ -776,7 +804,16 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
             }
 
         }
+        public void use() {
+            TThread.this.use();
+        }
+        public void loadName(byte b) {
+            TThread.this.loadName(b);
+        }
     }
+
+
+
     private class DebugInterpreter extends SimpleInterpreter {
         private final Interpreter prev;
         private DebugInterpreter(Interpreter prev) {
@@ -853,6 +890,11 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         @Override
         public int getID() {
             return threadID;
+        }
+
+        @Override
+        public int getLine() {
+            return frame().line();
         }
 
         @Override

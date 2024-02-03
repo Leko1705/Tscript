@@ -32,6 +32,8 @@ public interface TreeVisitor<P, R> {
 
     R visitVarDecTree(VarDecTree varDecTree, P p);
 
+    R visitMultiVarDecTree(MultiVarDecTree varDecTrees, P p);
+
     R visitIfElseTree(IfElseTree ifElseTree, P p);
 
     R visitWhileDoTree(WhileDoTree whileDoTree, P p);

@@ -6,8 +6,7 @@ import tscriptc.util.Diagnostics;
 import tscriptc.util.Location;
 import tscriptc.util.Phase;
 
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class TscriptParser implements Parser {
 
@@ -36,6 +35,7 @@ public class TscriptParser implements Parser {
     public RootTree parseProgram() {
 
         RootTree rootTree = new Trees.BasicRootTree();
+        rootTree.getDefinitions().addAll(Builtins.getBuiltins());
 
         Token token = lexer.peek();
         while (!token.hasTag(TokenKind.EOF)) {
@@ -176,12 +176,16 @@ public class TscriptParser implements Parser {
                 }
 
                 if (defTree != null) {
-                    defTree.getModifiers().add(Modifier.of(visibility.name));
-                    if (isStatic) {
-                        defTree.getModifiers().add(Modifier.STATIC);
-                        isStatic = false;
-                    }
-                    classTree.definitions.add(defTree);
+                    Set<Modifier> modifiers = new HashSet<>();
+                    if (isStatic) modifiers.add(Modifier.STATIC);
+                    modifiers.add(Modifier.of(visibility.name));
+
+                    if (defTree instanceof MultiVarDecTree m)
+                        applyClassMemberModifiers(classTree, modifiers, m.getDeclarations());
+                    else
+                        applyClassMemberModifiers( classTree, modifiers, List.of(defTree));
+
+                    if (isStatic) isStatic = false;
                 }
 
                 token = lexer.peek();
@@ -195,6 +199,13 @@ public class TscriptParser implements Parser {
 
         lexer.consume();
         return classTree;
+    }
+
+    private void applyClassMemberModifiers(ClassTree classTree, Set<Modifier> modifiers, Collection<? extends DefinitionTree> defs){
+        for (DefinitionTree definitionTree : defs) {
+            definitionTree.getModifiers().addAll(modifiers);
+            classTree.getDefinitions().add(definitionTree);
+        }
     }
 
     private ConstructorTree parseConstructor(){
@@ -425,6 +436,12 @@ public class TscriptParser implements Parser {
         else if (token.hasTag(TokenKind.TRY)){
             return parseTryCatch();
         }
+        else if (token.hasTag(TokenKind.IMPORT)){
+            return parseImport();
+        }
+        else if (token.hasTag(TokenKind.USE)){
+            return parseUse();
+        }
         else {
             ExpressionTree exp = parseExpression();
             if (exp == null)
@@ -439,25 +456,87 @@ public class TscriptParser implements Parser {
         return null;
     }
 
-    private VarDecTree parseVarDec(boolean isConstant){
-        Token ident = lexer.consume();
-        if (!ident.hasTag(TokenKind.IDENTIFIER))
-            error("identifier expected", ident);
+    private ImportTree parseImport(){
+        Location location = lexer.consume().getLocation();
+        StringBuilder sb = new StringBuilder();
 
-        Trees.BasicVarDecTree varNode = new Trees.BasicVarDecTree(ident.getLocation(), isConstant, ident.getLexem());
-        if (isConstant) varNode.getModifiers().add(Modifier.IMMUTABLE);
+        Token token = lexer.consume();
+        if (!token.hasTag(TokenKind.IDENTIFIER))
+            error("identifier expected", token);
+        sb.append(token.getLexem());
 
-        Token next = lexer.peek();
-        if (!next.hasTag(TokenKind.SEMI)){
-            next = lexer.consume();
-            if (!next.hasTag(TokenKind.EQ_ASSIGN))
-                error("'=' expected", next);
-            varNode.initializer = unwrap(parseExpression(), next);
+        token = lexer.consume();
+        if (!token.hasTag(TokenKind.DOT))
+            error("missing '.'", token);
+        sb.append('.');
+
+        token = lexer.consume();
+
+        if (!token.hasTag(TokenKind.IDENTIFIER))
+            error("identifier expected", token);
+        sb.append(token.getLexem());
+
+        while (lexer.peek().hasTag(TokenKind.DOT)){
+            lexer.consume();
+            sb.append('.');
+
+            token = lexer.consume();
+            if (!token.hasTag(TokenKind.IDENTIFIER))
+                error("identifier expected", token);
+            sb.append(token.getLexem());
         }
 
         parseEOS();
 
-        return varNode;
+        String[] path = sb.toString().split("[.]");
+        return new Trees.BasicImportTree(location, path);
+    }
+
+    private UseTree parseUse(){
+        Token token = lexer.consume();
+        Location location = token.getLocation();
+
+        token = lexer.consume();
+        if (!token.hasTag(TokenKind.IDENTIFIER))
+            error("identifier expected", token);
+
+        parseEOS();
+        return new Trees.BasicUseTree(location, token.getLexem());
+    }
+
+    private MultiVarDecTree parseVarDec(boolean isConstant){
+
+        List<VarDecTree> varDeclarations = new ArrayList<>();
+
+        Token ident;
+        do {
+            ident = lexer.consume();
+            if (!ident.hasTag(TokenKind.IDENTIFIER))
+                error("identifier expected", ident);
+
+            Trees.BasicVarDecTree varNode = new Trees.BasicVarDecTree(ident.getLocation(), isConstant, ident.getLexem());
+            if (isConstant) varNode.getModifiers().add(Modifier.IMMUTABLE);
+
+            ident = lexer.peek();
+            if (ident.hasTag(TokenKind.EQ_ASSIGN)) {
+                lexer.consume();
+                varNode.initializer = unwrap(parseExpression(), ident);
+            }
+
+            varDeclarations.add(varNode);
+
+            ident = lexer.peek();
+            if (ident.hasTag(TokenKind.COMMA)) {
+                lexer.consume();
+                continue;
+            }
+
+            break;
+        }while (true);
+
+        parseEOS();
+
+        return new Trees.BasicMultiVarDecTree(varDeclarations.get(0).getLocation(), varDeclarations);
     }
 
     private IfElseTree parseIfElse(){
