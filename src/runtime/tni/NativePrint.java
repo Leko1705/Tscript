@@ -26,9 +26,9 @@ public class NativePrint extends NativeFunction {
     }
 
     @Override
-    public Data run(TThread caller, LinkedHashMap<String, Data> params) {
+    public Data eval(TThread caller, Data[] params) {
         try {
-            String print = makePrintable(caller, params.get("x"));
+            String print = makePrintable(caller, params[0]);
             if (print == null) return null;
             System.out.println(print);
             return TNull.NULL;

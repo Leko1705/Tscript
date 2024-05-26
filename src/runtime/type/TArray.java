@@ -91,9 +91,9 @@ public class TArray extends PrimitiveObject<List<Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>(){{put("item", null);}};
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             List<Data> content = TArray.this.get();
-            content.add(params.get("item"));
+            content.add(params[0]);
             return TNull.NULL;
         }
     }
@@ -105,7 +105,7 @@ public class TArray extends PrimitiveObject<List<Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>();
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             List<Data> content = TArray.this.get();
             return content.remove(content.size()-1);
         }
@@ -118,7 +118,7 @@ public class TArray extends PrimitiveObject<List<Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>();
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             List<Data> content = TArray.this.get();
             return new TInteger(content.size());
         }
@@ -131,8 +131,8 @@ public class TArray extends PrimitiveObject<List<Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>(){{put("position", null);put("item", null);}};
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
-            Data data = caller.unpack(params.get("position"));
+        public Data eval(TThread caller, Data[] params) {
+            Data data = caller.unpack(params[0]);
             if (!(data instanceof TInteger i)) {
                 caller.reportRuntimeError("<Integer> for index expected");
                 return null;
@@ -143,7 +143,7 @@ public class TArray extends PrimitiveObject<List<Data>>
                 caller.reportRuntimeError("index " + index + " out of bounds for length " + content.size());
                 return null;
             }
-            content.add(index, params.get("item"));
+            content.add(index, params[1]);
             return TNull.NULL;
         }
     }
@@ -157,9 +157,9 @@ public class TArray extends PrimitiveObject<List<Data>>
                 put("range", null);
             }};
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
 
-            TObject o = caller.unpack(params.get("range"));
+            TObject o = caller.unpack(params[0]);
 
             if (!(o instanceof TInteger || o instanceof TRange)){
                 caller.reportRuntimeError("invalid key " + o.getType() + ": <Integer> or <Range> expected");
@@ -189,7 +189,7 @@ public class TArray extends PrimitiveObject<List<Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>();
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             List<Data> content = TArray.this.get();
             return new TRange(0, content.size());
         }
@@ -202,7 +202,7 @@ public class TArray extends PrimitiveObject<List<Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>();
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             return TArray.this;
         }
     }

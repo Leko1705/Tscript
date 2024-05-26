@@ -1,6 +1,5 @@
 package runtime.core;
 
-import runtime.jit.JITSensitive;
 import runtime.type.*;
 import tscriptc.generation.Opcode;
 
@@ -50,12 +49,27 @@ public class ALU {
 
         addOperation(Opcode.SLA, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.get() << i2.get()));
         addOperation(Opcode.SRA, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.get() >> i2.get()));
-        addOperation(Opcode.SLA, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.get() >>> i2.get()));
+        addOperation(Opcode.SRL, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.get() >>> i2.get()));
 
         addOperation(Opcode.LT, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.get() < i2.get()));
+        addOperation(Opcode.LT, TInteger.class, TReal.class, (i1, i2) -> TBoolean.of(i1.get() < i2.get()));
+        addOperation(Opcode.LT, TReal.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.get() < i2.get()));
+        addOperation(Opcode.LT, TReal.class, TReal.class, (i1, i2) -> TBoolean.of(i1.get() < i2.get()));
+
         addOperation(Opcode.LEQ, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.get() <= i2.get()));
+        addOperation(Opcode.LEQ, TInteger.class, TReal.class, (i1, i2) -> TBoolean.of(i1.get() <= i2.get()));
+        addOperation(Opcode.LEQ, TReal.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.get() <= i2.get()));
+        addOperation(Opcode.LEQ, TReal.class, TReal.class, (i1, i2) -> TBoolean.of(i1.get() <= i2.get()));
+
         addOperation(Opcode.GT, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.get() > i2.get()));
+        addOperation(Opcode.GT, TInteger.class, TReal.class, (i1, i2) -> TBoolean.of(i1.get() > i2.get()));
+        addOperation(Opcode.GT, TReal.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.get() > i2.get()));
+        addOperation(Opcode.GT, TReal.class, TReal.class, (i1, i2) -> TBoolean.of(i1.get() > i2.get()));
+
         addOperation(Opcode.GEQ, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.get() >= i2.get()));
+        addOperation(Opcode.GEQ, TInteger.class, TReal.class, (i1, i2) -> TBoolean.of(i1.get() >= i2.get()));
+        addOperation(Opcode.GEQ, TReal.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.get() >= i2.get()));
+        addOperation(Opcode.GEQ, TReal.class, TReal.class, (i1, i2) -> TBoolean.of(i1.get() >= i2.get()));
 
         addOperation(Opcode.AND, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.get() & i2.get()));
         addOperation(Opcode.OR, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.get() | i2.get()));
@@ -88,7 +102,6 @@ public class ALU {
         addOperation(Opcode.POW, TReal.class, TReal.class, (i1, i2) -> new TReal(Math.pow(i1.get(), i2.get())));
     }
 
-    @JITSensitive
     public static Data performBinaryOperation(Data f, Data s, Opcode operation, TThread context){
         TObject first = context.unpack(f);
         TObject second = context.unpack(s);
@@ -103,7 +116,6 @@ public class ALU {
         return algorithm.operate(first, second);
     }
 
-    @JITSensitive
     public static Data performUnaryOperation(Data value, Opcode operation, TThread context){
         TObject object = context.unpack(value);
         if (operation == Opcode.NOT)

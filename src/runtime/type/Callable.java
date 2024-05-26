@@ -4,6 +4,7 @@ import runtime.core.Argument;
 import runtime.core.Data;
 import runtime.core.TThread;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,14 +70,14 @@ public abstract class Callable extends BaseObject {
             return null;
         }
 
-        return eval(ctx, finals);
+        return eval(ctx, finals.values().toArray(new Data[0]));
     }
 
     public abstract String getName();
 
     public abstract LinkedHashMap<String, Data> getParameters();
 
-    public abstract Data eval(TThread caller, LinkedHashMap<String, Data> params);
+    public abstract Data eval(TThread caller, Data[] params);
 
     public final void setOwner(Data owner){
         this.owner = owner;

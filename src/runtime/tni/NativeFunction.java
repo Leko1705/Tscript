@@ -9,11 +9,10 @@ import java.util.LinkedHashMap;
 
 public abstract class NativeFunction extends Callable {
 
-    @Override
-    public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
-        return run(caller, params);
-    }
+    public abstract String getName();
 
-    public abstract Data run(TThread caller, LinkedHashMap<String, Data> params);
+    public abstract LinkedHashMap<String, Data> getParameters();
+
+    public abstract Data eval(TThread caller, Data[] params);
 
 }

@@ -4,9 +4,9 @@ import runtime.debug.*;
 import runtime.heap.GenerationalHeap;
 import runtime.heap.Heap;
 import runtime.heap.gc.GarbageCollector;
-import runtime.heap.gc.ReferenceCounting;
 import runtime.heap.gc.SerialMSGC;
-import runtime.jit.JIT;
+import runtime.jit.compile.JITCompiler;
+import runtime.jit.compile.JITCompilerFactory;
 import runtime.type.Callable;
 import runtime.type.Member;
 import runtime.type.TType;
@@ -39,10 +39,10 @@ public class TscriptVM implements Debuggable<VMInfo> {
 
     private final Debugger debugger;
 
-    private final JIT jit;
-
     private final Queue<Integer> freeThreadIDQueue = new ArrayDeque<>();
     private final Map<Integer, TThread> threads = new ConcurrentHashMap<>();
+
+    private final JITCompiler jitCompiler = JITCompilerFactory.createNewDefaultJITCompiler();
 
 
     protected TscriptVM(OutputStream out, OutputStream err, Heap heap, GarbageCollector gc, Debugger debugger){
@@ -51,7 +51,6 @@ public class TscriptVM implements Debuggable<VMInfo> {
         this.heap = heap;
         this.gc = gc;
         this.debugger = Objects.requireNonNullElse(debugger, Debugger.getVoidDebugger());
-        this.jit = new JIT(heap);
     }
 
 
@@ -66,7 +65,7 @@ public class TscriptVM implements Debuggable<VMInfo> {
         startNewThread(mainFunction);
         while (!threads.isEmpty())
             Thread.onSpinWait();
-        jit.close();
+        jitCompiler.close();
         return 0;
     }
 
@@ -162,11 +161,6 @@ public class TscriptVM implements Debuggable<VMInfo> {
         return debugger.onBreakPoint(caller.getThreadID(), loadInfo(heap));
     }
 
-    public JIT getJit() {
-        return jit;
-    }
-
-
     public void quit() {
         for (TThread thread : threads.values())
             thread.terminate();
@@ -176,6 +170,10 @@ public class TscriptVM implements Debuggable<VMInfo> {
     @Override
     public VMInfo loadInfo(Heap heap) {
         return new VMInfoImpl();
+    }
+
+    public JITCompiler getJIT() {
+        return jitCompiler;
     }
 
     private class VMInfoImpl implements VMInfo {

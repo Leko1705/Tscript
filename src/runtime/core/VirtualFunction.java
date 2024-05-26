@@ -1,13 +1,14 @@
 package runtime.core;
 
-import runtime.jit.JIT;
-import runtime.jit.JITSensitive;
-import runtime.jit.OptimizeVirtualTask;
+import runtime.jit.compile.JITCompiler;
+import runtime.jit.compile.MethodTask;
 import runtime.type.Callable;
 
 import java.util.LinkedHashMap;
 
 public class VirtualFunction extends Callable {
+
+    private static final int JIT_HOTNESS_THRESHOLD = 100;
 
     private final String name;
     private final LinkedHashMap<String, Data> params;
@@ -15,6 +16,8 @@ public class VirtualFunction extends Callable {
     private final int stackSize;
     private final int locals;
     private final Pool pool;
+
+    private int hotness = 0;
 
     public VirtualFunction(String name,
                            byte[][] instructions,
@@ -38,19 +41,30 @@ public class VirtualFunction extends Callable {
         return new Frame(getOwner(), name, instructions, stackSize, locals, pool);
     }
 
+    public Pool getPool() {
+        return pool;
+    }
+
+    public int getStackSize() {
+        return stackSize;
+    }
+
+    public int getLocals() {
+        return locals;
+    }
+
     @Override
     public LinkedHashMap<String, Data> getParameters() {
         return params;
     }
 
     @Override
-    public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
-        JIT jit = caller.getJIT();
-        Data[] args = flatten(params);
-        if (jit.isHot(name))
+    public Data eval(TThread caller, Data[] args) {
+        if (isHot()) {
             return callAsHotSpot(caller, args);
-        else
-            return callDefault(caller, args);
+        }
+        hotness++;
+        return callDefault(caller, args);
     }
 
     private Data callAsHotSpot(TThread caller, Data[] args){
@@ -60,13 +74,13 @@ public class VirtualFunction extends Callable {
             return callDefault(caller, args);
         }
         else {
-            return callJITOptimized(caller, optimized, params);
+            return callJITOptimized(caller, optimized, args);
         }
     }
 
     private Callable getOptimized(TThread caller, Data[] args){
-        JIT jit = caller.getJIT();
-        Callable optimized = jit.getOptimized(this, args);
+        JITCompiler jit = caller.getJIT();
+        Callable optimized = jit.getLookUpTable().getOptimized(this);
         if (optimized != null)
             optimized.setOwner(getOwner());
         return optimized;
@@ -81,29 +95,23 @@ public class VirtualFunction extends Callable {
 
     private Data callJITOptimized(TThread caller,
                                   Callable optimized,
-                                  LinkedHashMap<String, Data> params){
-        caller.putFrame(optimized);
+                                  Data[] params){
+        //caller.putFrame(optimized, pool);
         Data d = optimized.eval(caller, params);
-        caller.popFrame();
+        //caller.popFrame();
         return d;
     }
 
-    private static Data[] flatten(LinkedHashMap<String, Data> params){
-        return params.values().toArray(new Data[0]);
-    }
-
     private void releaseJITOptimization(TThread caller, Data[] args){
-        JIT jit = caller.getJIT();
-        jit.addTask(new OptimizeVirtualTask(this, args));
+        JITCompiler jit = caller.getJIT();
+        jit.handle(new MethodTask(this, args, caller));
     }
 
-    @JITSensitive
-    public byte[][] getInstructions() {
+    public byte[][] getByteCode() {
         return instructions;
     }
 
-    @JITSensitive
-    public Pool getPool() {
-        return pool;
+    public boolean isHot(){
+        return hotness >= JIT_HOTNESS_THRESHOLD;
     }
 }

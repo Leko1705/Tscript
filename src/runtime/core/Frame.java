@@ -4,15 +4,14 @@ import runtime.debug.DataInfo;
 import runtime.debug.Debuggable;
 import runtime.debug.FrameInfo;
 import runtime.heap.Heap;
-import runtime.jit.JITSensitive;
 import runtime.type.Callable;
 
 import java.util.*;
 
 public class Frame implements Debuggable<FrameInfo> {
 
-    public static Frame createFakeFrame(Callable callable){
-       return new Frame(callable.getOwner(), callable.getName(), null, 0, 0, null);
+    public static Frame createFakeFrame(Callable callable, Pool pool){
+       return new Frame(callable.getOwner(), callable.getName(), null, 0, 0, pool);
     }
 
     private final Data owner;
@@ -113,11 +112,6 @@ public class Frame implements Debuggable<FrameInfo> {
     public void escapeError() {
         ip = safeAddresses.pop();
         sp = 0;
-    }
-
-    @JITSensitive
-    protected int getIp() {
-        return ip;
     }
 
     @Override

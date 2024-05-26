@@ -632,7 +632,6 @@ public class TscriptParser implements Parser {
         Trees.BasicReturnTree returnNode = new Trees.BasicReturnTree(lexer.consume().getLocation());
         if (lexer.peek().hasTag(TokenKind.SEMI)){
             returnNode.expression = new Trees.BasicNullLiteralTree(lexer.consume().getLocation());
-            parseEOS();
             return returnNode;
         }
         returnNode.expression = unwrap(parseExpression(), lexer.peek());
@@ -770,7 +769,7 @@ public class TscriptParser implements Parser {
         }
         else if (token.hasTag(TokenKind.NOT)){
             lexer.consume();
-            expNode = new Trees.BasicNotTree(token.getLocation(), unwrap(parseExpression(), token));
+            expNode = new Trees.BasicNotTree(token.getLocation(), unwrap(parsePrimaryExpression(true), token));
         }
         else if (token.hasTag(TokenKind.SUPER)){
             lexer.consume();
@@ -787,7 +786,7 @@ public class TscriptParser implements Parser {
         else if (token.hasTag(TokenKind.PLUS) || token.hasTag(TokenKind.MINUS)){
             Trees.BasicSignTree signNode = new Trees.BasicSignTree(token.getLocation());
             lexer.consume();
-            signNode.expression = unwrap(parseExpression(), token);
+            signNode.expression = unwrap(parsePrimaryExpression(true), token);
             signNode.isNegation = token.getTag() == TokenKind.MINUS;
             expNode = signNode;
         }

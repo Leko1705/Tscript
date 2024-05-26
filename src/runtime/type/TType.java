@@ -86,7 +86,7 @@ public class TType extends Callable {
     }
 
     @Override
-    public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+    public Data eval(TThread caller, Data[] params) {
         throw new IllegalStateException("'eval' should neve be called in TType directly -> constructor evaluated instead");
     }
 

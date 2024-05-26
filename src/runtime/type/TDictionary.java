@@ -75,7 +75,7 @@ public class TDictionary extends PrimitiveObject<Map<Data, Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>();
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             Map<Data, Data> content = TDictionary.this.get();
             return new TInteger(content.size());
         }
@@ -88,9 +88,9 @@ public class TDictionary extends PrimitiveObject<Map<Data, Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>(){{put("key", null);}};
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             Map<Data, Data> content = TDictionary.this.get();
-            Data removed = content.remove(params.get("key"));
+            Data removed = content.remove(params[0]);
             return removed != null ? removed : TNull.NULL;
         }
     }
@@ -102,9 +102,9 @@ public class TDictionary extends PrimitiveObject<Map<Data, Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>(){{put("key", null);}};
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             Map<Data, Data> content = TDictionary.this.get();
-            return TBoolean.of(content.containsKey(params.get("key")));
+            return TBoolean.of(content.containsKey(params[0]));
         }
     }
 
@@ -115,7 +115,7 @@ public class TDictionary extends PrimitiveObject<Map<Data, Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>();
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             Map<Data, Data> content = TDictionary.this.get();
             return new TArray(new ArrayList<>(content.keySet()));
         }
@@ -128,7 +128,7 @@ public class TDictionary extends PrimitiveObject<Map<Data, Data>>
         public LinkedHashMap<String, Data> getParameters() {
             return new LinkedHashMap<>();
         }
-        public Data eval(TThread caller, LinkedHashMap<String, Data> params) {
+        public Data eval(TThread caller, Data[] params) {
             Map<Data, Data> content = TDictionary.this.get();
             return new TArray(new ArrayList<>(content.values()));
         }

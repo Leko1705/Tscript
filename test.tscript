@@ -1,10 +1,7 @@
 
 
-class X {
+function foo(){
+    do; while false;
 }
 
-var x = X();
-
-while true do {
-    x = X();
-}
+do foo(); while true;

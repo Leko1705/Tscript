@@ -12,6 +12,10 @@ public final class Conversion {
                 (byte)(addr & 0xFF)};
     }
 
+    public static int getJumpAddress(byte b1, byte b2){
+        return ((b1 & 0xff) << 8) | (b2 & 0xff);
+    }
+
     public static byte[] getBytes(int value) {
         return new byte[] {
                 (byte)(value >> 24),

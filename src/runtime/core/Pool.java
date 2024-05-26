@@ -33,7 +33,6 @@ public class Pool implements Iterable<Pool.Entry<?>> {
 
     public interface Entry<T> {
         T load(TThread thread, Pool pool);
-
         String toString();
     }
 

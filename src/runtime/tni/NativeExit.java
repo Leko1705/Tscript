@@ -22,9 +22,9 @@ public class NativeExit extends NativeFunction {
     }
 
     @Override
-    public Data run(TThread caller, LinkedHashMap<String, Data> params) {
+    public Data eval(TThread caller, Data[] params) {
 
-        TObject exitCode = caller.unpack(params.get("status"));
+        TObject exitCode = caller.unpack(params[0]);
 
         if (!(exitCode instanceof TInteger i)){
             caller.reportRuntimeError("<Integer> is required fo exist code");

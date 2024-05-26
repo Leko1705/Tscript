@@ -56,6 +56,7 @@ public enum Opcode {
 
     BREAK_POINT(0),
 
+
     ;Opcode(int argc){
         this.b = (byte) this.ordinal();
         this.argc = argc;

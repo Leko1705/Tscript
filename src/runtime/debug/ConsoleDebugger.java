@@ -17,14 +17,15 @@ class ConsoleDebugger extends Debugger {
 
     private class DebugProcess implements Runnable {
 
+        private static final String ANSI_YELLOW = "\u001B[33m";
+        private static final String ANSI_RESET = "\u001B[0m";
+
         private final Deque<DebugInfo> stack = new ArrayDeque<>(List.of(info));
 
         @Override
         public void run() {
             Scanner scanner = new Scanner(System.in);
 
-            final String ANSI_YELLOW = "\u001B[33m";
-            final String ANSI_RESET = "\u001B[0m";
             System.out.println(ANSI_YELLOW + "debug mode entered (called from thread-id: " + threadId + ")");
             plotInfo();
 

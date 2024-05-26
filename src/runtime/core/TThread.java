@@ -2,14 +2,12 @@ package runtime.core;
 
 import runtime.debug.*;
 import runtime.heap.Heap;
-import runtime.jit.JIT;
-import runtime.jit.JITSensitive;
+import runtime.jit.compile.JITCompiler;
 import runtime.tni.NativePrint;
 import runtime.type.*;
 import tscriptc.generation.Opcode;
 import tscriptc.util.Conversion;
 
-import java.io.File;
 import java.util.*;
 
 public class TThread extends Thread implements Debuggable<ThreadInfo> {
@@ -98,12 +96,12 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
             case ENTER_TRY -> interpreter.enterTry(instruction[1]);
             case LEAVE_TRY -> interpreter.leaveTry();
             case THROW -> interpreter.throwError();
-            case GOTO -> interpreter.jumpTo(jumpAddress(instruction[1], instruction[2]));
+            case GOTO -> interpreter.jumpTo(Conversion.getJumpAddress(instruction[1], instruction[2]));
             case GET_ITR -> interpreter.getIterator();
             case ITR_NEXT -> interpreter.iteratorNext();
-            case BRANCH_ITR -> interpreter.branchIterator(jumpAddress(instruction[1], instruction[2]));
-            case BRANCH_IF_FALSE -> interpreter.branchOn(false, jumpAddress(instruction[1], instruction[2]));
-            case BRANCH_IF_TRUE -> interpreter.branchOn(true, jumpAddress(instruction[1], instruction[2]));
+            case BRANCH_ITR -> interpreter.branchIterator(Conversion.getJumpAddress(instruction[1], instruction[2]));
+            case BRANCH_IF_FALSE -> interpreter.branchOn(false, Conversion.getJumpAddress(instruction[1], instruction[2]));
+            case BRANCH_IF_TRUE -> interpreter.branchOn(true, Conversion.getJumpAddress(instruction[1], instruction[2]));
             case LOAD_MEMBER -> interpreter.loadMember(instruction[1]);
             case STORE_MEMBER -> interpreter.storeMember(instruction[1]);
             case LOAD_MEMBER_FAST -> interpreter.loadMemberFast(instruction[1]);
@@ -132,10 +130,6 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
                     throw new IllegalStateException("invalid opcode " + opcode + " 0x" + Integer.toHexString(instruction[0]));
         }
 
-    }
-
-    private int jumpAddress(byte b1, byte b2){
-        return ((b1 & 0xff) << 8) | (b2 & 0xff);
     }
 
     private Frame frame(){
@@ -485,14 +479,12 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         frameStack.push(function.buildFrame());
     }
 
-    @JITSensitive
     public Data call(Callable callable, List<Argument> args){
         if (checkStackOverflowError()) return null;
         return callFromNativeContext(callable, args);
     }
 
-    @JITSensitive
-    public void setLine(int line){
+    private void setLine(int line){
         frame().setLine(line);
     }
 
@@ -509,15 +501,15 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
             return evalNativeCalledVirtualFunction(v, args);
         }
         else {
-            putFrame(callable);
+            putFrame(callable, null);
             Data d = callable.call(this, args);
             popFrame();
             return d;
         }
     }
 
-    protected void putFrame(Callable callable){
-        frameStack.push(Frame.createFakeFrame(callable));
+    protected void putFrame(Callable callable, Pool pool){
+        frameStack.push(Frame.createFakeFrame(callable, pool));
     }
 
     protected void popFrame(){
@@ -534,12 +526,10 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         return returnValue;
     }
 
-    @JITSensitive
     public void reportRuntimeError(String msg){
         reportRuntimeError(new TString(msg));
     }
 
-    @JITSensitive
     public void reportRuntimeError(Data data){
         Frame frame = frame();
         if (frame.inSafeSpot()){
@@ -575,8 +565,7 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         frame.push(data);
     }
 
-    @JITSensitive
-    public boolean isTrue(Data data){
+    private boolean isTrue(Data data){
         TObject obj = unpack(data);
         if (obj instanceof TBoolean i && !i.get()) return false;
         if (obj == TNull.NULL) return false;
@@ -598,8 +587,7 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         return heap.store(object);
     }
 
-    @JITSensitive
-    public Object loadFromPool(int id){
+    private Object loadFromPool(int id){
         Frame frame = frame();
         Pool pool = frame.getPool();
         return pool.load(id, this);
@@ -616,23 +604,8 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         vm.gc(this, prevPtr, assignPtr);
     }
 
-    @JITSensitive
-    public void gc(){
-        vm.gc(this);
-    }
-
-    protected JIT getJIT(){
-        return vm.getJit();
-    }
-
-    @JITSensitive
-    public Data loadGlobal(int index){
-        return vm.loadGlobal(index);
-    }
-
-    @JITSensitive
-    public Data storeGlobal(int index, Data data){
-        return vm.storeGlobal(index, data);
+    public JITCompiler getJIT() {
+        return vm.getJIT();
     }
 
     private interface Interpreter {
