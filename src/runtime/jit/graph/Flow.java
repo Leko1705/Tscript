@@ -28,6 +28,18 @@ public final class Flow {
         }
     }
 
+    public static class BeginNode extends AbstractFlowNode {
+        public <R, P> R accept(FlowWalker<R, P> walker, P param) {
+            return walker.visitBeginNode(this, param);
+        }
+    }
+
+    public static class EndNode extends AbstractFlowNode {
+        public <R, P> R accept(FlowWalker<R, P> walker, P param) {
+            return walker.visitEndNode(this, param);
+        }
+    }
+
     public abstract static class AddressNode extends AbstractFlowNode {
         public final int address;
         public AddressNode(int address) {

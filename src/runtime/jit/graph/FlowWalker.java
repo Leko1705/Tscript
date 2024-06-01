@@ -4,21 +4,36 @@ import static runtime.jit.graph.Flow.*;
 
 public interface FlowWalker<R, P> {
 
+
     R visitStartNode(StartNode startNode, P p);
 
-    R visitLoadParameterNode(LoadParameterNode loadParameterNode, P p);
+    R visitReturnNode(ReturnNode returnNode, P p);
+
+
+
+    R visitIfNode(IfNode ifNode, P p);
+
+    R visitBeginNode(BeginNode endNode, P p);
+
+    R visitEndNode(EndNode endNode, P p);
 
     R visitMergeNode(MergeNode mergeNode, P p);
 
+
+
+    R visitLoadParameterNode(LoadParameterNode loadParameterNode, P p);
+
     R visitExpressionStatementNode(ExpressionStatementNode statementNode, P p);
 
-    R visitIfNode(IfNode ifNode, P p);
+
 
     R visitLoopBeginNode(LoopBeginNode loopBeginNode, P p);
 
     R visitLoopEndNode(LoopEndNode loopEndNode, P p);
 
     R visitLoopExitNode(LoopExitNode loopExitNode, P p);
+
+
 
     R visitTryStartNode(TryStartNode tryStartNode, P p);
 
@@ -30,9 +45,11 @@ public interface FlowWalker<R, P> {
 
     R visitThrowNode(ThrowNode throwNode, P p);
 
-    R visitReturnNode(ReturnNode returnNode, P p);
+
 
     R visitNewLineNode(NewLineNode newLineNode, P p);
+
+
 
     R visitStoreLocalNode(StoreLocalNode storeLocalNode, P p);
 
@@ -41,6 +58,8 @@ public interface FlowWalker<R, P> {
     R visitStoreMemberNode(StoreMemberNode storeMemberNode, P p);
 
     R visitStoreMemberFastNode(StoreMemberFastNode storeMemberFastNode, P p);
+
+
 
     R visitContainerWriteNode(ContainerWriteNode containerWriteNode, P p);
 

@@ -246,6 +246,16 @@ public class TscriptBytecodeGenerator
     }
 
     @Override
+    public Integer visitBeginNode(BeginNode endNode, Void unused) {
+        return 0;
+    }
+
+    @Override
+    public Integer visitEndNode(EndNode endNode, Void unused) {
+        return 0;
+    }
+
+    @Override
     public Integer visitLoadParameterNode(LoadParameterNode loadParameterNode, Void unused) {
         addInstruction(Opcode.STORE_LOCAL, (byte) loadParameterNode.address);
         return scan(loadParameterNode.next);

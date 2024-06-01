@@ -22,6 +22,16 @@ public class SimpleFlowWalker<R, P> implements FlowWalker<R, P> {
     }
 
     @Override
+    public R visitBeginNode(Flow.BeginNode endNode, P p) {
+        return defaultAction(p);
+    }
+
+    @Override
+    public R visitEndNode(Flow.EndNode endNode, P p) {
+        return defaultAction(p);
+    }
+
+    @Override
     public R visitLoadParameterNode(Flow.LoadParameterNode loadParameterNode, P p) {
         return defaultAction(p);
     }
