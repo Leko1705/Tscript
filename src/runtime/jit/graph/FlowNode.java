@@ -2,10 +2,10 @@ package runtime.jit.graph;
 
 public interface FlowNode {
 
-    <R, P> R accept(FlowWalker<R, P> walker, P param);
+    <P, R> R accept(FlowWalker<P, R> walker, P p);
 
-    void setNext(FlowNode next);
-
-    FlowNode getNext();
+    default <P, R> R accept(FlowWalker<P, R> walker){
+        return accept(walker, null);
+    }
 
 }

@@ -4,9 +4,10 @@ import runtime.core.Data;
 import runtime.core.TThread;
 import runtime.core.VirtualFunction;
 import runtime.jit.gen.Generator;
+import runtime.jit.gen.TscriptBytecodeGenerator;
 import runtime.jit.graph.FlowNode;
 import runtime.jit.graph.build.GraphBuilder;
-import runtime.jit.graph.build.GraphBuilder2;
+import runtime.jit.graph.build.GraphBuilderImpl;
 import runtime.jit.optim.Optimizer;
 import runtime.jit.optim.OptimizerImpl;
 import runtime.jit.table.LookUpTable;
@@ -41,7 +42,7 @@ public class MethodTask implements Task {
     }
 
     private FlowNode build(VirtualFunction function) {
-        GraphBuilder builder = new GraphBuilder2();
+        GraphBuilder builder = new GraphBuilderImpl();
         return builder.build(function.getByteCode());
     }
 
@@ -51,7 +52,7 @@ public class MethodTask implements Task {
     }
 
     Callable generate(FlowNode graph) {
-        Generator generator = null;
+        Generator generator = new TscriptBytecodeGenerator(function);
         return generator.generate(graph);
     }
 }

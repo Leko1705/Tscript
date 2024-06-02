@@ -2,7 +2,7 @@ package runtime.jit.graph;
 
 import static runtime.jit.graph.Expressions.*;
 
-public interface ExpressionVisitor<R, P> {
+public interface ExpressionVisitor<P, R> {
 
     R visitNullValueNode(NullValueNode nullValueNode, P p);
 

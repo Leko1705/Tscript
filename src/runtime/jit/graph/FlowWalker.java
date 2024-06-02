@@ -1,39 +1,26 @@
 package runtime.jit.graph;
 
-import static runtime.jit.graph.Flow.*;
+import runtime.jit.graph.Flow.*;
 
-public interface FlowWalker<R, P> {
-
+public interface FlowWalker<P, R> {
 
     R visitStartNode(StartNode startNode, P p);
 
-    R visitReturnNode(ReturnNode returnNode, P p);
 
+    R visitBranchNode(BranchNode branchNode, P p);
 
+    R visitBeginNode(BeginNode beginNode, P p);
 
-    R visitIfNode(IfNode ifNode, P p);
+    R visitGotoNode(GotoNode gotoNode, P p);
 
-    R visitBeginNode(BeginNode endNode, P p);
-
-    R visitEndNode(EndNode endNode, P p);
-
-    R visitMergeNode(MergeNode mergeNode, P p);
-
-
+    R visitPathEndNode(PathEndNode pathEndNode, P p);
+    
 
     R visitLoadParameterNode(LoadParameterNode loadParameterNode, P p);
 
-    R visitExpressionStatementNode(ExpressionStatementNode statementNode, P p);
+    R visitExpressionStatementNode(ExpressionStatementNode expressionStatementNode, P p);
 
-
-
-    R visitLoopBeginNode(LoopBeginNode loopBeginNode, P p);
-
-    R visitLoopEndNode(LoopEndNode loopEndNode, P p);
-
-    R visitLoopExitNode(LoopExitNode loopExitNode, P p);
-
-
+    R visitThrowNode(ThrowNode throwNode, P p);
 
     R visitTryStartNode(TryStartNode tryStartNode, P p);
 
@@ -43,15 +30,13 @@ public interface FlowWalker<R, P> {
 
     R visitCatchEndNode(CatchEndNode catchEndNode, P p);
 
-    R visitThrowNode(ThrowNode throwNode, P p);
-
-
+    R visitReturnNode(ReturnNode returnNode, P p);
 
     R visitNewLineNode(NewLineNode newLineNode, P p);
 
-
-
     R visitStoreLocalNode(StoreLocalNode storeLocalNode, P p);
+
+    R visitStoreGlobalNode(StoreGlobalNode storeGlobalNode, P p);
 
     R visitStoreStaticNode(StoreStaticNode storeStaticNode, P p);
 
@@ -59,11 +44,9 @@ public interface FlowWalker<R, P> {
 
     R visitStoreMemberFastNode(StoreMemberFastNode storeMemberFastNode, P p);
 
-
+    R visitBreakPointNode(BreakPointNode breakPointNode, P p);
 
     R visitContainerWriteNode(ContainerWriteNode containerWriteNode, P p);
-
-    R visitBreakPointNode(BreakPointNode breakPointNode, P p);
 
     R visitUseNode(UseNode useNode, P p);
 

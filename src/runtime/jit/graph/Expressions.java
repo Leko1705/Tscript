@@ -10,13 +10,13 @@ public final class Expressions {
     }
 
     public interface ValueNode<T> extends ExpressionNode {
-        <R, P> R accept(ExpressionVisitor<R, P> walker, P p);
+        <P, R> R accept(ExpressionVisitor<P, R> walker, P p);
         T get();
     }
 
     public static class NullValueNode implements ValueNode<Void> {
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitNullValueNode(this, p);
         }
         @Override
@@ -31,7 +31,7 @@ public final class Expressions {
             this.value = value;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitIntegerValueNode(this, p);
         }
         @Override
@@ -46,7 +46,7 @@ public final class Expressions {
             this.value = value;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitBooleanValueNode(this, p);
         }
         @Override
@@ -57,7 +57,7 @@ public final class Expressions {
 
     public static class ThisNode implements ExpressionNode {
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitThisNode(this, p);
         }
     }
@@ -74,7 +74,7 @@ public final class Expressions {
             super(address);
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitConstantNode(this, p);
         }
     }
@@ -84,7 +84,7 @@ public final class Expressions {
             super(address);
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitLoadLocalNode(this, p);
         }
     }
@@ -94,7 +94,7 @@ public final class Expressions {
             super(address);
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitLoadGlobalNode(this, p);
         }
     }
@@ -104,7 +104,7 @@ public final class Expressions {
             super(address);
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitLoadMemberNode(this, p);
         }
     }
@@ -114,7 +114,7 @@ public final class Expressions {
             super(address);
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitLoadMemberFastNode(this, p);
         }
     }
@@ -124,7 +124,7 @@ public final class Expressions {
             super(address);
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitLoadStaticNode(this, p);
         }
     }
@@ -134,7 +134,7 @@ public final class Expressions {
             super(address);
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitLoadAbstractImplNode(this, p);
         }
     }
@@ -144,7 +144,7 @@ public final class Expressions {
             super(address);
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitLoadNameNode(this, p);
         }
     }
@@ -157,7 +157,7 @@ public final class Expressions {
             this.key = key;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitContainerReadNode(this, p);
         }
     }
@@ -169,7 +169,7 @@ public final class Expressions {
             this.value = value;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitArgumentNode(this, p);
         }
     }
@@ -184,7 +184,7 @@ public final class Expressions {
             this.right = right;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitBinaryOperationNode(this, p);
 
         }
@@ -198,7 +198,7 @@ public final class Expressions {
             this.expression = expression;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitUnaryOperationNode(this, p);
         }
     }
@@ -209,7 +209,7 @@ public final class Expressions {
             this.expression = expression;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitGetTypeNode(this, p);
         }
     }
@@ -222,7 +222,7 @@ public final class Expressions {
             this.to = to;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitRangeNode(this, p);
         }
     }
@@ -233,7 +233,7 @@ public final class Expressions {
             this.content = content;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitArrayNode(this, p);
         }
     }
@@ -246,7 +246,7 @@ public final class Expressions {
             this.values = values;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitDictNode(this, p);
         }
     }
@@ -259,7 +259,7 @@ public final class Expressions {
             this.arguments = arguments;
         }
         @Override
-        public <R, P> R accept(ExpressionVisitor<R, P> walker, P p) {
+        public <P, R> R accept(ExpressionVisitor<P, R> walker, P p) {
             return walker.visitCallNode(this, p);
         }
     }
