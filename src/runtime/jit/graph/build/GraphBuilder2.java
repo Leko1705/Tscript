@@ -45,6 +45,14 @@ public class GraphBuilder2 implements GraphBuilder {
         nodeMap.add(node, index);
     }
 
+    private int intFrom2Bytes(byte[] bytes){
+        return jumpAddress(bytes[1], bytes[2]);
+    }
+
+    private int jumpAddress(byte b1, byte b2){
+        return ((b1 & 0xff) << 8) | (b2 & 0xff);
+    }
+
 
     @Override
     public FlowNode build(byte[][] code) {
@@ -161,7 +169,7 @@ public class GraphBuilder2 implements GraphBuilder {
 
 
     private void handleGoto(int index, byte[] inst){
-
+        
     }
 
     private void handleBranch(Opcode opcode, int index, byte[] inst){
