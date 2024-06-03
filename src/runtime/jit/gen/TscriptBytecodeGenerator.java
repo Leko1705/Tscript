@@ -50,11 +50,7 @@ public class TscriptBytecodeGenerator implements Generator, FlowWalker<Void, Voi
 
     private void printAll(){
         for (Instruction inst : instructions){
-            System.out.print(inst.opcode);
-            for (int i = 1; i < inst.extras.length; i++){
-                System.out.print(" " + inst.extras[i]);
-            }
-            System.out.println();
+            System.out.println(inst);
         }
     }
 
@@ -97,28 +93,70 @@ public class TscriptBytecodeGenerator implements Generator, FlowWalker<Void, Voi
     @Override
     public Void visitBranchNode(Flow.BranchNode branchNode, Void unused) {
         if (addresses.containsKey(branchNode)) return null;
-
         setAddress(branchNode);
+        int extStart = instructions.size();
         branchNode.condition.accept(this);
 
-        int branchPos = instructions.size();
-
-        branchNode.T.accept(this);
-
-        Instruction branchInst = new Instruction(Opcode.BRANCH_IF_FALSE, Conversion.toJumpAddress(instructions.size() + 1));
-
-        int gotoPos = instructions.size();
-        branchNode.F.accept(this);
-
-        if (gotoPos != instructions.size()) {
-            instructions.add(gotoPos, new Instruction(Opcode.GOTO, Conversion.toJumpAddress(instructions.size() + 2)));
-            branchInst.extras = Conversion.toJumpAddress(gotoPos + 2);
+        if (branchNode.getContext() == ControlFlowContext.BRANCH_BACKWARD) {
+            handleLoopBranch(branchNode);
+        }
+        else if (branchNode.getContext() == ControlFlowContext.BRANCH_FORWARD){
+            handleIfElseBranch(branchNode);
+        }
+        else if (branchNode.getContext() == ControlFlowContext.BRANCH_SELF){
+            handleSelfBranch(extStart, branchNode);
         }
 
-        instructions.add(branchPos, branchInst);
-
-        pathEndStack.pop().getNext().accept(this);
         return null;
+    }
+
+    private void handleLoopBranch(Flow.BranchNode branchNode){
+
+    }
+
+    private void handleIfElseBranch(Flow.BranchNode branchNode){
+        FlowNode ifTrueNext;
+        FlowNode ifFalseNext;
+        Opcode branchOp;
+
+        ifTrueNext = branchNode.T;
+        ifFalseNext = branchNode.F;
+        branchOp = Opcode.BRANCH_IF_FALSE;
+
+        Instruction branchInst = new Instruction(branchOp, null);
+        instructions.add(branchInst);
+
+        ifTrueNext.accept(this);
+
+        Instruction gotoInst = new Instruction(Opcode.GOTO, null);
+        instructions.add(gotoInst);
+
+        branchInst.extras = Conversion.toJumpAddress(instructions.size());
+
+        ifFalseNext.accept(this);
+
+        gotoInst.extras = Conversion.toJumpAddress(instructions.size());
+
+        if (!pathEndStack.isEmpty()) {
+            pathEndStack.pop().getNext().accept(this);
+        }
+    }
+
+    private void handleSelfBranch(int expStart, Flow.BranchNode branchNode){
+        Opcode branchOp;
+        FlowNode next;
+
+        if (branchNode.ifTrue){
+            branchOp = Opcode.BRANCH_IF_FALSE;
+            next = branchNode.T;
+        }
+        else {
+            branchOp = Opcode.BRANCH_IF_TRUE;
+            next = branchNode.F;
+        }
+
+        addInstruction(branchOp, Conversion.toJumpAddress(expStart));
+        next.accept(this);
     }
 
     @Override
@@ -138,13 +176,25 @@ public class TscriptBytecodeGenerator implements Generator, FlowWalker<Void, Voi
             return null;
         }
 
-        return next.accept(this);
+        Integer jumpAddress = addresses.get(next);
+
+        next.accept(this);
+
+        if (jumpAddress != null) {
+            addInstruction(Opcode.GOTO, jumpAddress);
+        }
+
+        return null;
     }
 
     private final Set<Flow.PathEndNode> visitedEnds = new HashSet<>();
 
     @Override
     public Void visitPathEndNode(Flow.PathEndNode pathEndNode, Void unused) {
+
+        if (pathEndNode.getContext() == ControlFlowContext.BRANCH_PATH_CLOSE){
+            return pathEndNode.getNext().accept(this);
+        }
 
         if (visitedEnds.contains(pathEndNode)){
             // all branch paths visited
@@ -426,6 +476,14 @@ public class TscriptBytecodeGenerator implements Generator, FlowWalker<Void, Voi
         public Instruction(Opcode opcode, byte[] extras) {
             this.opcode = opcode;
             this.extras = extras;
+        }
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder(opcode.toString());
+            for (byte b : extras){
+                sb.append(" ").append(b);
+            }
+            return sb.toString();
         }
     }
 }

@@ -1,9 +1,7 @@
 
 
 function foo(){
-    if false then {
-        do; while true;
-    }
+    do; while false;
 }
 
 do foo(); while true;

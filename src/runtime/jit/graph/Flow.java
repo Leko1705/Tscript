@@ -19,10 +19,17 @@ public final class Flow {
         }
     }
 
-    public static class BranchNode implements FlowNode {
-        public BranchNode(ExpressionNode condition){ this.condition = condition; }
+    public static class BranchNode implements ControlFlowNode {
+        public BranchNode(ExpressionNode condition, ControlFlowContext context, boolean ifTrue){
+            this.condition = condition;
+            this.context = context;
+            this.ifTrue = ifTrue;
+        }
         public ExpressionNode condition;
         public FlowNode T, F;
+        public final boolean ifTrue;
+        private final ControlFlowContext context;
+        @Override public ControlFlowContext getContext() { return context; }
         @Override public <P, R> R accept(FlowWalker<P, R> walker, P p) {
             return walker.visitBranchNode(this, p);
         }

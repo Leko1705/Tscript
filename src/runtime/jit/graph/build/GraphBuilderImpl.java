@@ -181,7 +181,7 @@ public class GraphBuilderImpl implements GraphBuilder {
             current = endNode;
         }
         else {
-            Flow.PathEndNode endNode = new Flow.PathEndNode(null);
+            Flow.PathEndNode endNode = new Flow.PathEndNode(ControlFlowContext.BRANCH_PATH_CLOSE);
             current.setNext(endNode);
             current = endNode;
 
@@ -196,7 +196,7 @@ public class GraphBuilderImpl implements GraphBuilder {
 
         if (index == targetAddress){
             // endless loop
-            Flow.GotoNode gotoNode = new Flow.GotoNode(null);
+            Flow.GotoNode gotoNode = new Flow.GotoNode(ControlFlowContext.JUMP_SELF);
             gotoNode.setNext(gotoNode);
             expandLinkedFlow(index, gotoNode);
             return;
@@ -210,15 +210,15 @@ public class GraphBuilderImpl implements GraphBuilder {
         FlowNode next = nodeMap.get(targetAddress);
 
         if (next != null){
-            Flow.GotoNode gotoNode = new Flow.GotoNode(null);
+            Flow.GotoNode gotoNode = new Flow.GotoNode(ControlFlowContext.JUMP_BACKWARD);
             gotoNode.setNext(next);
             expandLinkedFlow(index, gotoNode);
         }
         else {
-            Flow.PathEndNode pathEndNode = new Flow.PathEndNode(null);
+            Flow.PathEndNode pathEndNode = new Flow.PathEndNode(ControlFlowContext.BRANCH_PATH_END);
             nodeMap.put(targetAddress, pathEndNode);
 
-            Flow.GotoNode gotoNode = new Flow.GotoNode(null);
+            Flow.GotoNode gotoNode = new Flow.GotoNode(ControlFlowContext.JUMP_FORWARD);
             gotoNode.setNext(pathEndNode);
             expandLinkedFlow(index, gotoNode);
 
@@ -244,7 +244,7 @@ public class GraphBuilderImpl implements GraphBuilder {
         FlowNode jumpTargetNode = nodeMap.get(targetAddress);
 
         if (jumpTargetNode != null){
-            handleKnownTargetBranch(opcode, index, jumpTargetNode);
+            handleKnownTargetBranch(opcode, index, targetAddress, jumpTargetNode);
         }
         else {
             handleUnknownTargetBranch(opcode, index, targetAddress);
@@ -253,9 +253,9 @@ public class GraphBuilderImpl implements GraphBuilder {
     }
 
     private void handleSelfBranch(Opcode opcode, int index){
-        Flow.BranchNode branchNode = new Flow.BranchNode(stack.pop());
+        Flow.BranchNode branchNode = new Flow.BranchNode(stack.pop(), ControlFlowContext.BRANCH_SELF, opcode == Opcode.BRANCH_IF_FALSE);
 
-        Flow.GotoNode gotoNode = new Flow.GotoNode(null);
+        Flow.GotoNode gotoNode = new Flow.GotoNode(ControlFlowContext.JUMP_BACKWARD);
         gotoNode.setNext(branchNode);
 
         Flow.BeginNode beginNode = new Flow.BeginNode();
@@ -278,13 +278,25 @@ public class GraphBuilderImpl implements GraphBuilder {
 
     }
 
-    private void handleKnownTargetBranch(Opcode opcode, int index, FlowNode jumpTargetNode){
-        Flow.GotoNode gotoNode = new Flow.GotoNode(null);
+    private void handleKnownTargetBranch(Opcode opcode, int index, int targetAddress, FlowNode jumpTargetNode){
+        ControlFlowContext gotoCtx;
+        ControlFlowContext branchCtx;
+
+        if (index < targetAddress){
+            gotoCtx = ControlFlowContext.JUMP_FORWARD;
+            branchCtx = ControlFlowContext.BRANCH_FORWARD;
+        }
+        else {
+            gotoCtx = ControlFlowContext.JUMP_BACKWARD;
+            branchCtx = ControlFlowContext.BRANCH_BACKWARD;
+        }
+
+        Flow.GotoNode gotoNode = new Flow.GotoNode(gotoCtx);
         gotoNode.setNext(jumpTargetNode);
 
         Flow.BeginNode beginNode = new Flow.BeginNode();
 
-        Flow.BranchNode branchNode = new Flow.BranchNode(stack.pop());
+        Flow.BranchNode branchNode = new Flow.BranchNode(stack.pop(), branchCtx, opcode == Opcode.BRANCH_IF_TRUE);
 
         if (opcode == Opcode.BRANCH_IF_TRUE){
             // if true
@@ -304,9 +316,9 @@ public class GraphBuilderImpl implements GraphBuilder {
 
 
     private void handleUnknownTargetBranch(Opcode opcode, int index, int targetAddress){
-        Flow.BranchNode branchNode = new Flow.BranchNode(stack.pop());
+        Flow.BranchNode branchNode = new Flow.BranchNode(stack.pop(), ControlFlowContext.BRANCH_FORWARD, opcode == Opcode.BRANCH_IF_FALSE);
 
-        Flow.GotoNode gotoNode = new Flow.GotoNode(null);
+        Flow.GotoNode gotoNode = new Flow.GotoNode(ControlFlowContext.JUMP_FORWARD);
         Flow.BeginNode gotoBeginNode = new Flow.BeginNode();
         gotoNode.setNext(gotoBeginNode);
 
