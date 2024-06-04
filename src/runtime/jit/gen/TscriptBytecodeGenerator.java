@@ -111,7 +111,15 @@ public class TscriptBytecodeGenerator implements Generator, FlowWalker<Void, Voi
     }
 
     private void handleLoopBranch(Flow.BranchNode branchNode){
+        Opcode branchOp = branchNode.ifTrue ? Opcode.BRANCH_IF_TRUE : Opcode.BRANCH_IF_FALSE;
 
+        Flow.GotoNode gotoNode = (Flow.GotoNode) branchNode.T;
+        int address = addresses.get(gotoNode.getNext());
+
+        Instruction branchInst = new Instruction(branchOp, Conversion.toJumpAddress(address));
+        instructions.add(branchInst);
+
+        branchNode.F.accept(this);
     }
 
     private void handleIfElseBranch(Flow.BranchNode branchNode){

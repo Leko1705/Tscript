@@ -8,4 +8,8 @@ public interface FlowNode {
         return accept(walker, null);
     }
 
+    void replace(FlowNode old, FlowNode newNode);
+
+    void remove(FlowNode old);
+
 }

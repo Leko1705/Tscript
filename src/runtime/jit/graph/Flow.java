@@ -17,9 +17,21 @@ public final class Flow {
         @Override public <P, R> R accept(FlowWalker<P, R> walker, P p) {
             return walker.visitGotoNode(this, p);
         }
+
+        @Override
+        public void replace(FlowNode old, FlowNode newNode) {
+            if (old == next) {
+                next = newNode;
+            }
+        }
+
+        @Override
+        public void remove(FlowNode old) {
+            throw new UnsupportedOperationException();
+        }
     }
 
-    public static class BranchNode implements ControlFlowNode {
+    public static class BranchNode implements ControlFlowNode, ExpressionOwner {
         public BranchNode(ExpressionNode condition, ControlFlowContext context, boolean ifTrue){
             this.condition = condition;
             this.context = context;
@@ -33,6 +45,34 @@ public final class Flow {
         @Override public <P, R> R accept(FlowWalker<P, R> walker, P p) {
             return walker.visitBranchNode(this, p);
         }
+
+        @Override
+        public void replace(FlowNode old, FlowNode newNode) {
+            if (old == T){
+                T = newNode;
+            }
+            else if (old == F){
+                F = newNode;
+            }
+        }
+
+        @Override
+        public void remove(FlowNode old) {
+            if (old == T){
+                T = null;
+            }
+            else if (old == F){
+                F = null;
+            }
+        }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (condition == old){
+                condition = newNode;
+            }
+        }
+
     }
 
     public static class PathEndNode implements ControlFlowNode, LinkedFlowNode {
@@ -45,6 +85,18 @@ public final class Flow {
         @Override public <P, R> R accept(FlowWalker<P, R> walker, P p) {
             return walker.visitPathEndNode(this, p);
         }
+
+        @Override
+        public void replace(FlowNode old, FlowNode newNode) {
+            if (old == next) {
+                next = newNode;
+            }
+        }
+
+        @Override
+        public void remove(FlowNode old) {
+            throw new UnsupportedOperationException();
+        }
     }
 
 
@@ -52,6 +104,18 @@ public final class Flow {
         private FlowNode next;
         @Override  public FlowNode getNext() { return next; }
         @Override public void setNext(FlowNode next) { this.next = next; }
+
+        @Override
+        public void remove(FlowNode old) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void replace(FlowNode old, FlowNode newNode) {
+            if (old == next) {
+                next = newNode;
+            }
+        }
     }
 
 
@@ -87,7 +151,7 @@ public final class Flow {
     }
 
 
-    public static class ExpressionStatementNode extends AbstractLinkedNode {
+    public static class ExpressionStatementNode extends AbstractLinkedNode implements ExpressionOwner {
         public ExpressionNode expression;
         public ExpressionStatementNode(ExpressionNode expr) {
             this.expression = expr;
@@ -95,10 +159,18 @@ public final class Flow {
         public <P, R> R accept(FlowWalker<P, R> walker, P param) {
             return walker.visitExpressionStatementNode(this, param);
         }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (expression == old){
+                expression = newNode;
+            }
+        }
+
     }
 
 
-    public static class ThrowNode extends AbstractLinkedNode {
+    public static class ThrowNode extends AbstractLinkedNode implements ExpressionOwner {
         public ExpressionNode expression;
         public ThrowNode(ExpressionNode expr){
             this.expression = expr;
@@ -106,6 +178,14 @@ public final class Flow {
         public <P, R> R accept(FlowWalker<P, R> walker, P param) {
             return walker.visitThrowNode(this, param);
         }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (expression == old){
+                expression = newNode;
+            }
+        }
+
     }
 
     public static class TryStartNode extends AbstractLinkedNode {
@@ -132,7 +212,7 @@ public final class Flow {
         }
     }
 
-    public static class ReturnNode extends AbstractLinkedNode {
+    public static class ReturnNode extends AbstractLinkedNode implements ExpressionOwner {
         public ExpressionNode expression;
         public ReturnNode(ExpressionNode expression){
             this.expression = expression;
@@ -141,6 +221,14 @@ public final class Flow {
         public <P, R> R accept(FlowWalker<P, R> walker, P param) {
             return walker.visitReturnNode(this, param);
         }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (expression == old){
+                expression = newNode;
+            }
+        }
+
     }
 
     public static class NewLineNode extends AbstractLinkedNode {
@@ -153,7 +241,7 @@ public final class Flow {
         }
     }
 
-    public static class StoreGlobalNode extends AddressNode {
+    public static class StoreGlobalNode extends AddressNode implements ExpressionOwner {
         public ExpressionNode expression;
         public StoreGlobalNode(int address, ExpressionNode expr) {
             super(address);
@@ -162,9 +250,17 @@ public final class Flow {
         public <P, R> R accept(FlowWalker<P, R> walker, P param) {
             return walker.visitStoreGlobalNode(this, param);
         }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (expression == old){
+                expression = newNode;
+            }
+        }
+
     }
 
-    public static class StoreLocalNode extends AddressNode {
+    public static class StoreLocalNode extends AddressNode implements ExpressionOwner {
         public ExpressionNode expression;
         public StoreLocalNode(int address, ExpressionNode expr) {
             super(address);
@@ -173,9 +269,17 @@ public final class Flow {
         public <P, R> R accept(FlowWalker<P, R> walker, P param) {
             return walker.visitStoreLocalNode(this, param);
         }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (expression == old){
+                expression = newNode;
+            }
+        }
+
     }
 
-    public static class StoreStaticNode extends AddressNode {
+    public static class StoreStaticNode extends AddressNode implements ExpressionOwner {
         public ExpressionNode expression;
         public StoreStaticNode(int address, ExpressionNode expr) {
             super(address);
@@ -185,9 +289,17 @@ public final class Flow {
         public <P, R> R accept(FlowWalker<P, R> walker, P param) {
             return walker.visitStoreStaticNode(this, param);
         }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (expression == old){
+                expression = newNode;
+            }
+        }
+
     }
 
-    public static class StoreMemberNode extends AddressNode {
+    public static class StoreMemberNode extends AddressNode implements ExpressionOwner {
         public ExpressionNode expression;
         public StoreMemberNode(int address, ExpressionNode expr) {
             super(address);
@@ -196,9 +308,17 @@ public final class Flow {
         public <P, R> R accept(FlowWalker<P, R> walker, P param) {
             return walker.visitStoreMemberNode(this, param);
         }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (expression == old){
+                expression = newNode;
+            }
+        }
+
     }
 
-    public static class StoreMemberFastNode extends AddressNode {
+    public static class StoreMemberFastNode extends AddressNode implements ExpressionOwner {
         public ExpressionNode expression;
         public StoreMemberFastNode(int address, ExpressionNode expr) {
             super(address);
@@ -207,9 +327,17 @@ public final class Flow {
         public <P, R> R accept(FlowWalker<P, R> walker, P param) {
             return walker.visitStoreMemberFastNode(this, param);
         }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (expression == old){
+                expression = newNode;
+            }
+        }
+
     }
 
-    public static class ContainerWriteNode extends AbstractLinkedNode {
+    public static class ContainerWriteNode extends AbstractLinkedNode implements ExpressionOwner {
         public ExpressionNode container;
         public ExpressionNode key;
         public ExpressionNode value;
@@ -222,6 +350,20 @@ public final class Flow {
         public <P, R> R accept(FlowWalker<P, R> walker, P param) {
             return walker.visitContainerWriteNode(this, param);
         }
+
+        @Override
+        public void replace(ExpressionNode old, ExpressionNode newNode) {
+            if (container == old){
+                container = newNode;
+            }
+            if (key == old){
+                key = newNode;
+            }
+            if (value == old){
+                value = newNode;
+            }
+        }
+
     }
 
     public static class BreakPointNode extends AbstractLinkedNode {

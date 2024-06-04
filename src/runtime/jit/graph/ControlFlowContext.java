@@ -12,4 +12,8 @@ public enum ControlFlowContext {
     BRANCH_PATH_END,
     BRANCH_PATH_CLOSE,
 
+    BRANCH_ITR_FORWARD,
+    BRANCH_ITR_BACKWARDS,
+    BRANCH_ITR_SELF,
+
 }
