@@ -10,7 +10,7 @@ class NoJITCompiler implements JITCompiler {
 
     public NoJITCompiler() {
         if (lookupTable == null) {
-            lookupTable = new LookUpTableImpl();
+            lookupTable = new NoLookUpTable();
         }
     }
 

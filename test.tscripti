@@ -2,34 +2,23 @@ magic number: 0xDEAD
 minor: 0
 major: 0
 entry-point: 0
-globals: 3
+globals: 2
 
 constant-pool:
 	0: FUNCTION __main__
 	1: NATIVE print
 	2: NATIVE exit
-	3: FUNCTION foo
+	3: STRING hello world!
 
-__main__: params=[] stack=1 locals=3
+__main__: params=[] stack=2 locals=2
 	LOAD_CONST 1
 	STORE_GLOBAL 0
 	LOAD_CONST 2
 	STORE_GLOBAL 1
 	LOAD_CONST 3
-	STORE_GLOBAL 2
-	LOAD_GLOBAL 2
-	NEW_LINE 7
-	CALL 0
+	LOAD_GLOBAL 0
+	NEW_LINE 2
+	CALL 1
 	POP
-	PUSH_BOOL 1
-	BRANCH_IF_TRUE 0 6
-	PUSH_NULL
-	RETURN
-
-foo: params=[] stack=1 locals=0
-	PUSH_BOOL 0
-	BRANCH_IF_FALSE 0 4
-	PUSH_BOOL 0
-	BRANCH_IF_TRUE 0 2
 	PUSH_NULL
 	RETURN

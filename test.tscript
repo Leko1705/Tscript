@@ -1,7 +1,2 @@
 
-
-function foo(){
-    while false do;
-}
-
-do foo(); while true;
+print("hello world!");
