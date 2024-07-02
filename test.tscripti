@@ -2,44 +2,23 @@ magic number: 0xDEAD
 minor: 0
 major: 0
 entry-point: 0
-globals: 4
+globals: 2
 
 constant-pool:
 	0: FUNCTION __main__
 	1: NATIVE print
 	2: NATIVE exit
-	3: TYPE X
-	4: FUNCTION constructor of X
-	5: FUNCTION X@static
+	3: STRING Hello world!
 
-__main__: params=[] stack=1 locals=4
+__main__: params=[] stack=2 locals=2
 	LOAD_CONST 1
 	STORE_GLOBAL 0
 	LOAD_CONST 2
 	STORE_GLOBAL 1
-	NEW_LINE 6
 	LOAD_CONST 3
-	CALL 0
-	STORE_GLOBAL 3
-	PUSH_BOOL 1
-	BRANCH_IF_FALSE 0 16
-	NEW_LINE 9
-	LOAD_CONST 3
-	CALL 0
-	STORE_GLOBAL 3
-	PUSH_BOOL 1
-	BRANCH_IF_TRUE 0 10
+	LOAD_GLOBAL 0
+	NEW_LINE 3
+	CALL 1
+	POP
 	PUSH_NULL
 	RETURN
-
-X@static: params=[] stack=1 locals=0
-	PUSH_NULL
-	RETURN
-
-constructor of X: params=[] stack=1 locals=0
-	PUSH_NULL
-	RETURN
-
-Type X:
-	 constructor at: 4
-	 @static at: 5

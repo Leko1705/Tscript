@@ -59,7 +59,7 @@ public class CFGBuilder {
     private void branchBack(int index, BranchedLink link, CFGNode targetNode){
         if (link.branchIfFalse){
             link.T = targetNode;
-5
+
         }
     }
 
