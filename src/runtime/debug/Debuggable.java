@@ -1,9 +1,0 @@
-package runtime.debug;
-
-import runtime.heap.Heap;
-
-public interface Debuggable<I extends DebugInfo> {
-
-    I loadInfo(Heap heap);
-    
-}
