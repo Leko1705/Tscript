@@ -12,7 +12,7 @@ import com.tscript.tscriptc.util.Conversion;
 import java.io.File;
 import java.util.*;
 
-public class TThread extends Thread implements Debuggable<ThreadInfo> {
+public class TThread extends Thread implements Debuggable<ThreadInfo>, Interpreter {
 
     private final TscriptVM vm;
     private final Callable baseFunction;
@@ -24,9 +24,7 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
 
     private volatile boolean running = true;
 
-
-    private final Interpreter DEFAULT_INTERPRETER = new SimpleInterpreter();
-    private Interpreter interpreter = DEFAULT_INTERPRETER;
+    private Interpreter interpreter = this;
 
 
     public TThread(TscriptVM vm, Callable callable, int threadID) {
@@ -123,7 +121,7 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
             case BREAK_POINT -> interpreter.onBreakPoint();
             case USE -> interpreter.use();
             case LOAD_NAME -> interpreter.loadName(instruction[1]);
-            case NEW_LINE -> setLine(Conversion.fromBytes(
+            case NEW_LINE -> interpreter.setLine(Conversion.fromBytes(
                     instruction[1],
                     instruction[2],
                     instruction[3],
@@ -142,68 +140,11 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         return frameStack.element();
     }
 
-    private void storeGlobal(int addr){
-        Data dataToWrite = pop();
-        Data displaced = vm.storeGlobal(addr, dataToWrite);
-        reassignValue(displaced, dataToWrite);
-    }
 
-    private void storeLocal(int addr){
-        Data dataToWrite = pop();
-        Frame frame = frame();
-        Data displaced = frame.store(addr, dataToWrite);
-        reassignValue(displaced, dataToWrite);
-    }
-
-    private void loadConst(int poolAddr){
-        Data data = (Data) loadFromPool(poolAddr);
-        if (data == null) return;
-        Frame frame = frame();
-        if (data instanceof Callable c){
-            if (frame.getOwner() != null){
-                c.setOwner(frame.getOwner());
-            }
-            else {
-                c.setOwner(c);
-            }
-            if (!(c instanceof TType))
-                data = storeHeap(c);
-        }
-        push(data);
-    }
-
-    private void operateBinary(Opcode operation){
-        Data right = pop();
-        Data left = pop();
-        Data result = ALU.performBinaryOperation(left, right, operation, this);
-        if (result != null)
-            push(result);
-    }
-
-    private void operateUnary(Opcode operation){
-        Data operand = pop();
-        Data result = ALU.performUnaryOperation(operand, operation, this);
-        if (result != null)
-            push(result);
-    }
-
-    private void loadStatic(int poolAddr){
-        String memberName = (String) loadFromPool(poolAddr);
-        Member member = searchStaticMember(memberName);
-        if (member == null) return;
-        push(member.data);
-    }
-
-    private void storeStatic(int poolAddr){
-        Data dataToWrite = pop();
-        String memberName = (String) loadFromPool(poolAddr);
-        Member member = searchStaticMember(memberName);
-        if (member == null) return;
-        if (member.kind == Member.Kind.IMMUTABLE){
-            reportRuntimeError("can not assign to a constant");
-            return;
-        }
-        member.data = dataToWrite;
+    @JITSensitive
+    public Data storeGlobal(int index, Data data){
+        TModule module = (TModule) unpack(frame().getModuleReference());
+        return module.storeGlobal(index, data);
     }
 
     private Member searchStaticMember(String name){
@@ -226,25 +167,7 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         return member;
     }
 
-    private void unsafeMemberAccess(int poolAddr){
-        String memberName = (String) loadFromPool(poolAddr);
-        Member member = accessMember(unpack(pop()), memberName);
-        if (member == null) return;
-        push(member.data);
-    }
 
-    private void unsafeMemberWrite(int poolAddr){
-        String memberName = (String) loadFromPool(poolAddr);
-        Data accessed = pop();
-        Data dataToWrite = pop();
-        Member member = accessMember(unpack(accessed), memberName);
-        if (member == null) return;
-        if (member.kind == Member.Kind.IMMUTABLE){
-            reportRuntimeError("can not assign to a constant");
-            return;
-        }
-        member.data = dataToWrite;
-    }
 
     private Member accessMember(TObject accessed, String memberName){
         Member member = accessed.get(memberName);
@@ -261,196 +184,7 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         return member;
     }
 
-    private void fastMemberAccess(int addr){
-        Frame frame = frame();
-        TObject owner = unpack(frame.getOwner());
-        Member member = owner.get(addr);
-        push(member.data);
-    }
 
-    private void fastMemberWrite(int addr){
-        Frame frame = frame();
-
-        TObject owner = unpack(frame.getOwner());
-        Member member = owner.get(addr);
-        Data assigned  = pop();
-        if (member.kind == null && member.data == null){
-            // member was not initialized yet
-            member.kind = unpack(assigned) instanceof Callable
-                    ? Member.Kind.IMMUTABLE
-                    : Member.Kind.MUTABLE;
-        }
-        member.data = assigned;
-    }
-
-    private void loadAbstractMethod(int poolAddr){
-        String methodName = (String) loadFromPool(poolAddr);
-        Frame frame = frame();
-        TObject owner = unpack(frame.getOwner());
-        TType currType = owner.getType();
-        while (currType != null){
-            Member member = owner.get(methodName);
-            if (member == null) {
-                currType = currType.getSuper();
-                continue;
-            }
-            push(member.data);
-            return;
-        }
-        reportRuntimeError("can not find implementation of '" + methodName + "'");
-    }
-
-    private void loadName(int poolAddr){
-        String name = (String) loadFromPool(poolAddr);
-        Frame frame = frame();
-        Data data = frame.loadName(name);
-        if (data == null){
-            reportRuntimeError("can not find name '" + name + "'");
-            return;
-        }
-        push(data);
-    }
-
-    private void use(){
-        TObject object = unpack(pop());
-        Frame frame = frame();
-        for (Member member : object.getMembers()){
-            boolean success = frame.storeName(member.name, member.data);
-            if (!success){
-                reportRuntimeError("name '" + member.name + "' already used");
-                return;
-            }
-        }
-    }
-
-    private void jumpTo(int addr){
-        frame().jumpTo(addr);
-    }
-
-    private void containerRead(){
-        Data candidate = pop();
-        if (!(candidate instanceof ContainerAccessible accessible)){
-            reportRuntimeError(candidate + " is not accessible");
-            return;
-        }
-        Data key = pop();
-        Data accessed = accessible.readFromContainer(this, key);
-        if (accessed == null)
-            return;
-        push(accessed);
-    }
-
-    private void containerWrite(){
-        Data candidate = pop();
-        if (!(candidate instanceof ContainerWriteable writeable)){
-            reportRuntimeError(candidate + " is not accessible");
-            return;
-        }
-        Data key = pop();
-        Data value = pop();
-        writeable.writeToContainer(this, key, value);
-    }
-
-    private void getItr(){
-        Data candidate = pop();
-        if (!(candidate instanceof IterableObject iterable)){
-            reportRuntimeError(candidate + " is not iterable");
-            return;
-        }
-        push(iterable.iterator());
-    }
-
-    private void itrNext(){
-        IteratorObject itr = (IteratorObject) pop();
-        push(itr);
-        push(itr.next());
-    }
-
-    private void branchItr(int addr){
-        IteratorObject itr = (IteratorObject) pop();
-        if (!itr.hasNext()) {
-            jumpTo(addr);
-            return;
-        }
-        push(itr);
-    }
-
-    private void branchOnBoolean(boolean when, int addr){
-        Data data = pop();
-        if (isTrue(data) == when){
-            jumpTo(addr);
-        }
-    }
-
-    private void makeRange(){
-        Data to = unpack(pop());
-        Data from = unpack(pop());
-
-        if (!(from instanceof TInteger f)) {
-            reportRuntimeError("can not build range from " + from);
-            return;
-        }
-
-        if (!(to instanceof TInteger t)) {
-            reportRuntimeError("can not build range from " + to);
-            return;
-        }
-
-        TRange range = new TRange(f, t);
-        push(range);
-    }
-
-    private void makeArray(int count){
-        TArray array = new TArray();
-        List<Data> content = array.get();
-        for (; count > 0; count--)
-            content.add(pop());
-        push(array);
-    }
-
-    private void makeDict(int count){
-        TDictionary dict = new TDictionary();
-        Map<Data, Data> content = dict.get();
-        for (; count > 0; count--){
-            Data key = pop();
-            Data value = pop();
-            content.put(key, value);
-        }
-        push(dict);
-    }
-
-    private void wrapArgument(int poolAddr){
-        String refName = (String) loadFromPool(poolAddr);
-        push(new Argument(refName, pop()));
-    }
-
-    private void call(int argc){
-
-        if (checkStackOverflowError())
-            return;
-
-        TObject called = unpack(pop());
-        if (!(called instanceof Callable c)) {
-            reportRuntimeError(called + " is not callable");
-            return;
-        }
-
-        List<Argument> argList = getCallerArguments(argc);
-        Data res = c.call(this, argList);
-        if (res != null && frameStack.size() > frameExitThreshold)
-            push(res);
-    }
-
-    private void callSuperConstructor(int argc){
-        Frame frame = frame();
-        TObject owner = unpack(frame.getOwner());
-        TType type = owner.getType();
-        TType superType = type.getSuper();
-        Callable superConstructor = superType.getConstructor();
-        superConstructor.setOwner(frame.getOwner());
-        List<Argument> argList = getCallerArguments(argc);
-        superConstructor.call(this, argList);
-    }
 
     private List<Argument> getCallerArguments(int argc){
         ArrayList<Argument> argList = new ArrayList<>();
@@ -466,19 +200,8 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         return argList;
     }
 
-    private void returnVirtual(){
-        returnValue = pop();
-        frameStack.pop();
-        if (frameStack.size() <= frameExitThreshold) return;
-        push(returnValue);
-    }
-
     public void push(Data data){
         frame().push(data);
-    }
-
-    private Data pop(){
-        return frame().pop();
     }
 
     protected void invoke(VirtualFunction function){
@@ -488,25 +211,14 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
     @JITSensitive
     public Data call(Callable callable, List<Argument> args){
         if (checkStackOverflowError()) return null;
-        return callFromNativeContext(callable, args);
-    }
 
-    @JITSensitive
-    public void setLine(int line){
-        frame().setLine(line);
-    }
-
-    private boolean checkStackOverflowError(){
-        if (frameStack.size() == 30_000){
-            reportRuntimeError("stackOverflowError");
-            return true;
-        }
-        return false;
-    }
-
-    private Data callFromNativeContext(Callable callable, List<Argument> args){
         if (callable instanceof VirtualFunction v) {
-            return evalNativeCalledVirtualFunction(v, args);
+            int prevThreshold = frameExitThreshold;
+            frameExitThreshold = frameStack.size();
+            v.call(this, args);
+            execLoop();
+            frameExitThreshold = prevThreshold;
+            return returnValue;
         }
         else {
             putFrame(callable);
@@ -516,6 +228,15 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
         }
     }
 
+
+    private boolean checkStackOverflowError(){
+        if (frameStack.size() == 30_000){
+            reportRuntimeError("stackOverflowError");
+            return true;
+        }
+        return false;
+    }
+
     protected void putFrame(Callable callable){
         frameStack.push(Frame.createFakeFrame(callable));
     }
@@ -523,15 +244,6 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
     protected void popFrame(){
         if (!frameStack.isEmpty())
             frameStack.pop();
-    }
-
-    private Data evalNativeCalledVirtualFunction(VirtualFunction v, List<Argument> args){
-        int prevThreshold = frameExitThreshold;
-        frameExitThreshold = frameStack.size();
-        v.call(this, args);
-        execLoop();
-        frameExitThreshold = prevThreshold;
-        return returnValue;
     }
 
     @JITSensitive
@@ -599,10 +311,18 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
     }
 
     @JITSensitive
-    public Object loadFromPool(int id){
+    public Data loadFromPool(int id){
         Frame frame = frame();
-        Pool pool = frame.getPool();
-        return pool.load(id, this);
+        TModule module = (TModule) unpack(frame.getModuleReference());
+        Pool pool = module.getPool();
+        return pool.loadData(id);
+    }
+
+    public String loadStringFromPool(int id){
+        Frame frame = frame();
+        TModule module = (TModule) unpack(frame.getModuleReference());
+        Pool pool = module.getPool();
+        return pool.loadString(id);
     }
 
     private void reassignValue(Data prev, Data assigned){
@@ -624,251 +344,358 @@ public class TThread extends Thread implements Debuggable<ThreadInfo> {
     protected JIT getJIT(){
         return vm.getJit();
     }
-
-    @JITSensitive
-    public Data loadGlobal(int index){
-        return vm.loadGlobal(index);
+    
+    public void pushNull() {
+        push(TNull.NULL);
+    }
+    
+    public void pushInt(int i) {
+        push(new TInteger(i));
+    }
+    
+    public void pushBool(boolean b) {
+        push(TBoolean.of(b));
+    }
+    
+    public void pushThis() {
+        push(frame().getOwner());
+    }
+    
+    public void storeGlobal(int address) {
+        Data dataToWrite = pop();
+        Data displaced = ((TModule)unpack(frame().getModuleReference())).storeGlobal(address, dataToWrite);
+        reassignValue(displaced, dataToWrite);
     }
 
-    @JITSensitive
-    public Data storeGlobal(int index, Data data){
-        return vm.storeGlobal(index, data);
+    public void loadGlobal(int address) {
+        TModule module = (TModule) unpack(frame().getModuleReference());
+        push(module.loadGlobal(address));
     }
 
-    private interface Interpreter {
-        void pushNull();
-        void pushInt(int i);
-        void pushBool(boolean b);
-        void pushThis();
-        void storeGlobal(int address);
-        void loadGlobal(int address);
-        void storeLocal(int address);
-        void loadLocal(int address);
-        void loadConst(int address);
-        void containerRead();
-        void containerWrite();
-        void returnVirtual();
-        void wrapArgument(int utf8Address);
-        void call(int argc);
-        void pop();
-        void makeRange();
-        void makeArray(int cnt);
-        void makeDict(int cnt);
-        void enterTry(int safeAddress);
-        void leaveTry();
-        void throwError();
-        void jumpTo(int address);
-        void getIterator();
-        void iteratorNext();
-        void branchIterator(int address);
-        void branchOn(boolean when, int address);
-        void loadMember(int utf8Address);
-        void storeMember(int utf8Address);
-        void loadMemberFast(int address);
-        void storeMemberFast(int address);
-        void compare(boolean onTrue);
-        void binaryOperation(Opcode operation);
-        void unaryOperation(Opcode operation);
-        void getType();
-        void callSuper(int argc);
-        void loadAbstractMethod(int utf8Address);
-        void loadStatic(int utf8Address);
-        void storeStatic(int utf8Address);
-        void onBreakPoint();
-        void use();
-        void loadName(byte b);
+    public void storeLocal(int address) {
+        Data dataToWrite = pop();
+        Frame frame = frame();
+        Data displaced = frame.store(address, dataToWrite);
+        reassignValue(displaced, dataToWrite);
     }
-    private class SimpleInterpreter implements Interpreter {
-        public void pushNull() {
-            push(TNull.NULL);
-        }
-        public void pushInt(int i) {
-            push(new TInteger(i));
-        }
-        public void pushBool(boolean b) {
-            push(TBoolean.of(b));
-        }
-        public void pushThis() {
-            push(frame().getOwner());
-        }
-        public void storeGlobal(int address) {
-            TThread.this.storeGlobal(address);
-        }
-        public void loadGlobal(int address) {
-            push(vm.loadGlobal(address));
-        }
-        public void storeLocal(int address) {
-            TThread.this.storeLocal(address);
-        }
-        public void loadLocal(int address) {
-            push(frame().load(address));
-        }
-        public void loadConst(int address) {
-            TThread.this.loadConst(address);
-        }
-        public void containerRead() {
-            TThread.this.containerRead();
-        }
-        public void containerWrite() {
-            TThread.this.containerWrite();
-        }
-        public void returnVirtual() {
-            TThread.this.returnVirtual();
-        }
-        public void wrapArgument(int utf8Address) {
-            TThread.this.wrapArgument(utf8Address);
-        }
-        public void call(int argc) {
-            TThread.this.call(argc);
-        }
-        public void pop() {
-            TThread.this.pop();
-        }
-        public void makeRange() {
-            TThread.this.makeRange();
-        }
-        public void makeArray(int cnt) {
-            TThread.this.makeArray(cnt);
-        }
-        public void makeDict(int cnt) {
-            TThread.this.makeDict(cnt);
-        }
-        public void enterTry(int safeAddress) {
-            frame().enterSafeSpot(safeAddress);
-        }
-        public void leaveTry() {
-            frame().leaveSafeSpot();
-        }
-        public void throwError() {
-            reportRuntimeError(TThread.this.pop());
-        }
-        public void jumpTo(int address) {
-            TThread.this.jumpTo(address);
-        }
-        public void getIterator() {
-            getItr();
-        }
-        public void iteratorNext() {
-            itrNext();
-        }
-        public void branchIterator(int address) {
-            branchItr(address);
-        }
-        public void branchOn(boolean when, int address) {
-            branchOnBoolean(when, address);
-        }
-        public void loadMember(int utf8Address) {
-            unsafeMemberAccess(utf8Address);
-        }
-        public void storeMember(int utf8Address) {
-            unsafeMemberWrite(utf8Address);
-        }
-        public void loadMemberFast(int address) {
-            TThread.this.fastMemberAccess(address);
-        }
-        public void storeMemberFast(int address) {
-            TThread.this.fastMemberWrite(address);
-        }
-        public void compare(boolean onTrue) {
-            boolean b = TThread.this.pop().equals(TThread.this.pop());
-            push(TBoolean.of(b == onTrue));
-        }
-        public void binaryOperation(Opcode operation) {
-            operateBinary(operation);
-        }
-        public void unaryOperation(Opcode operation) {
-            operateUnary(operation);
-        }
-        public void getType() {
-            push((unpack(TThread.this.pop())).getType());
-        }
-        public void callSuper(int argc) {
-            callSuperConstructor(argc);
-        }
-        public void loadAbstractMethod(int utf8Address) {
-            TThread.this.loadAbstractMethod(utf8Address);
-        }
-        public void loadStatic(int utf8Address) {
-            TThread.this.loadStatic(utf8Address);
-        }
-        public void storeStatic(int utf8Address) {
-            TThread.this.storeStatic(utf8Address);
-        }
-        public void onBreakPoint() {
-            DebugAction action = vm.debug(TThread.this);
-            switch (action){
-                case RESUME -> { /* simply run until next halt */ }
-                case STEP -> interpreter = new DebugInterpreter(this);
-                case QUIT -> vm.quit();
-                default -> throw new IllegalStateException("unsupported DebugAction: " + action);
+
+    public void loadLocal(int address) {
+        push(frame().load(address));
+    }
+
+    public void loadConst(int address) {
+        Data data = loadFromPool(address);
+        if (data == null) return;
+        Frame frame = frame();
+        if (data instanceof Callable c){
+            if (frame.getOwner() != null){
+                c.setOwner(frame.getOwner());
             }
+            else {
+                c.setOwner(c);
+            }
+            if (!(c instanceof TType))
+                data = storeHeap(c);
+        }
+        push(data);
+    }
 
+    public void containerRead() {
+        Data candidate = pop();
+        if (!(candidate instanceof ContainerAccessible accessible)){
+            reportRuntimeError(candidate + " is not accessible");
+            return;
         }
-        public void use() {
-            TThread.this.use();
+        Data key = pop();
+        Data accessed = accessible.readFromContainer(this, key);
+        if (accessed == null)
+            return;
+        push(accessed);
+    }
+
+    public void containerWrite() {
+        Data candidate = pop();
+        if (!(candidate instanceof ContainerWriteable writeable)){
+            reportRuntimeError(candidate + " is not accessible");
+            return;
         }
-        public void loadName(byte b) {
-            TThread.this.loadName(b);
+        Data key = pop();
+        Data value = pop();
+        writeable.writeToContainer(this, key, value);
+    }
+
+    public void returnVirtual() {
+        returnValue = pop();
+        frameStack.pop();
+        if (frameStack.size() <= frameExitThreshold) return;
+        push(returnValue);
+    }
+
+    public void wrapArgument(int utf8Address) {
+        String refName = loadStringFromPool(utf8Address);
+        push(new Argument(refName, pop()));
+    }
+
+    public void call(int argc) {
+        if (checkStackOverflowError())
+            return;
+
+        TObject called = unpack(pop());
+        if (!(called instanceof Callable c)) {
+            reportRuntimeError(called + " is not callable");
+            return;
+        }
+
+        List<Argument> argList = getCallerArguments(argc);
+        Data res = c.call(this, argList);
+        if (res != null && frameStack.size() > frameExitThreshold)
+            push(res);
+    }
+
+    public Data pop() {
+        return frame().pop();
+    }
+
+    public void makeRange() {
+        Data to = unpack(pop());
+        Data from = unpack(pop());
+
+        if (!(from instanceof TInteger f)) {
+            reportRuntimeError("can not build range from " + from);
+            return;
+        }
+
+        if (!(to instanceof TInteger t)) {
+            reportRuntimeError("can not build range from " + to);
+            return;
+        }
+
+        TRange range = new TRange(f, t);
+        push(range);
+    }
+
+    public void makeArray(int cnt) {
+        TArray array = new TArray();
+        List<Data> content = array.get();
+        for (; cnt > 0; cnt--)
+            content.add(pop());
+        push(array);
+    }
+
+    public void makeDict(int cnt) {
+        TDictionary dict = new TDictionary();
+        Map<Data, Data> content = dict.get();
+        for (; cnt > 0; cnt--){
+            Data key = pop();
+            Data value = pop();
+            content.put(key, value);
+        }
+        push(dict);
+    }
+
+    public void enterTry(int safeAddress) {
+        frame().enterSafeSpot(safeAddress);
+    }
+
+    public void leaveTry() {
+        frame().leaveSafeSpot();
+    }
+
+    public void throwError() {
+        reportRuntimeError(pop());
+    }
+
+    public void jumpTo(int address) {
+        frame().jumpTo(address);
+    }
+
+    public void getIterator() {
+        Data candidate = pop();
+        if (!(candidate instanceof IterableObject iterable)){
+            reportRuntimeError(candidate + " is not iterable");
+            return;
+        }
+        push(iterable.iterator());
+    }
+
+    public void iteratorNext() {
+        IteratorObject itr = (IteratorObject) pop();
+        push(itr);
+        push(itr.next());
+    }
+
+    public void branchIterator(int address) {
+        IteratorObject itr = (IteratorObject) pop();
+        if (!itr.hasNext()) {
+            jumpTo(address);
+            return;
+        }
+        push(itr);
+    }
+
+    public void branchOn(boolean when, int address) {
+        Data data = pop();
+        if (isTrue(data) == when){
+            jumpTo(address);
         }
     }
 
+    public void loadMember(int utf8Address) {
+        String memberName = loadStringFromPool(utf8Address);
+        Member member = accessMember(unpack(pop()), memberName);
+        if (member == null) return;
+        push(member.data);
+    }
 
+    public void storeMember(int utf8Address) {
+        String memberName = loadStringFromPool(utf8Address);
+        Data accessed = pop();
+        Data dataToWrite = pop();
+        Member member = accessMember(unpack(accessed), memberName);
+        if (member == null) return;
+        if (member.kind == Member.Kind.IMMUTABLE){
+            reportRuntimeError("can not assign to a constant");
+            return;
+        }
+        member.data = dataToWrite;
+    }
 
-    private class DebugInterpreter extends SimpleInterpreter {
-        private final Interpreter prev;
-        private DebugInterpreter(Interpreter prev) {
-            this.prev = prev;
+    public void loadMemberFast(int address) {
+        Frame frame = frame();
+        TObject owner = unpack(frame.getOwner());
+        Member member = owner.get(address);
+        push(member.data);
+    }
+
+    public void storeMemberFast(int address) {
+        Frame frame = frame();
+
+        TObject owner = unpack(frame.getOwner());
+        Member member = owner.get(address);
+        Data assigned  = pop();
+        if (member.kind == null && member.data == null){
+            // member was not initialized yet
+            member.kind = unpack(assigned) instanceof Callable
+                    ? Member.Kind.IMMUTABLE
+                    : Member.Kind.MUTABLE;
         }
-        public void onBreakPoint() {
-            haltDebug();
+        member.data = assigned;
+    }
+
+    public void compare(boolean onTrue) {
+        boolean b = pop().equals(pop());
+        push(TBoolean.of(b == onTrue));
+    }
+
+    public void binaryOperation(Opcode operation) {
+        Data right = pop();
+        Data left = pop();
+        Data result = ALU.performBinaryOperation(left, right, operation, this);
+        if (result != null)
+            push(result);
+    }
+
+    public void unaryOperation(Opcode operation) {
+        Data operand = pop();
+        Data result = ALU.performUnaryOperation(operand, operation, this);
+        if (result != null)
+            push(result);
+    }
+
+    public void getType() {
+        push((unpack(pop())).getType());
+    }
+
+    public void callSuper(int argc) {
+        Frame frame = frame();
+        TObject owner = unpack(frame.getOwner());
+        TType type = owner.getType();
+        TType superType = type.getSuper();
+        Callable superConstructor = superType.getConstructor();
+        superConstructor.setOwner(frame.getOwner());
+        List<Argument> argList = getCallerArguments(argc);
+        superConstructor.call(this, argList);
+    }
+
+    public void loadAbstractMethod(int utf8Address) {
+        String methodName = loadStringFromPool(utf8Address);
+        Frame frame = frame();
+        TObject owner = unpack(frame.getOwner());
+        TType currType = owner.getType();
+        while (currType != null){
+            Member member = owner.get(methodName);
+            if (member == null) {
+                currType = currType.getSuper();
+                continue;
+            }
+            push(member.data);
+            return;
         }
-        public void containerWrite() {
-            super.containerWrite();
-            haltDebug();
+        reportRuntimeError("can not find implementation of '" + methodName + "'");
+    }
+
+    public void loadStatic(int utf8Address) {
+        String memberName = loadStringFromPool(utf8Address);
+        Member member = searchStaticMember(memberName);
+        if (member == null) return;
+        push(member.data);
+    }
+
+    public void storeStatic(int utf8Address) {
+        Data dataToWrite = pop();
+        String memberName = loadStringFromPool(utf8Address);
+        Member member = searchStaticMember(memberName);
+        if (member == null) return;
+        if (member.kind == Member.Kind.IMMUTABLE){
+            reportRuntimeError("can not assign to a constant");
+            return;
         }
-        public void storeLocal(int address) {
-            super.storeLocal(address);
-            haltDebug();
-        }
-        public void storeGlobal(int address) {
-            super.storeGlobal(address);
-            haltDebug();
-        }
-        public void branchIterator(int address) {
-            super.branchIterator(address);
-            haltDebug();
-        }
-        public void branchOn(boolean when, int address) {
-            super.branchOn(when, address);
-            haltDebug();
-        }
-        public void storeStatic(int utf8Address) {
-            super.storeStatic(utf8Address);
-            haltDebug();
-        }
-        public void call(int argc) {
-            haltDebug();
-            super.call(argc);
-        }
-        public void callSuper(int argc) {
-            haltDebug();
-            super.callSuper(argc);
-        }
-        public void throwError() {
-            haltDebug();
-            super.throwError();
-        }
-        private void haltDebug(){
+        member.data = dataToWrite;
+    }
+
+    public void onBreakPoint() {
+
+        final Interpreter currentInterpreter = interpreter;
+
+        interpreter = new DebugInterpreter(currentInterpreter, () -> {
             DebugAction action = vm.debug(TThread.this);
             switch (action){
                 case STEP -> { /* simply run until next halt */ }
-                case RESUME -> interpreter = prev;
+                case RESUME -> interpreter = currentInterpreter;
                 case QUIT -> vm.quit();
                 default -> throw new IllegalStateException("unsupported DebugAction: " + action);
+            }
+        });
+
+    }
+
+    public void use() {
+        TObject object = unpack(pop());
+        Frame frame = frame();
+        for (Member member : object.getMembers()){
+            boolean success = frame.storeName(member.name, member.data);
+            if (!success){
+                reportRuntimeError("name '" + member.name + "' already used");
+                return;
             }
         }
     }
 
+    public void loadName(byte b) {
+        String name = loadStringFromPool(b);
+        Frame frame = frame();
+        Data data = frame.loadName(name);
+        if (data == null){
+            reportRuntimeError("can not find name '" + name + "'");
+            return;
+        }
+        push(data);
+    }
+
+    @JITSensitive
+    public void setLine(int line){
+        frame().setLine(line);
+    }
 
 
     @Override

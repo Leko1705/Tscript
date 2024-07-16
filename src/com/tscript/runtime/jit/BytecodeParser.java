@@ -1,5 +1,6 @@
 package com.tscript.runtime.jit;
 
+import com.tscript.runtime.core.Data;
 import com.tscript.runtime.core.VirtualFunction;
 import com.tscript.runtime.type.TInteger;
 import com.tscript.runtime.type.TReal;
@@ -39,7 +40,7 @@ class BytecodeParser {
                 case RETURN -> sequence.children.add(new ReturnTree(stack.pop()));
                 case LOAD_CONST -> {
                     int address = scanner.getArg(0);
-                    Object poolObj = function.getPool().load(address, null);
+                    Data poolObj = function.getPool().loadData(address);
                     Tree loaded;
                     if (poolObj instanceof TInteger i){
                         loaded = new IntegerTree(i.get());
@@ -133,19 +134,19 @@ class BytecodeParser {
                 case STORE_MEMBER_FAST -> sequence.children.add(new StoreMemberFastTree(scanner.getArg(0), stack.pop()));
                 case LOAD_MEMBER_FAST -> stack.push(new LoadMemberFastTree(scanner.getArg(0)));
                 case STORE_MEMBER -> {
-                    String name = (String) function.getPool().load(scanner.getArg(0), null);
+                    String name = function.getPool().loadString(scanner.getArg(0));
                     stack.push(new StoreMemberTree(name, stack.pop()));
                 }
                 case LOAD_MEMBER -> {
-                    String name = (String) function.getPool().load(scanner.getArg(0), null);
+                    String name = function.getPool().loadString(scanner.getArg(0));
                     stack.push(new LoadMemberTree(name, stack.pop()));
                 }
                 case STORE_STATIC -> {
-                    String name = (String) function.getPool().load(scanner.getArg(0), null);
+                    String name = function.getPool().loadString(scanner.getArg(0));
                     stack.push(new StoreStaticTree(name, stack.pop()));
                 }
                 case LOAD_STATIC -> {
-                    String name = (String) function.getPool().load(scanner.getArg(0), null);
+                    String name = function.getPool().loadString(scanner.getArg(0));
                     stack.push(new LoadStaticTree(name));
                 }
                 case CONTAINER_WRITE -> {
@@ -162,7 +163,7 @@ class BytecodeParser {
                     stack.push(readTree);
                 }
                 case LOAD_ABSTRACT_IMPL -> {
-                    String name = (String) function.getPool().load(scanner.getArg(0), null);
+                    String name = function.getPool().loadString(scanner.getArg(0));
                     stack.push(new LoadAbstractImplTree(name));
                 }
                 case ENTER_TRY -> {

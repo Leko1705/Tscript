@@ -1,5 +1,6 @@
 package com.tscript.runtime.jit;
 
+import com.tscript.runtime.core.Data;
 import com.tscript.runtime.core.Pool;
 import com.tscript.runtime.core.VirtualFunction;
 import com.tscript.runtime.tni.NativeFunction;
@@ -178,7 +179,7 @@ public class JavaCodeGenerator implements TreeVisitor<Void, Void> {
 
         Pool pool = function.getPool();
         try {
-            Object o = pool.load(address, null);
+            Data o = pool.loadData(address);
 
             if (o instanceof NativeFunction f){
                 String val = "NativeCollection.load(" + f.getName() + ")";

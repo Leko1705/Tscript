@@ -15,18 +15,21 @@ public class VirtualFunction extends Callable {
     private final int stackSize;
     private final int locals;
     private final Pool pool;
+    private final Reference moduleReference;
 
     public VirtualFunction(String name,
                            byte[][] instructions,
                            int stackSize,
                            int locals,
                            LinkedHashMap<String, Data> params,
-                           Pool pool) {
+                           Pool pool,
+                           Reference moduleReference) {
         this.name = name;
         this.instructions = instructions;
         this.stackSize = stackSize;
         this.locals = locals;
         this.pool = pool;
+        this.moduleReference = moduleReference;
         this.params = params;
     }
 
@@ -35,7 +38,7 @@ public class VirtualFunction extends Callable {
     }
 
     public Frame buildFrame(){
-        return new Frame(getOwner(), name, instructions, stackSize, locals, pool);
+        return new Frame(moduleReference, getOwner(), name, instructions, stackSize, locals);
     }
 
     @Override

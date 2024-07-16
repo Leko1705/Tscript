@@ -4,15 +4,14 @@ import com.tscript.runtime.debug.*;
 import com.tscript.runtime.heap.GenerationalHeap;
 import com.tscript.runtime.heap.Heap;
 import com.tscript.runtime.heap.gc.GarbageCollector;
-import com.tscript.runtime.heap.gc.ReferenceCounting;
 import com.tscript.runtime.heap.gc.SerialMSGC;
 import com.tscript.runtime.jit.JIT;
 import com.tscript.runtime.type.Callable;
-import com.tscript.runtime.type.Member;
-import com.tscript.runtime.type.TType;
+import com.tscript.runtime.type.TModule;
 
 import java.io.File;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,9 +29,6 @@ public class TscriptVM implements Debuggable<VMInfo> {
     public final OutputStream out;
     public final OutputStream err;
 
-
-    private Data[] globals;
-
     private final Heap heap;
 
     private final GarbageCollector gc;
@@ -43,6 +39,7 @@ public class TscriptVM implements Debuggable<VMInfo> {
 
     private final Queue<Integer> freeThreadIDQueue = new ArrayDeque<>();
     private final Map<Integer, TThread> threads = new ConcurrentHashMap<>();
+    private final Map<File, Reference> loadedModules = new HashMap<>();
 
 
     protected TscriptVM(OutputStream out, OutputStream err, Heap heap, GarbageCollector gc, Debugger debugger){
@@ -57,24 +54,32 @@ public class TscriptVM implements Debuggable<VMInfo> {
 
 
     private int execute(File file){
-        FileLoader fileLoader = new FileLoader(file, this, null);
-        fileLoader.load();
-        Pool pool = fileLoader.getPool();
-        int entry = fileLoader.getEntryPoint();
-        globals = new Data[fileLoader.getGlobals()];
-        VirtualFunction mainFunction = (VirtualFunction) pool.load(entry, null);
-        startNewThread(mainFunction);
-        while (!threads.isEmpty())
-            Thread.onSpinWait();
+        TModule module = (TModule) heap.load(loadModule(file));
+        VirtualFunction entryFunction;
+
+        try {
+            entryFunction = module.getEntryFunction();
+        }
+        catch (PoolLoadingException ex){
+            try {
+                err.write(ex.getMessage().getBytes(StandardCharsets.UTF_8));
+            }
+            catch (Exception e){
+                System.err.println(ex.getMessage());
+            }
+            return -1;
+        }
+
+        int nextID = getNextThreadID();
+        TThread thread = new TThread(this, entryFunction, nextID);
+        thread.begin();
+
         jit.close();
         return 0;
     }
 
     public void startNewThread(Callable callable){
-        int nextID = freeThreadIDQueue.isEmpty()
-                ? threads.size()
-                : freeThreadIDQueue.poll();
-
+        int nextID = getNextThreadID();
         TThread thread = new TThread(this, callable, nextID);
         threads.put(nextID, thread);
         thread.start();
@@ -84,16 +89,6 @@ public class TscriptVM implements Debuggable<VMInfo> {
         TThread thread = threads.remove(id);
         if (thread != null)
             thread.terminate();
-    }
-
-    public Data storeGlobal(int addr, Data data){
-        Data displaced = globals[addr];
-        globals[addr] = data;
-        return displaced;
-    }
-
-    public Data loadGlobal(int addr){
-        return globals[addr];
     }
 
     public Heap getHeap() {
@@ -112,6 +107,12 @@ public class TscriptVM implements Debuggable<VMInfo> {
         }
     }
 
+    private int getNextThreadID(){
+        return freeThreadIDQueue.isEmpty()
+                ? threads.size()
+                : freeThreadIDQueue.poll();
+    }
+
     private void evalTracingGC(TThread caller){
         Collection<Reference> roots = findRoots();
         gc.onAction(caller.getThreadID(), heap, null, null, roots);
@@ -122,15 +123,9 @@ public class TscriptVM implements Debuggable<VMInfo> {
     }
 
     private Collection<Reference> findRoots(){
-        // since the tscript tends to have
-        // many references we increase the
-        // initialCapacity
-        Collection<Reference> roots = new ArrayList<>(20);
+        Collection<Reference> roots = new ArrayList<>(loadedModules.size());
 
-        // collect globals
-        for (Data data : globals)
-            if (data != null && data.isReference())
-                roots.add(data.asReference());
+        roots.addAll(loadedModules.values());
 
         // collect locals and current stack operands
         for (TThread thread : threads.values()){
@@ -146,14 +141,6 @@ public class TscriptVM implements Debuggable<VMInfo> {
                 }
             }
         }
-
-        // collect statics
-        FileManager manager = FileManager.getManager();
-        for (Collection<TType> tTypes : manager.getTypes().values())
-            for (TType type : tTypes)
-                for (Member member : type.getMembers())
-                    if (member.data != null && member.data.isReference())
-                        roots.add(member.data.asReference());
 
         return roots;
     }
@@ -176,6 +163,21 @@ public class TscriptVM implements Debuggable<VMInfo> {
     @Override
     public VMInfo loadInfo(Heap heap) {
         return new VMInfoImpl();
+    }
+
+    public Reference loadModule(File file){
+        if (loadedModules.containsKey(file)) {
+            return loadedModules.get(file);
+        }
+
+        ModuleLoader loader = new ModuleLoader(file, this);
+        loader.load();
+        TModule module = loader.getModule();
+        Reference ptr = heap.store(module);
+        module.getPool().setModuleReference(ptr);
+
+        loadedModules.put(file, ptr);
+        return ptr;
     }
 
     private class VMInfoImpl implements VMInfo {

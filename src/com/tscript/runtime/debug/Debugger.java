@@ -1,11 +1,13 @@
 package com.tscript.runtime.debug;
 
+import java.util.Objects;
+
 public abstract class Debugger {
 
     private static final Debugger VOID_DEBUGGER = new Debugger() {
         @Override
-        public void onDebug(int threadID, VMInfo info) {
-            resume();
+        public DebugAction onDebug(int threadID, VMInfo info) {
+            return DebugAction.RESUME;
         }
     };
 
@@ -21,29 +23,19 @@ public abstract class Debugger {
     private volatile DebugAction action = null;
 
     public DebugAction onBreakPoint(int threadID, VMInfo vmInfo){
-        action = null;
 
-        onDebug(threadID, vmInfo);
+        Thread thread = new Thread(() -> action = Objects.requireNonNull(onDebug(threadID, vmInfo)));
+        thread.start();
 
-        while (action == null)
-            Thread.onSpinWait();
+        try {
+            thread.join();
+        }catch (Exception ignored){
+            action = DebugAction.QUIT;
+        }
 
         return action;
     }
 
-    public abstract void onDebug(int threadID, VMInfo info);
-
-
-    public void step(){
-        action = DebugAction.STEP;
-    }
-
-    public void resume(){
-        action = DebugAction.RESUME;
-    }
-
-    public void quit(){
-        action = DebugAction.QUIT;
-    }
+    public abstract DebugAction onDebug(int threadID, VMInfo info);
 
 }

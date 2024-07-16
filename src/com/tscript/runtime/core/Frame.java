@@ -12,7 +12,7 @@ import java.util.*;
 public class Frame implements Debuggable<FrameInfo> {
 
     public static Frame createFakeFrame(Callable callable){
-       return new Frame(callable.getOwner(), callable.getName(), null, 0, 0, null);
+       return new Frame(null, callable.getOwner(), callable.getName(), null, 0, 0);
     }
 
     private final Data owner;
@@ -24,7 +24,7 @@ public class Frame implements Debuggable<FrameInfo> {
     protected final Data[] stack;
     protected final Data[] locals;
 
-    private final Pool pool;
+    private final Reference moduleRef;
 
     private int line = -1;
 
@@ -32,13 +32,13 @@ public class Frame implements Debuggable<FrameInfo> {
 
     private final Map<String, Data> names = new HashMap<>();
 
-    public Frame(Data owner, String name, byte[][] instructions, int stackSize, int locals, Pool pool) {
+    public Frame(Reference moduleReference, Data owner, String name, byte[][] instructions, int stackSize, int locals) {
+        this.moduleRef = moduleReference;
         this.owner = owner;
         this.name = name;
         this.instructions = instructions;
         this.stack = new Data[stackSize];
         this.locals = new Data[locals];
-        this.pool = pool;
     }
 
     public String getName() {
@@ -86,8 +86,8 @@ public class Frame implements Debuggable<FrameInfo> {
         return true;
     }
 
-    public Pool getPool() {
-        return pool;
+    public Reference getModuleReference() {
+        return moduleRef;
     }
 
     public int line() {

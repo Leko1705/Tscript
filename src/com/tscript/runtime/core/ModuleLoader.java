@@ -2,17 +2,29 @@ package com.tscript.runtime.core;
 
 import com.tscript.runtime.type.*;
 import com.tscript.tscriptc.generation.Opcode;
-import com.tscript.tscriptc.generation.Type;
-import com.tscript.tscriptc.tree.Modifier;
-import com.tscript.tscriptc.util.Conversion;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
 
-public class FileLoader {
-    private static final int magicNumber = 0xDEAD;
+public class ModuleLoader {
+
+    private static final int INT_POOL_FLAG = 0;
+    private static final int REAL_POOL_FLAG = 1;
+    private static final int STRING_POOL_FLAG = 2;
+    private static final int UTF8_POOL_FLAG = 3;
+    private static final int VFUNCTION_POOL_FLAG = 4;
+    private static final int NFUNCTION_POOL_FLAG = 5;
+    private static final int TYPE_POOL_FLAG = 6;
+    private static final int BOOL_POOL_FLAG = 7;
+    private static final int NULL_POOL_FLAG = 8;
+    private static final int ARRAY_POOL_FLAG = 9;
+    private static final int DICTIONARY_POOL_FLAG = 10;
+    private static final int RANGE_POOL_FLAG = 11;
+    private static final int IMPORT_POOL_FLAG = 12;
+
+    private static final int MAGIC_NUMBER = 0xDEAD;
 
 
     private final byte[] content;
@@ -29,11 +41,9 @@ public class FileLoader {
     private Map<String, Pool.Type> types;
 
     private final TscriptVM vm;
-    private TThread thread;
 
-    public FileLoader(File file, TscriptVM vm, TThread thread) {
+    public ModuleLoader(File file, TscriptVM vm) {
         this.vm = vm;
-        this.thread = thread;
         try (FileInputStream in = new FileInputStream(file)){
             this.content = in.readAllBytes();
         } catch (Exception e) {
@@ -43,7 +53,7 @@ public class FileLoader {
 
     public void load(){
 
-        if (loadInt() != magicNumber)
+        if (loadInt() != MAGIC_NUMBER)
             throw new IllegalStateException("invalid magic number");
 
         minor = loadInt();
@@ -66,33 +76,33 @@ public class FileLoader {
         for (int i = 0; i < poolSize; i++){
             byte kind = consume();
             switch (kind){
-                case 0 -> pool.put(i, new Pool.Int(loadInt()));
-                case 1 -> pool.put(i, new Pool.Real(loadReal()));
-                case 2 -> pool.put(i, new Pool.Str(loadString()));
-                case 3 -> pool.put(i, new Pool.UTF8(loadString()));
-                case 4 -> {
+                case INT_POOL_FLAG -> pool.put(i, new Pool.Int(loadInt()));
+                case REAL_POOL_FLAG -> pool.put(i, new Pool.Real(loadReal()));
+                case STRING_POOL_FLAG -> pool.put(i, new Pool.Str(loadString()));
+                case UTF8_POOL_FLAG -> pool.put(i, new Pool.UTF8(loadString()));
+                case VFUNCTION_POOL_FLAG -> {
                     String name = loadString();
                     Pool.Func func = new Pool.Func(name);
                     pool.put(i, func);
                     virtualFunctions.put(name, func);
                 }
-                case 5 -> pool.put(i, new Pool.Native(loadString()));
-                case 6 -> {
+                case NFUNCTION_POOL_FLAG -> pool.put(i, new Pool.Native(loadString()));
+                case TYPE_POOL_FLAG -> {
                     String name = loadString();
                     Pool.Type type = new Pool.Type();
                     pool.put(i, type);
                     types.put(name, type);
                 }
-                case 7 -> pool.put(i, new Pool.Bool(consume() == 1 ? TBoolean.TRUE : TBoolean.FALSE));
-                case 8 -> pool.put(i, new Pool.Null());
-                case 9 -> {
+                case BOOL_POOL_FLAG -> pool.put(i, new Pool.Bool(consume() == 1 ? TBoolean.TRUE : TBoolean.FALSE));
+                case NULL_POOL_FLAG -> pool.put(i, new Pool.Null());
+                case ARRAY_POOL_FLAG -> {
                     int length = consume();
                     int[] references = new int[length];
                     for (int j = 0; j < length; j++)
                         references[j] = consume();
                     pool.put(i, new Pool.Array(references));
                 }
-                case 10 -> {
+                case DICTIONARY_POOL_FLAG -> {
                     int length = consume();
                     int[] keyRefs = new int[length];
                     int[] valRefs = new int[length];
@@ -102,8 +112,8 @@ public class FileLoader {
                     }
                     pool.put(i, new Pool.Dict(keyRefs, valRefs));
                 }
-                case 11 -> pool.put(i, new Pool.Range(consume(), consume()));
-                case 12 -> pool.put(i, new Pool.Import(loadString(), vm));
+                case RANGE_POOL_FLAG -> pool.put(i, new Pool.Range(consume(), consume()));
+                case IMPORT_POOL_FLAG -> pool.put(i, new Pool.Import(loadString()));
             }
         }
 
@@ -120,7 +130,7 @@ public class FileLoader {
                 int poolAddress = consume();
                 Data defaultValue = null;
                 if (poolAddress >= 0)
-                    defaultValue = (Data) pool.load(poolAddress, null);
+                    defaultValue = pool.loadData(poolAddress);
                 params.put(paramName, defaultValue);
             }
             int stackSize = loadInt();
@@ -183,7 +193,7 @@ public class FileLoader {
             TType type = new TType(name, null, isAbstract, statics, members);
 
             if (constructorAddress >= 0) {
-                Callable constructor = (Callable) pool.load(constructorAddress, null);
+                Callable constructor = (Callable) pool.loadData(constructorAddress);
                 type.setConstructor(constructor);
             }
             Pool.Type constant = types.get(name);
@@ -201,15 +211,11 @@ public class FileLoader {
         // invoke all statics
         for (Pool.Type t : types.values()){
             TType type = t.load();
-            Callable staticBlock = (Callable) pool.load(t.getStaticBlockAddress(), null);
+            Callable staticBlock = (Callable) pool.loadUnsafe(t.getStaticBlockAddress());
             staticBlock.setOwner(type);
-            if (thread == null) {
-                thread = new TThread(vm, staticBlock, 0);
-                thread.begin();
-            }
-            else {
-                thread.call(staticBlock, List.of());
-            }
+
+            TThread thread = new TThread(vm, staticBlock, 0);
+            thread.begin();
         }
     }
 
@@ -233,17 +239,16 @@ public class FileLoader {
         return major;
     }
 
-    public int getEntryPoint() {
-        return entryPoint;
+
+    public TModule getModule(){
+        List<Member> members = new ArrayList<>();
+        for (Pool.Type type : types.values()){
+            TType typeObj = type.load();
+            members.add(new Member(typeObj.getName(), Visibility.PUBLIC, Member.Kind.IMMUTABLE, typeObj));
+        }
+        return new TModule(members, pool, entryPoint, globals);
     }
 
-    public int getGlobals() {
-        return globals;
-    }
-
-    public Pool getPool() {
-        return pool;
-    }
 
     private byte consume(){
         if (index >= content.length)

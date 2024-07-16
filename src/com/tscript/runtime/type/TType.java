@@ -33,7 +33,7 @@ public class TType extends Callable {
         this.classMembers = members;
     }
 
-    protected TType(String name, TType superType) {
+    public TType(String name, TType superType) {
         this(name, superType, false, List.of(), List.of());
     }
 

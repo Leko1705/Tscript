@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 public class Pool implements Iterable<Pool.Entry<?>> {
 
     private final Entry<?>[] pool;
+    private Reference moduleRef;
 
 
     public Pool(int size) {
@@ -22,8 +23,22 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         pool[index] = entry;
     }
 
-    public Object load(int index, TThread thread){
-        return pool[index].load(thread, this);
+    protected void setModuleReference(Reference moduleRef) {
+        if (this.moduleRef != null)
+            throw new AssertionError("can not set owner-module twice");
+        this.moduleRef = moduleRef;
+    }
+
+    public Object loadUnsafe(int index) throws PoolLoadingException {
+        return pool[index].load(this);
+    }
+
+    public Data loadData(int index){
+        return (Data) pool[index].load(this);
+    }
+
+    public String loadString(int index){
+        return (String) pool[index].load(this);
     }
 
     @Override
@@ -32,8 +47,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
     }
 
     public interface Entry<T> {
-        T load(TThread thread, Pool pool);
-
+        T load(Pool pool);
         String toString();
     }
 
@@ -43,7 +57,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             this.i = new TInteger(i);
         }
         @Override
-        public TInteger load(TThread thread, Pool pool) {
+        public TInteger load(Pool pool) {
             return i;
         }
 
@@ -59,7 +73,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             this.d = new TReal(d);
         }
         @Override
-        public TReal load(TThread thread, Pool pool) {
+        public TReal load(Pool pool) {
             return d;
         }
 
@@ -75,7 +89,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             this.s = new TString(s);
         }
         @Override
-        public TString load(TThread thread, Pool pool) {
+        public TString load(Pool pool) {
             return s;
         }
 
@@ -88,7 +102,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
 
     public record UTF8(String i) implements Entry<String> {
         @Override
-        public String load(TThread thread, Pool pool) {
+        public String load(Pool pool) {
             return i;
         }
 
@@ -119,8 +133,8 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         }
 
         @Override
-        public VirtualFunction load(TThread thread, Pool pool) {
-            return new VirtualFunction(name, instructions, stackSize, locals, params, pool);
+        public VirtualFunction load(Pool pool) {
+            return new VirtualFunction(name, instructions, stackSize, locals, params, pool, pool.moduleRef);
         }
 
         @Override
@@ -131,10 +145,10 @@ public class Pool implements Iterable<Pool.Entry<?>> {
 
     public record Native(String name) implements Entry<NativeFunction> {
         @Override
-        public NativeFunction load(TThread thread, Pool pool) {
+        public NativeFunction load(Pool pool) {
             NativeFunction nat = NativeCollection.load(name);
-            if (nat == null && thread != null)
-                thread.reportRuntimeError("native function '" + name + "' does not exist");
+            if (nat == null)
+                throw new PoolLoadingException("native function '" + name + "' does not exist");
             return nat;
         }
 
@@ -152,7 +166,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
             return type;
         }
         @Override
-        public TType load(TThread thread, Pool pool) {
+        public TType load(Pool pool) {
             return type;
         }
         public void init(TType type, int staticBlockAddress){
@@ -172,7 +186,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
 
     public record Bool(TBoolean bool) implements Entry<TBoolean> {
         @Override
-        public TBoolean load(TThread thread, Pool pool) {
+        public TBoolean load(Pool pool) {
             return bool;
         }
 
@@ -184,7 +198,7 @@ public class Pool implements Iterable<Pool.Entry<?>> {
 
     public static class Null implements Entry<TNull> {
         @Override
-        public TNull load(TThread thread, Pool pool) {
+        public TNull load(Pool pool) {
             return TNull.NULL;
         }
         @Override
@@ -201,10 +215,10 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         }
 
         @Override
-        public TArray load(TThread thread, Pool pool) {
+        public TArray load(Pool pool) {
             TArray array = new TArray();
             for (int ref : references)
-                array.get().add((Data) pool.load(ref, thread));
+                array.get().add((Data) pool.loadData(ref));
             return array;
         }
         @Override
@@ -222,11 +236,11 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         }
 
         @Override
-        public TDictionary load(TThread thread, Pool pool) {
+        public TDictionary load(Pool pool) {
             TDictionary dict = new TDictionary();
             for (int i = 0; i < keyRefs.length; i++){
-                Data key = (Data) pool.load(keyRefs[i], thread);
-                Data value = (Data) pool.load(valueRefs[i], thread);
+                Data key = pool.loadData(keyRefs[i]);
+                Data value = pool.loadData(valueRefs[i]);
                 dict.get().put(key, value);
             }
             return dict;
@@ -241,8 +255,8 @@ public class Pool implements Iterable<Pool.Entry<?>> {
     public record Range(int fromAddress, int toAddress) implements Entry<TRange> {
 
         @Override
-        public TRange load(TThread thread, Pool pool) {
-            return new TRange((TInteger) pool.load(fromAddress, thread), (TInteger) pool.load(toAddress, thread));
+        public TRange load(Pool pool) {
+            return new TRange((TInteger) pool.loadData(fromAddress), (TInteger) pool.loadData(toAddress));
         }
 
         @Override
@@ -255,10 +269,8 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         private int address = -1;
         private final String path;
         private final String toImport;
-        private final TscriptVM vm;
 
-        public Import(String s, TscriptVM vm) {
-            this.vm = vm;
+        public Import(String s) {
             String[] full = s.split("[.]");
             toImport = full[full.length-1];
             StringBuilder path = new StringBuilder(full[0]);
@@ -268,31 +280,8 @@ public class Pool implements Iterable<Pool.Entry<?>> {
         }
 
         @Override
-        public Object load(TThread thread, Pool pool) {
-            if (address == -1) {
-                if (!loadValue(thread))
-                    return null;
-
-            }
-            FileManager manager = FileManager.getManager();
-            return manager.access(path, address, thread);
-        }
-
-        private boolean loadValue(TThread thread){
-            FileManager manager = FileManager.getManager();
-            if (!manager.hasFile(path)) {
-                try {
-                    manager.loadFile(path, vm, thread);
-                }catch (Exception e){
-                    thread.reportRuntimeError("can not find file '" + path + "'");
-                    return false;
-                }
-            }
-            address = manager.loadAddress(path, toImport);
-            if (address == -1){
-                thread.reportRuntimeError("can not find '" + toImport + "' in file '" + path + "'");
-            }
-            return address != -1;
+        public Object load(Pool pool) {
+            return null;
         }
 
         @Override
