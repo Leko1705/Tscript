@@ -1,3 +1,5 @@
+package com.tscript;
+
 import com.tscript.runtime.core.TscriptVM;
 import com.tscript.runtime.debug.Debugger;
 import com.tscript.tscriptc.log.StdLogger;
