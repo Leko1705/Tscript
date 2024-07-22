@@ -3,8 +3,8 @@ package com.tscript.tscriptc.utils;
 import com.tscript.tscriptc.tree.*;
 
 /**
- * A {@link TreeVisitor} with pre-implemented methods. By default a method
- * throws a {@link UnsupportedOperationException}.
+ * A {@link TreeVisitor} with pre-implemented methods. Performs a
+ * {@link #defaultAction(Tree, Object)} by default.
  * 
  * @since 1.0
  * @author Lennart Köhler
