@@ -2,14 +2,39 @@ package com.tscript.tscriptc.tree;
 
 import java.util.List;
 
+/**
+ * A tree node for namespaces. For example:
+ *
+ * For example:
+ * <pre>
+ *   namespace <em>name</em> <em>block</em>
+ * </pre>
+ *
+ * @since 1.0
+ * @author Lennart Köhler
+ */
 public interface NamespaceTree extends DefinitionTree {
 
+    /**
+     * {@inheritDoc}
+     */
     ModifiersTree getModifiers();
 
+    /**
+     * {@inheritDoc}
+     */
     String getName();
 
+    /**
+     * Returns all definitions for this Namespace.
+     * @return the definitions
+     */
     List<? extends DefinitionTree> getDefinitions();
 
+    /**
+     * Returns all statements being executed inside this namespace.
+     * @return all statements
+     */
     List<? extends StatementTree> getStatements();
 
 }

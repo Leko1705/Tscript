@@ -282,8 +282,6 @@ the output location of the compiled file, like:
 ```bash
 tscriptc myFile.tscript -o my/wanted/output_directory
 ```
-Since the Compiler determines import dependencies
-automatically no further files need to be provided.
 By default, the output location is the location in which the source code 
 file lays. <p>
 In order to select the target just add ```-t target_type```, like:

@@ -1,9 +1,17 @@
 package com.tscript.tscriptc.tree;
 
+/**
+ * Enums that represent the actual modifiers.
+ *
+ * @since 1.0
+ * @author Lennart Köhler
+ */
 public enum Modifier {
 
     PUBLIC("public"),
+
     PROTECTED("protected"),
+
     PRIVATE("private"),
 
     STATIC("static"),
