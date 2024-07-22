@@ -24,4 +24,17 @@ public interface MemberAccessTree extends ExpressionTree {
      * @return the member name
      */
     String getMemberName();
+
+    /**
+     * {@inheritDoc}
+     * @param visitor the visitor to be called
+     * @param p a value to be passed to the visitor
+     * @return {@inheritDoc}
+     * @param <P> {@inheritDoc}
+     * @param <R> {@inheritDoc}
+     */
+    @Override
+    default <P, R> R accept(TreeVisitor<P, R> visitor, P p) {
+        return visitor.visitMemberAccess(this, p);
+    }
 }
