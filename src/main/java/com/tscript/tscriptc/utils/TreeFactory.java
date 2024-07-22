@@ -17,7 +17,7 @@ public interface TreeFactory {
                               ExpressionTree value);
 
     ArrayTree ArrayTree(Location location,
-                        List<? extends ExpressionTree> contents);
+                        List<? extends ExpressionTree> content);
 
     AssignTree AssignTree(Location location,
                           ExpressionTree assigned,
@@ -41,6 +41,7 @@ public interface TreeFactory {
                       List<? extends ArgumentTree> arguments);
 
     ClassTree ClassTree(Location location,
+                        ModifiersTree modifiers,
                         String name,
                         String superName,
                         ConstructorTree constructor,
@@ -130,6 +131,7 @@ public interface TreeFactory {
 
     ParameterTree ParameterTree(Location location,
                                 String name,
+                                ModifiersTree modifiers,
                                 ExpressionTree defaultValue);
 
     RangeTree RangeTree(Location location,

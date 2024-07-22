@@ -18,7 +18,8 @@ import com.tscript.tscriptc.utils.TreeVisitor;
 public interface ReturnTree extends StatementTree {
 
     /**
-     * Returns the expression to be returned by this statement.
+     * Returns the expression to be returned by this statement or <code>null</code>
+     * if no value is returned.
      * @return the returned expression
      */
     ExpressionTree getExpression();
