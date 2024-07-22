@@ -12,129 +12,169 @@ import java.util.Set;
  */
 public interface TreeFactory {
 
-    ArgumentTree ArgumentTree(String name,
+    ArgumentTree ArgumentTree(Location location,
+                              String name,
                               ExpressionTree value);
 
-    ArrayTree ArrayTree(List<? extends ExpressionTree> contents);
+    ArrayTree ArrayTree(Location location,
+                        List<? extends ExpressionTree> contents);
 
-    AssignTree AssignTree(ExpressionTree assigned,
+    AssignTree AssignTree(Location location,
+                          ExpressionTree assigned,
                           ExpressionTree value);
 
-    BinaryOperationTree BinaryOperationTree(ExpressionTree left,
+    BinaryOperationTree BinaryOperationTree(Location location,
+                                            ExpressionTree left,
                                             ExpressionTree right,
                                             Operation operation);
 
-    BlockTree BlockTree(List<? extends StatementTree> statements);
+    BlockTree BlockTree(Location location,
+                        List<? extends StatementTree> statements);
 
-    BooleanTree BooleanTree(boolean value);
+    BooleanTree BooleanTree(Location location,
+                            boolean value);
 
-    BreakTree BreakTree();
+    BreakTree BreakTree(Location location);
 
-    CallTree CallTree(ExpressionTree called,
+    CallTree CallTree(Location location,
+                      ExpressionTree called,
                       List<? extends ArgumentTree> arguments);
 
-    ClassTree ClassTree(String name,
+    ClassTree ClassTree(Location location,
+                        String name,
                         String superName,
                         ConstructorTree constructor,
                         List<? extends DefinitionTree> members);
 
-    ClosureTree ClosureTree(String name,
+    ClosureTree ClosureTree(Location location,
+                            String name,
                             ExpressionTree initializer);
 
-    ConstructorTree ConstructorTree(ModifiersTree modifiers,
+    ConstructorTree ConstructorTree(Location location,
+                                    ModifiersTree modifiers,
                                     List<? extends ParameterTree> parameters,
                                     List<? extends ArgumentTree> superArguments,
                                     BlockTree body);
 
-    ContainerAccessTree ContainerAccessTree(ExpressionTree container,
+    ContainerAccessTree ContainerAccessTree(Location location,
+                                            ExpressionTree container,
                                             ExpressionTree key);
 
-    ContinueTree ContinueTree();
+    ContinueTree ContinueTree(Location location);
 
-    DictionaryTree DictionaryTree(List<? extends ExpressionTree> keys,
+    DictionaryTree DictionaryTree(Location location,
+                                  List<? extends ExpressionTree> keys,
                                   List<? extends ExpressionTree> values);
 
-    DoWhileTree DoWhileTree(StatementTree statement,
+    DoWhileTree DoWhileTree(Location location,
+                            StatementTree statement,
                             ExpressionTree condition);
 
-    ExpressionStatementTree ExpressionStatementTree(ExpressionTree expression);
+    ExpressionStatementTree ExpressionStatementTree(Location location,
+                                                    ExpressionTree expression);
 
-    FloatTree FloatTree(double value);
+    FloatTree FloatTree(Location location,
+                        double value);
 
-    ForLoopTree ForLoopTree(VarDefTree runVar,
+    ForLoopTree ForLoopTree(Location location,
+                            VarDefTree runVar,
                             ExpressionTree iterable,
                             StatementTree statement);
 
-    FromImportTree FromImportTree(List<String> fromAccessChain,
+    FromImportTree FromImportTree(Location location,
+                                  List<String> fromAccessChain,
                                   List<String> importAccessChain);
 
-    FunctionTree FunctionTree(ModifiersTree modifiers,
+    FunctionTree FunctionTree(Location location,
+                              ModifiersTree modifiers,
                               String name,
                               List<? extends ParameterTree> parameters,
                               BlockTree body);
 
-    GetTypeTree GetTypeTree(ExpressionTree operand);
+    GetTypeTree GetTypeTree(Location location,
+                            ExpressionTree operand);
 
-    IfElseTree IfElseTree(ExpressionTree condition,
+    IfElseTree IfElseTree(Location location,
+                          ExpressionTree condition,
                           StatementTree thenStatement,
                           StatementTree elseStatement);
 
-    ImportTree ImportTree(List<String> importAccessChain);
+    ImportTree ImportTree(Location location,
+                          List<String> importAccessChain);
 
-    IntegerTree IntegerTree(int value);
+    IntegerTree IntegerTree(Location location,
+                            int value);
 
-    LambdaTree LambdaTree(List<? extends ClosureTree> closures,
+    LambdaTree LambdaTree(Location location,
+                          List<? extends ClosureTree> closures,
                           List<? extends ParameterTree> parameters,
                           BlockTree body);
 
-    MemberAccessTree MemberAccessTree(ExpressionTree accessed,
+    MemberAccessTree MemberAccessTree(Location location,
+                                      ExpressionTree accessed,
                                       String memberName);
 
-    ModifiersTree ModifiersTree(Set<Modifier> modifiers);
+    ModifiersTree ModifiersTree(Location location,
+                                Set<Modifier> modifiers);
 
-    NamespaceTree NamespaceTree(ModifiersTree modifiers,
+    NamespaceTree NamespaceTree(Location location,
+                                ModifiersTree modifiers,
                                 String name,
                                 List<? extends DefinitionTree> definitions,
                                 List<? extends StatementTree> statements);
 
-    NotTree NotTree(ExpressionTree operand);
+    NotTree NotTree(Location location,
+                    ExpressionTree operand);
 
-    NullTree NullTree();
+    NullTree NullTree(Location location);
 
-    ParameterTree ParameterTree(String name,
+    ParameterTree ParameterTree(Location location,
+                                String name,
                                 ExpressionTree defaultValue);
 
-    RangeTree RangeTree(ExpressionTree from,
+    RangeTree RangeTree(Location location,
+                        ExpressionTree from,
                         ExpressionTree to);
 
-    ReturnTree ReturnTree(ExpressionTree returned);
+    ReturnTree ReturnTree(Location location,
+                          ExpressionTree returned);
 
-    RootTree RootTree(List<? extends DefinitionTree> definitions,
+    RootTree RootTree(Location location,
+                      List<? extends DefinitionTree> definitions,
                       List<? extends StatementTree> statements);
 
-    SignTree SignTree(boolean isNegation,
+    SignTree SignTree(Location location,
+                      boolean isNegation,
                       ExpressionTree operand);
 
-    StringTree StringTree(String value);
+    StringTree StringTree(Location location,
+                          String value);
 
-    ThisTree ThisTree();
+    ThisTree ThisTree(Location location);
 
-    ThrowTree ThrowTree(ExpressionTree thrown);
+    ThrowTree ThrowTree(Location location,
+                        ExpressionTree thrown);
 
-    TryCatchTree TryCatchTree(StatementTree tryBody,
+    TryCatchTree TryCatchTree(Location location,
+                              StatementTree tryBody,
                               VarDefTree exceptionVar,
                               StatementTree catchBody);
 
-    UseTree UseTree(VariableTree variable);
+    UseTree UseTree(Location location,
+                    VariableTree variable);
 
-    VarDefsTree VarDefsTree(ModifiersTree modifiers,
+    VarDefsTree VarDefsTree(Location location,
+                            ModifiersTree modifiers,
                             List<? extends VarDefTree> definedVars);
 
-    VarDefTree VarDefTree(String name,
+    VarDefTree VarDefTree(Location location,
+                          String name,
                           ExpressionTree initializer);
 
-    VariableTree VariableTree(String name);
+    VariableTree VariableTree(Location location,
+                              String name);
 
-    WhileDoTree WhileDoTree(ExpressionTree condition,
+    WhileDoTree WhileDoTree(Location location,
+                            ExpressionTree condition,
                             StatementTree statement);
 }
