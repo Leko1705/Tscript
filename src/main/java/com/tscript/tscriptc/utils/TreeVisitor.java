@@ -1,4 +1,6 @@
-package com.tscript.tscriptc.tree;
+package com.tscript.tscriptc.utils;
+
+import com.tscript.tscriptc.tree.*;
 
 /**
  * A visitor of trees, in the style of the visitor design pattern.

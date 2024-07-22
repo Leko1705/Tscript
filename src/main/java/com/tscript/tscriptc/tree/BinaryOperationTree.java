@@ -1,5 +1,7 @@
 package com.tscript.tscriptc.tree;
 
+import com.tscript.tscriptc.utils.TreeVisitor;
+
 /**
  * A tree node used as the base class for the different types of
  * binary operations. For example:

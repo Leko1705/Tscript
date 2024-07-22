@@ -1,6 +1,7 @@
 package com.tscript.tscriptc.tree;
 
 import com.tscript.tscriptc.utils.Location;
+import com.tscript.tscriptc.utils.TreeVisitor;
 
 /**
  * Common Interface for all Nodes in the Abstract-Syntax-Tree.

@@ -1,5 +1,7 @@
 package com.tscript.tscriptc.tree;
 
+import com.tscript.tscriptc.utils.TreeVisitor;
+
 import java.util.List;
 
 /**

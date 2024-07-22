@@ -1,5 +1,7 @@
 package com.tscript.tscriptc.tree;
 
+import com.tscript.tscriptc.utils.TreeVisitor;
+
 /**
  * A tree node for this expression. For example:
  *
