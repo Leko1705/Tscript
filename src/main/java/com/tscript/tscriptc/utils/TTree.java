@@ -127,10 +127,10 @@ public abstract class TTree implements Tree {
     public static class TClassTree extends TDefinitionTree implements ClassTree {
         public final String superName;
         public final ConstructorTree constructor;
-        public final List<? extends DefinitionTree> members;
+        public final List<? extends ClassMemberTree> members;
         public TClassTree(Location location, String name, ModifiersTree modifiers,
                           String superName, ConstructorTree constructor,
-                          List<? extends DefinitionTree> members) {
+                          List<? extends ClassMemberTree> members) {
             super(location, name, modifiers);
             this.superName = superName;
             this.constructor = constructor;
@@ -138,7 +138,7 @@ public abstract class TTree implements Tree {
         }
         @Override public String getSuperName() { return superName; }
         @Override public ConstructorTree getConstructor() { return constructor; }
-        @Override public List<? extends DefinitionTree> getMembers() { return members; }
+        @Override public List<? extends ClassMemberTree> getMembers() { return members; }
     }
 
     private static abstract class TNameInitTree extends TTree {
@@ -441,6 +441,15 @@ public abstract class TTree implements Tree {
         public TStringTree(Location location, String value) {
             super(location, value);
         }
+    }
+
+    public static class TSuperTree extends TTree implements SuperTree {
+        public final String name;
+        public TSuperTree(Location location, String name) {
+            super(location);
+            this.name = name;
+        }
+        @Override public String getName() { return name; }
     }
 
     public static class TThisTree extends TTree implements ThisTree {

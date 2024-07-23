@@ -45,7 +45,7 @@ public interface TreeFactory {
                         String name,
                         String superName,
                         ConstructorTree constructor,
-                        List<? extends DefinitionTree> members);
+                        List<? extends ClassMemberTree> members);
 
     ClosureTree ClosureTree(Location location,
                             String name,
@@ -152,6 +152,8 @@ public interface TreeFactory {
     StringTree StringTree(Location location,
                           String value);
 
+    ExpressionTree SuperTree(Location location, String name);
+
     ThisTree ThisTree(Location location);
 
     ThrowTree ThrowTree(Location location,
@@ -179,4 +181,5 @@ public interface TreeFactory {
     WhileDoTree WhileDoTree(Location location,
                             ExpressionTree condition,
                             StatementTree statement);
+
 }

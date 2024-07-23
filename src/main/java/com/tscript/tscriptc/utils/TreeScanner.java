@@ -262,6 +262,11 @@ public class TreeScanner<P, R> implements TreeVisitor<P, R> {
     }
 
     @Override
+    public R visitSuper(SuperTree node, P p) {
+        return null;
+    }
+
+    @Override
     public R visitThis(ThisTree node, P p) {
         return null;
     }

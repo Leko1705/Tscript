@@ -19,7 +19,7 @@ import java.util.List;
  * @since 1.0
  * @author Lennart Köhler
  */
-public interface VarDefsTree extends StatementTree {
+public interface VarDefsTree extends StatementTree, ClassMemberTree {
 
     /**
      * Returns all the modifiers for these variable definitions.

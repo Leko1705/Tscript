@@ -208,6 +208,11 @@ public class SimpleTreeVisitor<P, R> implements TreeVisitor<P, R> {
     }
 
     @Override
+    public R visitSuper(SuperTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
     public R visitThis(ThisTree node, P p) {
         return defaultAction(node, p);
     }

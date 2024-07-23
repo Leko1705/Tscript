@@ -318,6 +318,14 @@ public interface TreeVisitor<P, R> {
     R visitString(StringTree node, P p);
 
     /**
+     * Visits a {@code SuperTree} node.
+     * @param node the node being visited
+     * @param p a parameter value
+     * @return a result value
+     */
+    R visitSuper(SuperTree node, P p);
+
+    /**
      * Visits a {@code ThisTree} node.
      * @param node the node being visited
      * @param p a parameter value

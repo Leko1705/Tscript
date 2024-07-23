@@ -48,7 +48,7 @@ public interface ClassTree extends DefinitionTree, StatementTree {
      * Returns a list of all members defined in this class.
      * @return the members of this class
      */
-    List<? extends DefinitionTree> getMembers();
+    List<? extends ClassMemberTree> getMembers();
 
     /**
      * {@inheritDoc}

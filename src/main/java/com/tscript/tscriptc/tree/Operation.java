@@ -33,8 +33,6 @@ public enum Operation {
 
     SHIFT_AR(">>"),
 
-    SHIFT_LR(">>>"),
-
     LESS("<"),
 
     GREATER(">"),

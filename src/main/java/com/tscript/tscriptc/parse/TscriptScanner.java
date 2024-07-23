@@ -5,6 +5,8 @@ import com.tscript.tscriptc.utils.Errors;
 import com.tscript.tscriptc.utils.Location;
 
 import java.math.BigInteger;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Set;
 
 /**
@@ -24,11 +26,12 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
 
     private int startPos = 0, endPos = 0;
 
-    private Token<TscriptTokenType> current = null;
 
     private final UnicodeReader reader;
 
     private final Logger log;
+
+    private final Deque<Token<TscriptTokenType>> queue = new ArrayDeque<>();
 
     public TscriptScanner(UnicodeReader reader, Logger log) {
         this.reader = reader;
@@ -41,8 +44,9 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
      */
     @Override
     public Token<TscriptTokenType> peek() {
-        if (current == null) return current = scan();
-        return current;
+        if (queue.isEmpty())
+            queue.add(scan());
+        return queue.peek();
     }
 
     /**
@@ -51,10 +55,18 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
      */
     @Override
     public Token<TscriptTokenType> consume() {
-        if (current == null) return current = scan();
-        Token<TscriptTokenType> ret = current;
-        current = scan();
-        return ret;
+        if (queue.isEmpty())
+            queue.add(scan());
+        return queue.poll();
+    }
+
+    /**
+     * {@inheritDoc}
+     * @param token the new current token
+     */
+    @Override
+    public void pushBack(Token<TscriptTokenType> token) {
+        queue.push(token);
     }
 
     /**

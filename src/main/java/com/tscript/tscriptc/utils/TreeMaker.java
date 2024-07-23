@@ -67,7 +67,7 @@ public class TreeMaker implements TreeFactory {
                                String name,
                                String superName,
                                ConstructorTree constructor,
-                               List<? extends DefinitionTree> members) {
+                               List<? extends ClassMemberTree> members) {
         return new TClassTree(location, name, modifiers, superName, constructor, members);
     }
 
@@ -242,6 +242,11 @@ public class TreeMaker implements TreeFactory {
     @Override
     public StringTree StringTree(Location location, String value) {
         return new TStringTree(location, value);
+    }
+
+    @Override
+    public ExpressionTree SuperTree(Location location, String name) {
+        return new TSuperTree(location, name);
     }
 
     @Override
