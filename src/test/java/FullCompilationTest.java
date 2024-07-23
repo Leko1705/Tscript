@@ -1,4 +1,5 @@
 import com.tscript.tscriptc.log.Logger;
+import com.tscript.tscriptc.log.StdLogger;
 import com.tscript.tscriptc.tools.Compiler;
 import com.tscript.tscriptc.tools.CompilerProvider;
 import org.junit.jupiter.api.Assertions;
@@ -22,7 +23,7 @@ public class FullCompilationTest {
             OutputStream out = new FileOutputStream(outPath);
 
             Compiler compiler = CompilerProvider.getDefaultTscriptCompiler();
-            int exitCode = compiler.run(in, out, Logger.getStandardLogger(), null);
+            int exitCode = compiler.run(in, out, StdLogger.getLogger(), null);
 
             Assertions.assertEquals(0, exitCode);
         }
@@ -37,7 +38,7 @@ public class FullCompilationTest {
             OutputStream out = new FileOutputStream(outPath);
 
             Compiler compiler = CompilerProvider.getDefaultTscriptCompiler();
-            int exitCode = compiler.run(in, out, Logger.getStandardLogger(), null);
+            int exitCode = compiler.run(in, out, StdLogger.getLogger(), null);
 
             Assertions.assertNotEquals(0, exitCode);
         }
