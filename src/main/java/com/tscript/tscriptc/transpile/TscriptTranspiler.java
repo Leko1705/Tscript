@@ -9,7 +9,7 @@ import java.util.Iterator;
 
 /**
  * A Transpiler transpiling the tree format to tscript code.
- * The transpiler can be specified fot the web version.
+ * The transpiler can be specified for the web version.
  * (<a href=https://tglas.github.io/tscript/>web version</a>)
  *
  * @since 1.0
