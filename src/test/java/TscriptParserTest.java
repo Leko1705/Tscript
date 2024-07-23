@@ -20,7 +20,13 @@ public class TscriptParserTest {
 
     @Test
     public void test(){
-        check("x = 1 << 2;");
+        check("var x = 1;");
+        // check("const x = 1 << 3;"); WORKS
+        // check("function foo(x=3){return 1;}"); WORKS
+        check("if true then f();");
+        check("if [1, true, {}, 2:0] then {} else f();");
+        // check("while x do {} do {} while x;"); WORKS
+        // check("var x = function[x](){};"); WORKS
     }
 
     private void check(String input){

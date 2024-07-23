@@ -669,7 +669,7 @@ public class TscriptParser implements Parser {
     }
 
     private BlockTree parseBlock(){
-        Location location = lexer.consume().getLocation();
+        Location location = lexer.peek().getLocation();
         List<StatementTree> statements = new ArrayList<>();
 
         Token<TscriptTokenType> token = lexer.consume();

@@ -382,7 +382,20 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
                     scan(closures.next(), stringBuilder);
                 }
             }
+            stringBuilder.append("]");
         }
+
+        stringBuilder.append("(");
+        Iterator<? extends ParameterTree> paramItr = node.getParameters().iterator();
+        if (paramItr.hasNext()){
+            scan(paramItr.next(), stringBuilder);
+            while (paramItr.hasNext()){
+                stringBuilder.append(", ");
+                scan(paramItr.next(), stringBuilder);
+            }
+        }
+        stringBuilder.append(")");
+        scan(node.getBody(), stringBuilder);
         return null;
     }
 
