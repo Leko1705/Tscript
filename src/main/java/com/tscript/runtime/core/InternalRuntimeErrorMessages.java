@@ -107,7 +107,7 @@ public class InternalRuntimeErrorMessages {
     }
 
     public static String tooManyParameters(Callable callable) {
-        return "too many arguments for " + callable.getName();
+        return "too many arguments for function '" + callable.getName() + "'";
     }
 
     public static String stackOverflowError(){
