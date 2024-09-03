@@ -297,13 +297,13 @@ To Archive this you might use:
 ```java
 import java.io.*;
 import com.tscript.tscriptc.tools.Compiler;
-import com.tscript.tscriptc.tools.CompilerProvider;
+import com.tscript.tscriptc.tools.ToolFactory;
 
 public static void main(String[] args) {
     InputStream in = new FileInputStream("code.tscript");
     OutputStream out = new FileOutputStream("code.tscriptc");
     
-    Compiler compiler = CompilerProvider.getDefaultTscriptCompiler();
+    Compiler compiler = CompilerProvider.createDefaultTscriptCompiler();
     int exitCode = compiler.run(in, out, null, null);
     
     System.exit(exitCode);

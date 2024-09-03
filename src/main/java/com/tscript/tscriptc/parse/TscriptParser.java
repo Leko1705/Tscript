@@ -1,12 +1,9 @@
 package com.tscript.tscriptc.parse;
 
-import com.tscript.tscriptc.log.Logger;
 import com.tscript.tscriptc.tree.*;
-import com.tscript.tscriptc.utils.Diagnostics;
-import com.tscript.tscriptc.utils.Location;
-import com.tscript.tscriptc.utils.Phase;
-import com.tscript.tscriptc.utils.TreeFactory;
+import com.tscript.tscriptc.utils.*;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -16,18 +13,23 @@ import static com.tscript.tscriptc.parse.TscriptTokenType.*;
 
 public class TscriptParser implements Parser {
 
+    public static TscriptParser getDefaultSetup(InputStream in){
+        UnicodeReader reader = new UnicodeReader(in);
+        Lexer<TscriptTokenType> lexer = new TscriptScanner(reader);
+        return new TscriptParser(lexer, new TreeMaker());
+    }
+
+
     private final Lexer<TscriptTokenType> lexer;
-    private final Logger log;
     private final TreeFactory F;
 
-    public TscriptParser(Lexer<TscriptTokenType> lexer, Logger log, TreeFactory treeFactory) {
+    public TscriptParser(Lexer<TscriptTokenType> lexer, TreeFactory treeFactory) {
         this.lexer = lexer;
-        this.log = log;
         this.F = treeFactory;
     }
 
     private void error(String msg, Token<TscriptTokenType> token) {
-        log.error(new Diagnostics.Error(msg, token.getLocation(), Phase.PARSING));
+        throw new CompileException(msg, token.getLocation(), Phase.PARSING);
     }
 
     private ExpressionTree unwrap(ExpressionTree exp, Token<TscriptTokenType> token) {
@@ -44,14 +46,12 @@ public class TscriptParser implements Parser {
         Token<TscriptTokenType> token = lexer.peek();
         while (!token.hasTag(EOF)) {
 
-            DefinitionTree def = parseDefinition();
-            if (def != null) {
-                definitions.add(def);
-                token = lexer.peek();
-                continue;
-            }
             StatementTree stmt = parseStatement();
-            if (stmt != null) {
+
+            if (stmt instanceof DefinitionTree def){
+                definitions.add(def);
+            }
+            else if (stmt != null) {
                 statements.add(stmt);
             }
 
@@ -75,22 +75,12 @@ public class TscriptParser implements Parser {
         }
         else if (token.hasTag(ABSTRACT)) {
             lexer.consume();
-            return parseClass(Modifier.ABSTRACT);
-        }
-        else if (token.hasTag(CONST)) {
-            final Token<TscriptTokenType> candidate = lexer.consume();
-
             token = lexer.peek();
-            if (token.hasTag(ABSTRACT)){
-                lexer.consume();
-                return parseClass(Modifier.CONSTANT, Modifier.ABSTRACT);
+            if (token.hasTag(CLASS)) {
+                return parseClass(Modifier.ABSTRACT);
             }
-            else if (token.hasTag(CLASS)){
-                lexer.consume();
-                return parseClass(Modifier.CONSTANT);
-            }
-            else {
-                lexer.pushBack(candidate);
+            else if (token.hasTag(FUNCTION)){
+                return parseFunctionDef(Modifier.ABSTRACT);
             }
         }
         else if (token.hasTag(NAMESPACE)) {
@@ -430,6 +420,9 @@ public class TscriptParser implements Parser {
 
     @Override
     public StatementTree parseStatement() {
+        DefinitionTree candidate = parseDefinition();
+        if (candidate != null) return candidate;
+
         Token<TscriptTokenType> token = lexer.peek();
 
         if (token.hasTag(SEMI)){
@@ -695,13 +688,8 @@ public class TscriptParser implements Parser {
 
     @Override
     public ExpressionTree parseExpression() {
-        return parseExpression(parsePrimaryExpression(true), 0, true);
+        return parseExpression(parsePrimaryExpression(), 0, true);
 
-    }
-
-    @SuppressWarnings("all")
-    private ExpressionTree parseExpression(boolean allowRange){
-        return parseExpression(parsePrimaryExpression(allowRange), 0, false);
     }
 
     private ExpressionTree parseExpression(ExpressionTree lhs, int minPrecedence, boolean allowRange){
@@ -709,7 +697,7 @@ public class TscriptParser implements Parser {
 
         while (isBinaryOperator(lookahead) && precedenceOf(lookahead) >= minPrecedence){
             final Token<TscriptTokenType> op = lexer.consume();
-            ExpressionTree rhs = unwrap(parsePrimaryExpression(allowRange), op);
+            ExpressionTree rhs = unwrap(parsePrimaryExpression(), op);
             lookahead = lexer.peek();
 
             while (isBinaryOperator(lookahead)
@@ -733,7 +721,7 @@ public class TscriptParser implements Parser {
         return TscriptPrecedenceCalculator.calculate(token);
     }
 
-    private ExpressionTree parsePrimaryExpression(boolean allowRange){
+    private ExpressionTree parsePrimaryExpression(){
         ExpressionTree expNode = null;
 
         Token<TscriptTokenType> token = lexer.peek();
@@ -814,7 +802,7 @@ public class TscriptParser implements Parser {
                 continue;
             }
 
-            else if (token.hasTag(COLON) && allowRange) {
+            else if (token.hasTag(COLON)) {
                 expNode = F.RangeTree(lexer.consume().getLocation(), expNode, unwrap(parseExpression(), token));
             }
 
@@ -947,7 +935,7 @@ public class TscriptParser implements Parser {
             do {
                 token = lexer.peek();
 
-                ExpressionTree key = unwrap(parseExpression(false), token);
+                ExpressionTree key = unwrap(parsePrimaryExpression(), token);
                 token = lexer.consume();
                 if (!token.hasTag(COLON))
                     error("missing ':'", token);

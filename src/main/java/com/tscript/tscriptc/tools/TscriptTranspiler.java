@@ -1,9 +1,12 @@
-package com.tscript.tscriptc.transpile;
+package com.tscript.tscriptc.tools;
 
+import com.tscript.tscriptc.parse.*;
 import com.tscript.tscriptc.tree.*;
+import com.tscript.tscriptc.utils.TreeMaker;
 import com.tscript.tscriptc.utils.TreeScanner;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Iterator;
 
@@ -29,10 +32,17 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
 
 
     @Override
-    public void transpile(Tree tree, OutputStream out) throws IOException {
+    public void run(InputStream in, OutputStream out, String[] args) {
         StringBuilder s = new StringBuilder();
+        Parser parser = TscriptParser.getDefaultSetup(in);
+        Tree tree = parser.parseProgram();
         tree.accept(this, s);
-        out.write(s.toString().getBytes());
+        try {
+            out.write(s.toString().getBytes());
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -153,6 +163,21 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
 
     @Override
     public Void visitClass(ClassTree node, StringBuilder stringBuilder) {
+        scan(node.getModifiers(), stringBuilder);
+        stringBuilder.append("class ").append(node.getName());
+        if (node.getSuperName() != null)
+            stringBuilder.append(": ").append(node.getSuperName());
+        stringBuilder.append("{");
+
+        if (node.getConstructor() != null){
+            scan(node.getConstructor(), stringBuilder);
+        }
+
+        for (ClassMemberTree member : node.getMembers()) {
+            scan(member, stringBuilder);
+        }
+
+        stringBuilder.append("} ");
         return null;
     }
 

@@ -8,7 +8,7 @@ package com.tscript.tscriptc.tree;
  * @since 1.0
  * @author Lennart Köhler
  */
-public interface DefinitionTree extends Tree, ClassMemberTree {
+public interface DefinitionTree extends Tree, StatementTree, ClassMemberTree {
 
     /**
      * Returns all the modifiers for this definition.

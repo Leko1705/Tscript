@@ -1,10 +1,7 @@
-import com.tscript.tscriptc.log.Logger;
-import com.tscript.tscriptc.log.VoidLogger;
 import com.tscript.tscriptc.parse.TscriptTokenType;
 import com.tscript.tscriptc.parse.Token;
 import com.tscript.tscriptc.parse.TscriptScanner;
 import com.tscript.tscriptc.parse.UnicodeReader;
-import com.tscript.tscriptc.utils.Diagnostics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -47,18 +44,7 @@ public class TscriptLexerTest {
     private void testFeatures(List<TestFeature> features){
         int index = 0;
         for (TestFeature feature : features){
-            var tokenized = tokenize(feature.code, new Logger() {
-                @Override
-                public void error(Diagnostics.Error error) {
-                    if (feature.shouldBeEqual)
-                        Assertions.fail("unexpected lexing error: " + error.getMessage());
-                }
-
-                @Override
-                public void warning(Diagnostics.Warning warning) {
-
-                }
-            });
+            var tokenized = tokenize(feature.code);
             if (feature.shouldBeEqual) {
                 Assertions.assertIterableEquals(feature.tokenTypes, tokenized,
                         "for feature " + (index + 1) + ": " + feature.code + " got " + tokenized);
@@ -73,10 +59,10 @@ public class TscriptLexerTest {
         }
     }
 
-    private List<TscriptTokenType> tokenize(String input, Logger logger){
+    private List<TscriptTokenType> tokenize(String input){
         ByteArrayInputStream bais = new ByteArrayInputStream(input.getBytes());
         UnicodeReader unicodeReader = new UnicodeReader(bais);
-        TscriptScanner scanner = new TscriptScanner(unicodeReader, logger);
+        TscriptScanner scanner = new TscriptScanner(unicodeReader);
 
         if (!scanner.hasNext()) return List.of(EOF);
 

@@ -1,7 +1,6 @@
-import com.tscript.tscriptc.log.Logger;
-import com.tscript.tscriptc.log.StdLogger;
 import com.tscript.tscriptc.tools.Compiler;
-import com.tscript.tscriptc.tools.CompilerProvider;
+import com.tscript.tscriptc.tools.ToolFactory;
+import com.tscript.tscriptc.utils.CompileException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -22,10 +21,13 @@ public class FullCompilationTest {
             InputStream in = new FileInputStream(inPath);
             OutputStream out = new FileOutputStream(outPath);
 
-            Compiler compiler = CompilerProvider.getDefaultTscriptCompiler();
-            int exitCode = compiler.run(in, out, StdLogger.getLogger(), null);
-
-            Assertions.assertEquals(0, exitCode);
+            Compiler compiler = ToolFactory.createDefaultTscriptCompiler();
+            try {
+                compiler.run(in, out, null);
+            }
+            catch (CompileException e) {
+                Assertions.fail(e);
+            }
         }
         catch (Exception e){
             Assertions.fail(e);
@@ -37,10 +39,13 @@ public class FullCompilationTest {
             InputStream in = new FileInputStream(inPath);
             OutputStream out = new FileOutputStream(outPath);
 
-            Compiler compiler = CompilerProvider.getDefaultTscriptCompiler();
-            int exitCode = compiler.run(in, out, StdLogger.getLogger(), null);
-
-            Assertions.assertNotEquals(0, exitCode);
+            Compiler compiler = ToolFactory.createDefaultTscriptCompiler();
+            try {
+                compiler.run(in, out, null);
+            }
+            catch (CompileException e) {
+                Assertions.fail(e);
+            }
         }
         catch (Exception e){
             Assertions.fail(e);

@@ -1,13 +1,9 @@
-import com.tscript.tscriptc.log.Logger;
-import com.tscript.tscriptc.log.VoidLogger;
 import com.tscript.tscriptc.parse.Parser;
 import com.tscript.tscriptc.parse.TscriptParser;
 import com.tscript.tscriptc.parse.TscriptScanner;
 import com.tscript.tscriptc.parse.UnicodeReader;
-import com.tscript.tscriptc.transpile.Transpiler;
-import com.tscript.tscriptc.transpile.TscriptTranspiler;
-import com.tscript.tscriptc.tree.RootTree;
-import com.tscript.tscriptc.utils.Diagnostics;
+import com.tscript.tscriptc.tools.Transpiler;
+import com.tscript.tscriptc.tools.TscriptTranspiler;
 import com.tscript.tscriptc.utils.TreeMaker;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,15 +23,15 @@ public class TscriptParserTest {
         check("if [1, true, {}, 2:0] then {} else f();");
         // check("while x do {} do {} while x;"); WORKS
         // check("var x = function[x](){};"); WORKS
+        // check("function f(){ class X{} }"); WORKS
     }
 
     private void check(String input){
         checkCallBack(input, parser -> {
-            RootTree root = parser.parseProgram();
-            Transpiler transpiler = new TscriptTranspiler(false);
             try {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
-                transpiler.transpile(root, out);
+                Transpiler transpiler = new TscriptTranspiler(false);
+                transpiler.run(new ByteArrayInputStream(input.getBytes()), out, null);
                 String str = out.toString();
                 System.out.println(str);
                 Assertions.assertEquals(input, str);
@@ -48,18 +44,8 @@ public class TscriptParserTest {
         ByteArrayInputStream bais = new ByteArrayInputStream(input.getBytes());
         UnicodeReader unicodeReader = new UnicodeReader(bais);
 
-        TscriptScanner scanner = new TscriptScanner(unicodeReader, new VoidLogger());
-        Parser parser = new TscriptParser(scanner, new Logger() {
-            @Override
-            public void error(Diagnostics.Error error) {
-                Assertions.fail(error.getMessage());
-            }
-
-            @Override
-            public void warning(Diagnostics.Warning warning) {
-
-            }
-        }, new TreeMaker());
+        TscriptScanner scanner = new TscriptScanner(unicodeReader);
+        Parser parser = new TscriptParser(scanner, new TreeMaker());
 
         testOp.accept(parser);
     }
