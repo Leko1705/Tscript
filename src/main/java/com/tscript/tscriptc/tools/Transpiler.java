@@ -1,8 +1,7 @@
-package com.tscript.tscriptc.transpile;
-
-import com.tscript.tscriptc.tree.Tree;
+package com.tscript.tscriptc.tools;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -12,7 +11,7 @@ import java.io.OutputStream;
  * @since 1.0
  * @author Lennart Köhler
  */
-public interface Transpiler {
+public interface Transpiler extends Tool {
 
     /**
      * Transforms the code to the high level representation.
@@ -20,6 +19,6 @@ public interface Transpiler {
      * @param out the OutputStream to pass the result to
      * @throws IOException delegate from {@link OutputStream#write(int)}
      */
-    void transpile(Tree tree, OutputStream out) throws IOException;
+    void run(InputStream in, OutputStream out, String[] args);
 
 }

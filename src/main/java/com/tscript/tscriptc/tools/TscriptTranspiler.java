@@ -1,9 +1,10 @@
-package com.tscript.tscriptc.transpile;
+package com.tscript.tscriptc.tools;
 
 import com.tscript.tscriptc.tree.*;
 import com.tscript.tscriptc.utils.TreeScanner;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Iterator;
 
@@ -29,10 +30,15 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
 
 
     @Override
-    public void transpile(Tree tree, OutputStream out) throws IOException {
+    public void run(InputStream in, OutputStream out, String[] args) {
         StringBuilder s = new StringBuilder();
-        tree.accept(this, s);
-        out.write(s.toString().getBytes());
+        //tree.accept(this, s);
+        try {
+            out.write(s.toString().getBytes());
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
