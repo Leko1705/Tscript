@@ -3,6 +3,7 @@ package com.tscript.tscriptc.parse;
 import com.tscript.tscriptc.tree.*;
 import com.tscript.tscriptc.utils.*;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -11,6 +12,13 @@ import java.util.Set;
 import static com.tscript.tscriptc.parse.TscriptTokenType.*;
 
 public class TscriptParser implements Parser {
+
+    public static TscriptParser getDefaultSetup(InputStream in){
+        UnicodeReader reader = new UnicodeReader(in);
+        Lexer<TscriptTokenType> lexer = new TscriptScanner(reader);
+        return new TscriptParser(lexer, new TreeMaker());
+    }
+
 
     private final Lexer<TscriptTokenType> lexer;
     private final TreeFactory F;

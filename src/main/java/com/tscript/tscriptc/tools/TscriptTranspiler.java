@@ -1,6 +1,8 @@
 package com.tscript.tscriptc.tools;
 
+import com.tscript.tscriptc.parse.*;
 import com.tscript.tscriptc.tree.*;
+import com.tscript.tscriptc.utils.TreeMaker;
 import com.tscript.tscriptc.utils.TreeScanner;
 
 import java.io.IOException;
@@ -32,7 +34,9 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
     @Override
     public void run(InputStream in, OutputStream out, String[] args) {
         StringBuilder s = new StringBuilder();
-        //tree.accept(this, s);
+        Parser parser = TscriptParser.getDefaultSetup(in);
+        Tree tree = parser.parseProgram();
+        tree.accept(this, s);
         try {
             out.write(s.toString().getBytes());
         }
