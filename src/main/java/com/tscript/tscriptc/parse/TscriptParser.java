@@ -46,14 +46,12 @@ public class TscriptParser implements Parser {
         Token<TscriptTokenType> token = lexer.peek();
         while (!token.hasTag(EOF)) {
 
-            DefinitionTree def = parseDefinition();
-            if (def != null) {
-                definitions.add(def);
-                token = lexer.peek();
-                continue;
-            }
             StatementTree stmt = parseStatement();
-            if (stmt != null) {
+
+            if (stmt instanceof DefinitionTree def){
+                definitions.add(def);
+            }
+            else if (stmt != null) {
                 statements.add(stmt);
             }
 
@@ -422,6 +420,9 @@ public class TscriptParser implements Parser {
 
     @Override
     public StatementTree parseStatement() {
+        DefinitionTree candidate = parseDefinition();
+        if (candidate != null) return candidate;
+
         Token<TscriptTokenType> token = lexer.peek();
 
         if (token.hasTag(SEMI)){

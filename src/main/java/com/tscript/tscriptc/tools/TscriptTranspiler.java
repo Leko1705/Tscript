@@ -163,6 +163,21 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
 
     @Override
     public Void visitClass(ClassTree node, StringBuilder stringBuilder) {
+        scan(node.getModifiers(), stringBuilder);
+        stringBuilder.append("class ").append(node.getName());
+        if (node.getSuperName() != null)
+            stringBuilder.append(": ").append(node.getSuperName());
+        stringBuilder.append("{");
+
+        if (node.getConstructor() != null){
+            scan(node.getConstructor(), stringBuilder);
+        }
+
+        for (ClassMemberTree member : node.getMembers()) {
+            scan(member, stringBuilder);
+        }
+
+        stringBuilder.append("} ");
         return null;
     }
 

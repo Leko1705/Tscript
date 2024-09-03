@@ -23,6 +23,7 @@ public class TscriptParserTest {
         check("if [1, true, {}, 2:0] then {} else f();");
         // check("while x do {} do {} while x;"); WORKS
         // check("var x = function[x](){};"); WORKS
+        // check("function f(){ class X{} }"); WORKS
     }
 
     private void check(String input){
