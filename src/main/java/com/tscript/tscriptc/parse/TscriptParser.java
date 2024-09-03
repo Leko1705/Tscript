@@ -1,11 +1,7 @@
 package com.tscript.tscriptc.parse;
 
-import com.tscript.tscriptc.log.Logger;
 import com.tscript.tscriptc.tree.*;
-import com.tscript.tscriptc.utils.Diagnostics;
-import com.tscript.tscriptc.utils.Location;
-import com.tscript.tscriptc.utils.Phase;
-import com.tscript.tscriptc.utils.TreeFactory;
+import com.tscript.tscriptc.utils.*;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -17,17 +13,15 @@ import static com.tscript.tscriptc.parse.TscriptTokenType.*;
 public class TscriptParser implements Parser {
 
     private final Lexer<TscriptTokenType> lexer;
-    private final Logger log;
     private final TreeFactory F;
 
-    public TscriptParser(Lexer<TscriptTokenType> lexer, Logger log, TreeFactory treeFactory) {
+    public TscriptParser(Lexer<TscriptTokenType> lexer, TreeFactory treeFactory) {
         this.lexer = lexer;
-        this.log = log;
         this.F = treeFactory;
     }
 
     private void error(String msg, Token<TscriptTokenType> token) {
-        log.error(new Diagnostics.Error(msg, token.getLocation(), Phase.PARSING));
+        throw new CompileException(msg, token.getLocation(), Phase.PARSING);
     }
 
     private ExpressionTree unwrap(ExpressionTree exp, Token<TscriptTokenType> token) {

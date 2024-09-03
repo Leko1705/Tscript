@@ -1,6 +1,5 @@
 package com.tscript.tscriptc.parse;
 
-import com.tscript.tscriptc.log.Logger;
 import com.tscript.tscriptc.utils.Errors;
 import com.tscript.tscriptc.utils.Location;
 
@@ -29,13 +28,10 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
 
     private final UnicodeReader reader;
 
-    private final Logger log;
-
     private final Deque<Token<TscriptTokenType>> queue = new ArrayDeque<>();
 
-    public TscriptScanner(UnicodeReader reader, Logger log) {
+    public TscriptScanner(UnicodeReader reader) {
         this.reader = reader;
-        this.log = log;
     }
 
     /**
@@ -108,8 +104,7 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
 
         Location location = new Location(endPos-1, endPos, line);
         char c = consumeChar();
-        log.error(Errors.unexpectedToken(location, c));
-        return new SimpleToken<>(location, Character.toString(c), TscriptTokenType.ERROR);
+        throw  Errors.unexpectedToken(location, c);
     }
 
     private char peekChar(){
@@ -220,7 +215,7 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
                 return new SimpleToken<>(createLocation(), buffer.toString(), TscriptTokenType.STRING);
             buffer.append(next);
             if (!reader.hasNext())
-                log.error(Errors.missingSymbol(new Location(endPos-1, endPos, line), "\""));
+                throw Errors.missingSymbol(new Location(endPos-1, endPos, line), "\"");
             c = peekChar();
         } while (c != '"');
 
@@ -237,8 +232,7 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
             else if (c == 'b') c = '\b';
             else if (c == 't') c = '\t';
             else if (c != '\\' && c != '"') {
-                log.error(Errors.invalidEscapeCharacter(new Location(endPos-1, startPos, line)));
-                c = Character.MIN_VALUE;
+                throw Errors.invalidEscapeCharacter(new Location(endPos-1, startPos, line));
             }
         }
         return c;
@@ -276,8 +270,7 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
 
             if (c == '.'){
                 if (radixSet != DECIMAL_DIGITS) {
-                    log.error(Errors.invalidFraction(createLocation()));
-                    continue;
+                    throw Errors.invalidFraction(createLocation());
                 }
                 if (fractionFound) break;
                 fractionFound = true;
@@ -311,12 +304,10 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
         char c = peekChar();
         if (c != '_'){
             if (!HEX_DIGITS.contains(c)) {
-                log.error(Errors.missingDigitOnRadixSpecs(createLocation()));
-                return 0;
+                throw Errors.missingDigitOnRadixSpecs(createLocation());
             }
             if (!radixSet.contains(c)){
-                log.error(Errors.invalidDigitOnRadixSpecs(createLocation()));
-                return 0;
+                throw Errors.invalidDigitOnRadixSpecs(createLocation());
             }
         }
         consumeChar();
