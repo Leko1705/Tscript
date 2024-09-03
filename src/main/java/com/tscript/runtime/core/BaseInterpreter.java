@@ -538,4 +538,24 @@ public class BaseInterpreter implements Interpreter {
         thread.push(value);
     }
 
+    @Override
+    public void setOwner() {
+        TObject candidate = thread.pop();
+        if (!(candidate instanceof Function func)){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.typeExpected("Function", candidate.getType().getName()));
+            return;
+        }
+
+        TObject owner = thread.pop();
+        func.setOwner(owner);
+        thread.push(func);
+    }
+
+    @Override
+    public void dup() {
+        TObject top = thread.pop();
+        thread.push(top);
+        thread.push(top);
+    }
+
 }

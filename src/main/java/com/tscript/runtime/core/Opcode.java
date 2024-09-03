@@ -9,10 +9,11 @@ public enum Opcode {
     PUSH_INT(1),
     PUSH_BOOL(1),
     LOAD_CONST(2),
-    LOAD_NATIVE(2),
-    LOAD_VIRTUAL(2),
     LOAD_TYPE(2),
     PUSH_THIS(0),
+    LOAD_NATIVE(2),
+    LOAD_VIRTUAL(2),
+    SET_OWNER(2),
 
     POP(0),
     NEW_LINE(4),
@@ -62,7 +63,7 @@ public enum Opcode {
     IMPORT(2),
 
     USE(0), LOAD_NAME(2),
-
+    DUP(0),
 
     ;Opcode(int argc){
         this.b = (byte) this.ordinal();

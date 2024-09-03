@@ -81,10 +81,11 @@ public class TThread extends Thread implements Environment {
             case PUSH_INT -> interpreter.pushInt(instruction[1]);
             case PUSH_BOOL -> interpreter.pushBool(instruction[1]);
             case LOAD_CONST -> interpreter.loadConst(instruction[1], instruction[2]);
-            case LOAD_NATIVE -> interpreter.loadNative(instruction[1], instruction[2]);
-            case LOAD_VIRTUAL -> interpreter.loadVirtual(instruction[1], instruction[2]);
             case LOAD_TYPE -> interpreter.loadType(instruction[1], instruction[2]);
             case PUSH_THIS -> interpreter.pushThis();
+            case LOAD_NATIVE -> interpreter.loadNative(instruction[1], instruction[2]);
+            case LOAD_VIRTUAL -> interpreter.loadVirtual(instruction[1], instruction[2]);
+            case SET_OWNER -> interpreter.setOwner();
             case POP -> interpreter.pop();
             case NEW_LINE -> interpreter.newLine(Conversion.fromBytes(instruction[1], instruction[2], instruction[3], instruction[4]));
             case LOAD_GLOBAL -> interpreter.loadGlobal(instruction[1]);
@@ -131,6 +132,7 @@ public class TThread extends Thread implements Environment {
             case IMPORT -> interpreter.importModule(instruction[1], instruction[2]);
             case USE -> interpreter.use();
             case LOAD_NAME -> interpreter.loadName(instruction[1], instruction[2]);
+            case DUP -> interpreter.dup();
             default -> throw new ExecutionException("unsupported opcode: " + opcode);
         }
     }

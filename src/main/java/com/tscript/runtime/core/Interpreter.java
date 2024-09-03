@@ -100,4 +100,7 @@ public interface Interpreter {
 
     void loadName(byte b1, byte b2);
 
+    void setOwner();
+
+    void dup();
 }
