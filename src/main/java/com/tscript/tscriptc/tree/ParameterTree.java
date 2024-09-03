@@ -15,7 +15,7 @@ import com.tscript.tscriptc.utils.TreeVisitor;
  * @since 1.0
  * @author Lennart Köhler
  */
-public interface ParameterTree extends DefinitionTree {
+public interface ParameterTree extends Tree {
 
     /**
      * {@inheritDoc}

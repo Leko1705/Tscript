@@ -15,7 +15,7 @@ import java.util.List;
  * @since 1.0
  * @author Lennart Köhler
  */
-public interface FunctionTree extends DefinitionTree, StatementTree {
+public interface FunctionTree extends DefinitionTree {
 
     /**
      * {@inheritDoc}
