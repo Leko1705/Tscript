@@ -69,22 +69,12 @@ public class TscriptParser implements Parser {
         }
         else if (token.hasTag(ABSTRACT)) {
             lexer.consume();
-            return parseClass(Modifier.ABSTRACT);
-        }
-        else if (token.hasTag(CONST)) {
-            final Token<TscriptTokenType> candidate = lexer.consume();
-
             token = lexer.peek();
-            if (token.hasTag(ABSTRACT)){
-                lexer.consume();
-                return parseClass(Modifier.CONSTANT, Modifier.ABSTRACT);
+            if (token.hasTag(CLASS)) {
+                return parseClass(Modifier.ABSTRACT);
             }
-            else if (token.hasTag(CLASS)){
-                lexer.consume();
-                return parseClass(Modifier.CONSTANT);
-            }
-            else {
-                lexer.pushBack(candidate);
+            else if (token.hasTag(FUNCTION)){
+                return parseFunctionDef(Modifier.ABSTRACT);
             }
         }
         else if (token.hasTag(NAMESPACE)) {
