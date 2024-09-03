@@ -689,13 +689,8 @@ public class TscriptParser implements Parser {
 
     @Override
     public ExpressionTree parseExpression() {
-        return parseExpression(parsePrimaryExpression(true), 0, true);
+        return parseExpression(parsePrimaryExpression(), 0, true);
 
-    }
-
-    @SuppressWarnings("all")
-    private ExpressionTree parseExpression(boolean allowRange){
-        return parseExpression(parsePrimaryExpression(allowRange), 0, false);
     }
 
     private ExpressionTree parseExpression(ExpressionTree lhs, int minPrecedence, boolean allowRange){
@@ -703,7 +698,7 @@ public class TscriptParser implements Parser {
 
         while (isBinaryOperator(lookahead) && precedenceOf(lookahead) >= minPrecedence){
             final Token<TscriptTokenType> op = lexer.consume();
-            ExpressionTree rhs = unwrap(parsePrimaryExpression(allowRange), op);
+            ExpressionTree rhs = unwrap(parsePrimaryExpression(), op);
             lookahead = lexer.peek();
 
             while (isBinaryOperator(lookahead)
@@ -727,7 +722,7 @@ public class TscriptParser implements Parser {
         return TscriptPrecedenceCalculator.calculate(token);
     }
 
-    private ExpressionTree parsePrimaryExpression(boolean allowRange){
+    private ExpressionTree parsePrimaryExpression(){
         ExpressionTree expNode = null;
 
         Token<TscriptTokenType> token = lexer.peek();
@@ -808,7 +803,7 @@ public class TscriptParser implements Parser {
                 continue;
             }
 
-            else if (token.hasTag(COLON) && allowRange) {
+            else if (token.hasTag(COLON)) {
                 expNode = F.RangeTree(lexer.consume().getLocation(), expNode, unwrap(parseExpression(), token));
             }
 
@@ -941,7 +936,7 @@ public class TscriptParser implements Parser {
             do {
                 token = lexer.peek();
 
-                ExpressionTree key = unwrap(parseExpression(false), token);
+                ExpressionTree key = unwrap(parsePrimaryExpression(), token);
                 token = lexer.consume();
                 if (!token.hasTag(COLON))
                     error("missing ':'", token);
