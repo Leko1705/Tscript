@@ -9,7 +9,7 @@ import java.util.List;
  *
  * For example:
  * <pre>
- *  function ( <em>parameters</em> ) <em>block</em>
+ *  function <em>name</em> ( <em>parameters</em> ) <em>block</em>
  * </pre>
  *
  * @since 1.0
@@ -35,7 +35,7 @@ public interface FunctionTree extends DefinitionTree {
     List<? extends ParameterTree> getParameters();
 
     /**
-     * Returns this functions body.
+     * Returns this functions body. Returns null if this function has no Body.
      * @return the function body
      */
     BlockTree getBody();

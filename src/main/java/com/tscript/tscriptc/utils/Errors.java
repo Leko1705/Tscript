@@ -34,11 +34,11 @@ public class Errors {
         return new CompileException("can not return out of Function", location, Phase.CHECKING);
     }
 
-    public static CompileException canNotThisOutOfClassOrFunction(Location location){
-        return new CompileException("can not use 'this' out of class or function", location, Phase.CHECKING);
+    public static CompileException canNotUseThisOutOfClassOrFunction(Location location){
+        return new CompileException("can not use 'this' out of class or bound-function", location, Phase.CHECKING);
     }
 
-    public static CompileException canNotSuperOutOfClass(Location location){
+    public static CompileException canNotUseSuperOutOfClass(Location location){
         return new CompileException("can not use 'super' out of class", location, Phase.CHECKING);
     }
 
@@ -118,7 +118,7 @@ public class Errors {
         return new CompileException("can not return from constructor", location, Phase.CHECKING);
     }
 
-    public static CompileException noSuperClassFound(Location location, String currentClassName) {
+    public static CompileException invalidSuperAccessFound(Location location, String currentClassName) {
         return new CompileException("can out use 'super' because '" + currentClassName + "' has no super class", location, Phase.CHECKING);
     }
 
@@ -145,4 +145,9 @@ public class Errors {
     public static CompileException canNotUseStaticOnAbstract(Location location) {
         return new CompileException("abstract method must not be static", location, Phase.CHECKING);
     }
+
+    public static CompileException canNotAssignToCallResult(Location location) {
+        return new CompileException("can not assign to a call result", location, Phase.CHECKING);
+    }
+
 }
