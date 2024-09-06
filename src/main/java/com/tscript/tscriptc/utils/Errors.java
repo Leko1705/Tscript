@@ -150,4 +150,7 @@ public class Errors {
         return new CompileException("can not assign to a call result", location, Phase.CHECKING);
     }
 
+    public static CompileException canNotReassignToConstant(Location location) {
+        return new CompileException("can not reassign to constant", location, Phase.CHECKING);
+    }
 }

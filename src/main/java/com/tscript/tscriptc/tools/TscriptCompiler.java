@@ -1,5 +1,7 @@
 package com.tscript.tscriptc.tools;
 
+import com.tscript.tscriptc.analyze.*;
+import com.tscript.tscriptc.analyze.scoping.Scope;
 import com.tscript.tscriptc.parse.Parser;
 import com.tscript.tscriptc.parse.TscriptParser;
 import com.tscript.tscriptc.tree.Tree;
@@ -13,7 +15,19 @@ public class TscriptCompiler implements Compiler {
     public void run(InputStream in, OutputStream out, String[] args) {
         Parser parser = TscriptParser.getDefaultSetup(in);
         Tree tree = parser.parseProgram();
+
+        Scope scope = check(tree);
+
     }
 
+    private static Scope check(Tree tree){
+        PostSyntaxChecker.check(tree);
+        Scope scope = DefinitionResolver.resolve(tree);
+        HierarchyResolver.resolve(tree, scope);
+        UsageChecker.check(tree, scope);
+        ScopeChecker.check(tree);
+        TypeChecker.check(tree);
+        return scope;
+    }
 
 }

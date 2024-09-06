@@ -162,6 +162,7 @@ public class TscriptParser implements Parser {
             do {
                 if (visibility == null || isVisibility(token.getTag())) {
                     visibility = parseVisibility();
+                    token = lexer.peek();
                     continue;
                 }
                 else if (token.hasTag(STATIC)){
@@ -171,6 +172,7 @@ public class TscriptParser implements Parser {
                     }
                     isStatic = true;
                     lexer.consume();
+                    token = lexer.peek();
                     continue;
                 }
                 else if (token.hasTag(OVERRIDDEN)){
@@ -180,6 +182,7 @@ public class TscriptParser implements Parser {
                     }
                     isOverridden = true;
                     lexer.consume();
+                    token = lexer.peek();
                     continue;
                 }
 
@@ -198,13 +201,13 @@ public class TscriptParser implements Parser {
                 }
                 else if (token.hasTag(NATIVE)){
                     if (isOverridden) defTree = parseDeclaredFunction(visibility, Modifier.NATIVE, Modifier.OVERRIDDEN);
-                    else if (isStatic) defTree = parseFunctionDef(visibility, Modifier.NATIVE, Modifier.STATIC);
-                    else defTree = parseFunctionDef(visibility, Modifier.NATIVE);
+                    else if (isStatic) defTree = parseDeclaredFunction(visibility, Modifier.NATIVE, Modifier.STATIC);
+                    else defTree = parseDeclaredFunction(visibility, Modifier.NATIVE);
                 }
                 else if (token.hasTag(ABSTRACT)){
                     if (isOverridden) defTree = parseDeclaredFunction(visibility, Modifier.ABSTRACT, Modifier.OVERRIDDEN);
-                    else if (isStatic) defTree = parseFunctionDef(visibility, Modifier.ABSTRACT, Modifier.STATIC);
-                    else defTree = parseFunctionDef(visibility, Modifier.ABSTRACT);
+                    else if (isStatic) defTree = parseDeclaredFunction(visibility, Modifier.ABSTRACT, Modifier.STATIC);
+                    else defTree = parseDeclaredFunction(visibility, Modifier.ABSTRACT);
                 }
                 else if (token.hasTag(CONSTRUCTOR)){
 
@@ -470,6 +473,12 @@ public class TscriptParser implements Parser {
         else if (token.hasTag(TRY)){
             return parseTryCatch();
         }
+        else if (token.hasTag(IMPORT)){
+            return parseImport();
+        }
+        else if (token.hasTag(FROM)){
+            return parseFromImport();
+        }
         else {
             ExpressionTree exp = parseExpression();
             if (exp == null)
@@ -511,6 +520,8 @@ public class TscriptParser implements Parser {
             varDefs.add(varDefTree);
 
         } while (lexer.peek().hasTag(COMMA));
+
+        parseEOS();
 
         return F.VarDefsTree(location, F.ModifiersTree(location, Set.of(modifiers)), varDefs);
     }
@@ -659,6 +670,45 @@ public class TscriptParser implements Parser {
         StatementTree catchBody = parseStatement();
 
         return F.TryCatchTree(location, tryBody, exVarDef, catchBody);
+    }
+
+    private ImportTree parseImport(){
+        Location location = lexer.consume().getLocation();
+        return F.ImportTree(location, parseAccessChain());
+    }
+
+    private FromImportTree parseFromImport(){
+        Location location = lexer.consume().getLocation();
+        List<String> fromAccessChain = parseAccessChain();
+        if (!lexer.consume().hasTag(IMPORT))
+            error("missing keyword 'import'", lexer.consume());
+        List<String> importAccessChain = parseAccessChain();
+        return F.FromImportTree(location, fromAccessChain, importAccessChain);
+    }
+
+    private List<String> parseAccessChain(){
+        List<String> accessChain = new ArrayList<>();
+        Token<TscriptTokenType> token;
+
+        do {
+            token = lexer.consume();
+            if (!token.hasTag(IDENTIFIER))
+                error("identifier expected", token);
+            accessChain.add(token.getLexeme());
+
+            token = lexer.peek();
+
+            if (token.hasTag(DOT)) {
+                lexer.consume();
+                continue;
+            }
+
+            break;
+        }
+        while (true);
+
+        parseEOS();
+        return accessChain;
     }
 
     private BlockTree parseBlock(){

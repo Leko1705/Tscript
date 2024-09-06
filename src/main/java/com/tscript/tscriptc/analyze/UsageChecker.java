@@ -1,114 +1,416 @@
 package com.tscript.tscriptc.analyze;
 
+import com.tscript.tscriptc.analyze.scoping.*;
 import com.tscript.tscriptc.analyze.structures.*;
 import com.tscript.tscriptc.tree.*;
 import com.tscript.tscriptc.utils.Errors;
-import com.tscript.tscriptc.utils.SimpleTreeVisitor;
 import com.tscript.tscriptc.utils.TreeScanner;
+
+import java.util.*;
 
 public class UsageChecker {
 
-    public void check(Tree tree, Scope rootScope, Hierarchy hierarchy) {
-        tree.accept(new Checker(rootScope, hierarchy));
+    public static void check(Tree tree, Scope rootScope) {
+        tree.accept(new Checker(), rootScope);
     }
 
 
-    private static class Checker extends TreeScanner<Scope, Void> {
+    private static class Checker extends TreeScanner<Scope, Symbol> {
 
-        private final Scope rootScope;
-        private final Hierarchy hierarchy;
+        private boolean inStaticContext = false;
 
-        private Checker(Scope rootScope, Hierarchy hierarchy) {
-            this.rootScope = rootScope;
-            this.hierarchy = hierarchy;
+
+        @Override
+        public Symbol visitRoot(RootTree node, Scope scope) {
+            return super.visitRoot(node, scope);
         }
 
         @Override
-        public Void visitRoot(RootTree node, Scope unused) {
-            return super.visitRoot(node, rootScope);
-        }
-
-        @Override
-        public Void visitBlock(BlockTree node, Scope scope) {
+        public Symbol visitBlock(BlockTree node, Scope scope) {
             scope = enterScope(scope, node);
             super.visitBlock(node, scope);
             return null;
         }
 
         @Override
-        public Void visitConstructor(ConstructorTree node, Scope scope) {
+        public Symbol visitConstructor(ConstructorTree node, Scope scope) {
+            boolean prev = inStaticContext;
+            inStaticContext = false;
             scope = enterScope(scope, node);
             super.visitConstructor(node, scope);
+            inStaticContext = prev;
             return null;
         }
 
         @Override
-        public Void visitClass(ClassTree node, Scope scope) {
+        public Symbol visitClass(ClassTree node, Scope scope) {
+            boolean prev = inStaticContext;
+            inStaticContext = node.getModifiers().getModifiers().contains(Modifier.STATIC);
             scope = enterScope(scope, node);
             super.visitClass(node, scope);
+            inStaticContext = prev;
             return null;
         }
 
         @Override
-        public Void visitFunction(FunctionTree node, Scope scope) {
+        public Symbol visitFunction(FunctionTree node, Scope scope) {
+            boolean prev = inStaticContext;
+            inStaticContext = node.getModifiers().getModifiers().contains(Modifier.STATIC);
             scope = enterScope(scope, node);
             super.visitFunction(node, scope);
+            inStaticContext = prev;
             return null;
         }
 
         @Override
-        public Void visitNamespace(NamespaceTree node, Scope scope) {
+        public Symbol visitNamespace(NamespaceTree node, Scope scope) {
+            boolean prev = inStaticContext;
+            inStaticContext = true;
             scope = enterScope(scope, node);
             super.visitNamespace(node, scope);
+            inStaticContext = prev;
             return null;
         }
 
         @Override
-        public Void visitLambda(LambdaTree node, Scope scope) {
+        public Symbol visitLambda(LambdaTree node, Scope scope) {
+            boolean prev = inStaticContext;
+            inStaticContext = false;
             scope = enterScope(scope, node);
             super.visitLambda(node, scope);
+            inStaticContext = prev;
             return null;
         }
 
         @Override
-        public Void visitVariable(VariableTree node, Scope scope) {
+        public Symbol visitVariable(VariableTree node, Scope scope) {
 
-            while (scope != null){
-                Symbol sym = scope.content.get(node.getName());
-                if (sym != null) return null;
-                if (scope.kind == Scope.Kind.CLASS){
-                    ClassTree cls = (ClassTree) scope.owner;
-                    if (checkSuperClasses(node.getName(), cls))
-                        // found valid in inheritance hierarchy
-                        return null;
+            Symbol sym = scope.accept(new SymbolSearcher(), node.getName());
+
+            if (sym == null) {
+                sym = scope.accept(new ThisClassAccessResolver(), node.getName());
+                if (sym == null){
+                    sym = scope.accept(new SuperClassAccessResolver(), node.getName());
+                    if (sym == null){
+                        throw Errors.canNotFindSymbol(node.getName(), node.getLocation());
+                    }
+                    if (sym.visibility == Visibility.PRIVATE)
+                        throw Errors.memberIsNotVisible(node.getLocation(), Modifier.PRIVATE, node.getName());
                 }
             }
 
-            throw Errors.canNotFindSymbol(node.getName(), node.getLocation());
+            if (sym.scope instanceof ClassScope && !sym.isStatic && inStaticContext){
+                throw Errors.canNotAccessFromStaticContext(node.getLocation());
+            }
+
+            return sym;
+        }
+
+        @Override
+        public Symbol visitMemberAccess(MemberAccessTree node, Scope scope) {
+            ExpressionTree exp = node.getExpression();
+            String memberName = node.getMemberName();
+
+            scan(exp, scope);
+
+            if (exp instanceof ThisTree){
+                Symbol member = scope.accept(new ThisClassAccessResolver(), memberName);
+                if (member == null) {
+                    String thisClassName = scope.accept(new ThisClassNameResolver(), null);
+                    throw Errors.noSuchMemberFound(node.getLocation(), Objects.requireNonNull(thisClassName), memberName);
+                }
+                return member;
+            }
+
+            return null;
+        }
+
+        @Override
+        public Symbol visitSuper(SuperTree node, Scope scope) {
+            boolean hasSuperClass = scope.accept(new HasSuperClassChecker(), null);
+            if (!hasSuperClass) {
+                String thisClassName = scope.accept(new ThisClassNameResolver(), null);
+                throw Errors.invalidSuperAccessFound(node.getLocation(), Objects.requireNonNull(thisClassName));
+            }
+            Symbol member = scope.accept(new SuperClassAccessResolver(), node.getName());
+            if (member == null) {
+                String superClassName = scope.accept(new SuperClassNameResolver(), null);
+                throw Errors.noSuchMemberFound(node.getLocation(), Objects.requireNonNull(superClassName), node.getName());
+            }
+            if (member.visibility == Visibility.PRIVATE)
+                throw Errors.memberIsNotVisible(node.getLocation(), Modifier.PRIVATE, node.getName());
+            return member;
+        }
+
+        @Override
+        public Symbol visitAssign(AssignTree node, Scope scope) {
+            Symbol sym = scan(node.getLeftOperand(), scope);
+            if (sym != null && sym.kind == Symbol.Kind.CONSTANT){
+                throw Errors.canNotReassignToConstant(node.getLocation());
+            }
+            scan(node.getRightOperand(), scope);
+            return null;
         }
 
         private static Scope enterScope(Scope scope, Object key){
-            return scope.children.get(key);
+            return Objects.requireNonNull(scope.getChildScope(key));
         }
 
-        private boolean checkSuperClasses(String name, ClassTree cls){
-            Symbol[] found = new Symbol[]{null};
+    }
 
-            for (ClassMemberTree member : cls.getMembers()){
-                member.accept(new SimpleTreeVisitor<Boolean, Void>() {
-                    @Override
-                    public Void visitClass(ClassTree node, Boolean aBoolean) {
 
-                        return null;
-                    }
-                });
-                if (found[0] == null)
-                    return false;
+    private static class SymbolSearcher implements ScopeVisitor<String, Symbol> {
+
+        @Override
+        public Symbol visitBlock(BlockScope scope, String s) {
+            Symbol sym = scope.getSymbol(s);
+            if (sym != null) return sym;
+            return scope.getEnclosingScope().accept(this, s);
+        }
+
+        @Override
+        public Symbol visitClass(ClassScope scope, String s) {
+            return scope.getGlobalScope().accept(this, s);
+        }
+
+        @Override
+        public Symbol visitFunction(FunctionScope scope, String s) {
+            Symbol sym = scope.getSymbol(s);
+            if (sym != null) return sym;
+            return scope.getEnclosingScope().accept(this, s);
+        }
+
+        @Override
+        public Symbol visitGlobal(GlobalScope scope, String s) {
+            return scope.getSymbol(s);
+        }
+
+        @Override
+        public Symbol visitLambda(LambdaScope scope, String s) {
+            Symbol sym = scope.getSymbol(s);
+            if (sym != null) return sym;
+            return scope.getGlobalScope().accept(this, s);
+        }
+
+        @Override
+        public Symbol visitNamespace(NamespaceScope scope, String s) {
+            return scope.getSymbol(s);
+        }
+
+        @Override
+        public Symbol visitExternal(ExternalScope scope, String s) {
+            return scope.getSymbol(s);
+        }
+
+    }
+
+
+    private static class ThisClassAccessResolver implements ScopeVisitor<String, Symbol> {
+
+        @Override
+        public Symbol visitBlock(BlockScope scope, String s) {
+            return scope.getEnclosingScope().accept(this, s);
+        }
+
+        @Override
+        public Symbol visitClass(ClassScope scope, String s) {
+            return scope.getSymbol(s);
+        }
+
+        @Override
+        public Symbol visitFunction(FunctionScope scope, String s) {
+            return scope.getEnclosingScope().accept(this, s);
+        }
+
+        @Override
+        public Symbol visitGlobal(GlobalScope scope, String s) {
+            return null;
+        }
+
+        @Override
+        public Symbol visitLambda(LambdaScope scope, String s) {
+            return scope.getSymbol(s);
+        }
+
+        @Override
+        public Symbol visitNamespace(NamespaceScope scope, String s) {
+            return null;
+        }
+
+        @Override
+        public Symbol visitExternal(ExternalScope scope, String s) {
+            return scope.getSymbol(s);
+        }
+
+    }
+
+
+    private static class SuperClassAccessResolver implements ScopeVisitor<String, Symbol> {
+
+        @Override
+        public Symbol visitBlock(BlockScope scope, String s) {
+            return scope.getEnclosingScope().accept(this, s);
+        }
+
+        @Override
+        public Symbol visitClass(ClassScope scope, String s) {
+            Scope curr = scope;
+            while (curr != null){
+                Symbol sym = curr.getSymbol(s);
+                if (sym != null) return sym;
+
+                if (curr instanceof ClassScope cls)
+                    curr = cls.getSuperClassScope();
+                else
+                    curr = null;
             }
+            return null;
+        }
 
+        @Override
+        public Symbol visitFunction(FunctionScope scope, String s) {
+            return scope.getEnclosingScope().accept(this, s);
+        }
+
+        @Override
+        public Symbol visitGlobal(GlobalScope scope, String s) {
+            return null;
+        }
+
+        @Override
+        public Symbol visitLambda(LambdaScope scope, String s) {
+            return null;
+        }
+
+        @Override
+        public Symbol visitNamespace(NamespaceScope scope, String s) {
+            return null;
+        }
+
+        @Override
+        public Symbol visitExternal(ExternalScope scope, String s) {
+            return scope.getSymbol(s);
+        }
+    }
+
+
+    private static class HasSuperClassChecker implements ScopeVisitor<Void, Boolean> {
+
+        @Override
+        public Boolean visitBlock(BlockScope scope, Void unused) {
+            return scope.getEnclosingScope().accept(this, unused);
+        }
+
+        @Override
+        public Boolean visitClass(ClassScope scope, Void unused) {
+            return scope.getSuperClassScope() != null;
+        }
+
+        @Override
+        public Boolean visitFunction(FunctionScope scope, Void unused) {
+            return scope.getEnclosingScope().accept(this, unused);
+        }
+
+        @Override
+        public Boolean visitGlobal(GlobalScope scope, Void unused) {
             return false;
         }
 
+        @Override
+        public Boolean visitLambda(LambdaScope scope, Void unused) {
+            return false;
+        }
+
+        @Override
+        public Boolean visitNamespace(NamespaceScope scope, Void unused) {
+            return false;
+        }
+
+        @Override
+        public Boolean visitExternal(ExternalScope scope, Void unused) {
+            return true;
+        }
+    }
+
+
+    private static class SuperClassNameResolver implements ScopeVisitor<Void, String> {
+
+        @Override
+        public String visitBlock(BlockScope scope, Void unused) {
+            return scope.getEnclosingScope().accept(this, unused);
+        }
+
+        @Override
+        public String visitClass(ClassScope scope, Void unused) {
+            Scope superScope = scope.getSuperClassScope();
+            if (superScope instanceof ClassScope cls) return cls.getClassName();
+            else if (superScope instanceof ExternalScope ext) return ext.getName();
+            throw new AssertionError();
+        }
+
+        @Override
+        public String visitFunction(FunctionScope scope, Void unused) {
+            return scope.getEnclosingScope().accept(this, unused);
+        }
+
+        @Override
+        public String visitGlobal(GlobalScope scope, Void unused) {
+            return null;
+        }
+
+        @Override
+        public String visitLambda(LambdaScope scope, Void unused) {
+            return null;
+        }
+
+        @Override
+        public String visitNamespace(NamespaceScope scope, Void unused) {
+            return null;
+        }
+
+        @Override
+        public String visitExternal(ExternalScope scope, Void unused) {
+            return scope.getName();
+        }
+    }
+
+
+    private static class ThisClassNameResolver implements ScopeVisitor<Void, String> {
+
+        @Override
+        public String visitBlock(BlockScope scope, Void unused) {
+            return scope.getEnclosingScope().accept(this, unused);
+        }
+
+        @Override
+        public String visitClass(ClassScope scope, Void unused) {
+            return scope.getClassName();
+        }
+
+        @Override
+        public String visitFunction(FunctionScope scope, Void unused) {
+            return scope.getEnclosingScope().accept(this, unused);
+        }
+
+        @Override
+        public String visitGlobal(GlobalScope scope, Void unused) {
+            return null;
+        }
+
+        @Override
+        public String visitLambda(LambdaScope scope, Void unused) {
+            return null;
+        }
+
+        @Override
+        public String visitNamespace(NamespaceScope scope, Void unused) {
+            return null;
+        }
+
+        @Override
+        public String visitExternal(ExternalScope scope, Void unused) {
+            return null;
+        }
     }
 
 }

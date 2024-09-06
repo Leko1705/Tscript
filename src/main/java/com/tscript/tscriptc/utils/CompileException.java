@@ -7,10 +7,14 @@ public class CompileException extends RuntimeException {
     public final Phase phase;
 
     public CompileException(String msg, Location location, Phase phase){
-        super(msg);
+        super(format(msg, location));
         this.message = msg;
         this.location = location;
         this.phase = phase;
+    }
+
+    private static String format(String msg, Location location){
+        return msg + " (in line " + location.line() + ")";
     }
 
 }

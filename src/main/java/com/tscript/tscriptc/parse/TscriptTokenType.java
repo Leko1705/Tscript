@@ -88,6 +88,7 @@ public enum TscriptTokenType {
     PLUS_PLUS("++"),
     MINUS_MINUS("--"),
     IMPORT("import"),
+    FROM("from"),
     USE("use"),
     NAMESPACE("namespace"),
     EOF,

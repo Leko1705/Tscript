@@ -26,6 +26,11 @@ public class TypeChecker {
         private final Map<String, Type> types = new HashMap<>(BuiltInTypes.get());
 
         @Override
+        public Void visitRoot(RootTree node, List<String> unused) {
+            return super.visitRoot(node, new LinkedList<>());
+        }
+
+        @Override
         public Void visitClass(ClassTree node, List<String> chain) {
             chain.add(node.getName());
 
