@@ -94,8 +94,8 @@ public class TThread extends Thread implements Environment {
             case STORE_LOCAL -> interpreter.storeLocal(instruction[1]);
             case LOAD_EXTERNAL -> interpreter.loadExternal(instruction[1], instruction[2]);
             case STORE_EXTERNAL -> interpreter.storeExternal(instruction[1], instruction[2]);
-            case LOAD_INTERNAL -> interpreter.loadInternal(instruction[1]);
-            case STORE_INTERNAL -> interpreter.storeInternal(instruction[1]);
+            case LOAD_INTERNAL -> interpreter.loadInternal(instruction[1], instruction[2]);
+            case STORE_INTERNAL -> interpreter.storeInternal(instruction[1], instruction[2]);
             case LOAD_STATIC -> interpreter.loadStatic(instruction[1], instruction[2]);
             case STORE_STATIC -> interpreter.storeStatic(instruction[1], instruction[2]);
             case CONTAINER_READ -> interpreter.containerRead();

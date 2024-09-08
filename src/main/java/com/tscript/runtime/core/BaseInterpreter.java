@@ -158,17 +158,25 @@ public class BaseInterpreter implements Interpreter {
     }
 
     @Override
-    public void loadInternal(byte address) {
+    public void loadInternal(byte b1, byte b2) {
+        Module module = thread.getFrame().getModule();
+        Pool pool = module.getPool();
+        String name = pool.loadName(b1, b2);
+
         TObject owner = thread.getFrame().getOwner();
-        Member member = owner.loadMember(address);
+        Member member = owner.loadMember(name);
         thread.push(member.content);
     }
 
     @Override
-    public void storeInternal(byte address) {
+    public void storeInternal(byte b1, byte b2) {
+        Module module = thread.getFrame().getModule();
+        Pool pool = module.getPool();
+        String name = pool.loadName(b1, b2);
+
         TObject value = thread.pop();
         TObject owner = thread.getFrame().getOwner();
-        Member member = owner.loadMember(address);
+        Member member = owner.loadMember(name);
         member.content = value;
     }
 

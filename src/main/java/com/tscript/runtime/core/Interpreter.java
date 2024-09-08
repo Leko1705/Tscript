@@ -34,9 +34,9 @@ public interface Interpreter {
 
     void storeExternal(byte b1, byte b2);
 
-    void loadInternal(byte address);
+    void loadInternal(byte b1, byte b2);
 
-    void storeInternal(byte address);
+    void storeInternal(byte b1, byte b2);
 
     void loadStatic(byte b1, byte b2);
 
