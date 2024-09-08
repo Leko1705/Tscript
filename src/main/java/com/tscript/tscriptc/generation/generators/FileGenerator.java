@@ -1,28 +1,31 @@
 package com.tscript.tscriptc.generation.generators;
 
 import com.tscript.tscriptc.analyze.scoping.Scope;
-import com.tscript.tscriptc.generation.compiled.CompiledClass;
 import com.tscript.tscriptc.generation.compiled.CompiledFile;
-import com.tscript.tscriptc.generation.compiled.CompiledFunction;
 import com.tscript.tscriptc.generation.compiled.GlobalVariable;
-import com.tscript.tscriptc.generation.compiled.pool.ConstantPool;
+import com.tscript.tscriptc.generation.compiled.instruction.*;
+import com.tscript.tscriptc.generation.generators.impls.CompFile;
+import com.tscript.tscriptc.generation.generators.impls.GlobalMainScriptFunc;
+import com.tscript.tscriptc.generation.generators.impls.PoolPutter;
 import com.tscript.tscriptc.tree.*;
-import com.tscript.tscriptc.utils.Location;
 import com.tscript.tscriptc.utils.SimpleTreeVisitor;
-import com.tscript.tscriptc.utils.Version;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 public class FileGenerator extends SimpleTreeVisitor<Scope, Void> {
 
 
     private final CompFile file = new CompFile();
+    private final Context context = new Context(file);
+
+    private final List<Instruction> preloadInstructions = new ArrayList<>();
+
+    private FunctionTree mainFunction = null;
 
 
     public CompiledFile getCompiled(){
-        return file;
+        return context.getFile();
     }
 
     @Override
@@ -32,11 +35,16 @@ public class FileGenerator extends SimpleTreeVisitor<Scope, Void> {
             def.accept(this, scope);
         }
 
-        if (file.entryPoint != -1)
-            return null;
-
-        FunctionTree mainFunc = new ScriptMain(node.getStatements());
-        visitFunction(mainFunc, scope);
+        if (mainFunction != null) {
+            FunctionGenerator generator = new FunctionGenerator(context, mainFunction);
+            generator.addPreInstructions(preloadInstructions);
+            generator.handle(mainFunction, scope, mainFunction);
+            file.entryPoint = generator.func.getIndex();
+        }
+        else {
+            FunctionTree mainFunc = new GlobalMainScriptFunc(node.getStatements());
+            visitFunction(mainFunc, scope);
+        }
 
         return null;
     }
@@ -44,99 +52,26 @@ public class FileGenerator extends SimpleTreeVisitor<Scope, Void> {
 
     @Override
     public Void visitFunction(FunctionTree node, Scope scope) {
-        return super.visitFunction(node, scope);
+        if (node.getName().equals("__main__")){
+            // handle main function at the end when all
+            // global loadings are detected and generated
+            mainFunction = node;
+            return null;
+        }
+
+        if (node.getModifiers().getModifiers().contains(Modifier.NATIVE)){
+            int poolAddr = PoolPutter.putUtf8(context, node.getName());
+            preloadInstructions.add(new LoadNative(poolAddr));
+            preloadInstructions.add(new StoreGlobal(file.getGlobalVariables().size()));
+            file.getGlobalVariables().add(new GlobalVariable(node.getName(), false));
+        }
+        else {
+            int index = FunctionGenerator.generate(context, node, scope);
+            preloadInstructions.add(new LoadVirtual(index));
+            preloadInstructions.add(new StoreGlobal(file.getGlobalVariables().size()));
+            file.getGlobalVariables().add(new GlobalVariable(node.getName(), false));
+        }
+        return null;
     }
 
-    private static class CompFile implements CompiledFile {
-
-        private String moduleName;
-        private int entryPoint;
-        private ConstantPool pool;
-        private Set<CompiledFunction> functions;
-        private Set<CompiledClass> classes;
-
-        @Override
-        public String getModuleName() {
-            return moduleName;
-        }
-
-        @Override
-        public Version getVersion() {
-            return new Version(0, 0);
-        }
-
-        @Override
-        public int getEntryPoint() {
-            return entryPoint;
-        }
-
-        @Override
-        public List<GlobalVariable> getGlobalVariables() {
-            return List.of();
-        }
-
-        @Override
-        public ConstantPool getConstantPool() {
-            return pool;
-        }
-
-        @Override
-        public List<CompiledFunction> getFunctions() {
-            return new ArrayList<>(functions);
-        }
-
-        @Override
-        public List<CompiledClass> getClasses() {
-            return new ArrayList<>(classes);
-        }
-    }
-
-
-    private record ScriptMain(List<? extends StatementTree> statements) implements FunctionTree {
-
-        @Override
-        public ModifiersTree getModifiers() {
-            return new ModifiersTree() {
-                @Override
-                public Set<Modifier> getModifiers() {
-                    return Set.of();
-                }
-
-                @Override
-                public Location getLocation() {
-                    return Location.emptyLocation();
-                }
-            };
-        }
-
-        @Override
-        public String getName() {
-            return "__main__";
-        }
-
-        @Override
-        public List<? extends ParameterTree> getParameters() {
-            return List.of();
-        }
-
-        @Override
-        public BlockTree getBody() {
-            return new BlockTree() {
-                @Override
-                public List<? extends StatementTree> getStatements() {
-                    return statements;
-                }
-
-                @Override
-                public Location getLocation() {
-                    return Location.emptyLocation();
-                }
-            };
-        }
-
-        @Override
-        public Location getLocation() {
-            return Location.emptyLocation();
-        }
-    }
 }

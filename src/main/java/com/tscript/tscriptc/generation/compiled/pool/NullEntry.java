@@ -4,7 +4,7 @@ import com.tscript.tscriptc.generation.writers.PoolEntryWriter;
 
 public class NullEntry extends BasePoolEntry<Void> {
 
-    protected NullEntry(int index) {
+    public NullEntry(int index) {
         super(index, null);
     }
 

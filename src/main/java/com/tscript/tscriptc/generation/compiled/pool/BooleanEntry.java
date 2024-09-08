@@ -4,7 +4,7 @@ import com.tscript.tscriptc.generation.writers.PoolEntryWriter;
 
 public class BooleanEntry extends BasePoolEntry<Boolean> {
 
-    protected BooleanEntry(int index, Boolean value) {
+    public BooleanEntry(int index, Boolean value) {
         super(index, value);
     }
 

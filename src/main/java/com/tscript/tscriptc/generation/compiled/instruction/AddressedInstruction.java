@@ -4,7 +4,7 @@ import com.tscript.tscriptc.generation.writers.InstructionWriter;
 
 public abstract class AddressedInstruction implements Instruction {
 
-    public final int address;
+    public int address;
 
     public AddressedInstruction(int address) {
         this.address = address;

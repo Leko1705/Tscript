@@ -6,7 +6,7 @@ import java.util.List;
 
 public class RangeEntry extends BasePoolEntry<List<Integer>> {
 
-    protected RangeEntry(int index, List<Integer> value) {
+    public RangeEntry(int index, List<Integer> value) {
         super(index, value);
         if (value.size() != 2)
             throw new IllegalArgumentException("range must refer to two values");

@@ -4,7 +4,7 @@ import com.tscript.tscriptc.generation.writers.PoolEntryWriter;
 
 public class FloatEntry extends BasePoolEntry<Double> {
 
-    protected FloatEntry(int index, Double value) {
+    public FloatEntry(int index, Double value) {
         super(index, value);
     }
 

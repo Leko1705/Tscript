@@ -6,7 +6,7 @@ import java.util.List;
 
 public class ArrayEntry extends BasePoolEntry<List<Integer>> {
 
-    protected ArrayEntry(int index, List<Integer> value) {
+    public ArrayEntry(int index, List<Integer> value) {
         super(index, value);
     }
 

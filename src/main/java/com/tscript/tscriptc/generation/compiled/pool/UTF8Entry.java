@@ -4,7 +4,7 @@ import com.tscript.tscriptc.generation.writers.PoolEntryWriter;
 
 public class UTF8Entry extends BasePoolEntry<String> {
 
-    protected UTF8Entry(int index, String value) {
+    public UTF8Entry(int index, String value) {
         super(index, value);
     }
 

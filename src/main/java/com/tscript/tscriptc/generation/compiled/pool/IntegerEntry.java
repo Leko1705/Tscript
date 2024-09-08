@@ -4,7 +4,7 @@ import com.tscript.tscriptc.generation.writers.PoolEntryWriter;
 
 public class IntegerEntry extends BasePoolEntry<Integer> {
 
-    protected IntegerEntry(int index, Integer value) {
+    public IntegerEntry(int index, Integer value) {
         super(index, value);
     }
 

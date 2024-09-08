@@ -4,7 +4,7 @@ import com.tscript.tscriptc.generation.writers.PoolEntryWriter;
 
 public class StringEntry extends BasePoolEntry<String> {
 
-    protected StringEntry(int index, String value) {
+    public StringEntry(int index, String value) {
         super(index, value);
     }
 

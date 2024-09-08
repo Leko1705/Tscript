@@ -6,7 +6,7 @@ import java.util.List;
 
 public class DictionaryEntry extends BasePoolEntry<List<Integer>> {
 
-    protected DictionaryEntry(int index, List<Integer> value) {
+    public DictionaryEntry(int index, List<Integer> value) {
         super(index, value);
         if (value.size() % 2 != 0) {
             throw new IllegalArgumentException("Dictionary entry should have an even number of elements");
