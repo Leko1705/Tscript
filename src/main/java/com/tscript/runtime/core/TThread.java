@@ -170,15 +170,18 @@ public class TThread extends Thread implements Environment {
         String msg = TNIUtils.toString(this, object);
         if (msg == null) return;
 
-        StringBuilder errorLog = new StringBuilder("error in ").append(getName()).append(": ");
+        String threadName = Thread.currentThread().getName();
+        if (threadName.equals("main"))
+            threadName = "Main-Thread";
+        StringBuilder errorLog = new StringBuilder("error in ").append(threadName).append(": ");
         errorLog.append(msg).append('\n');
         do {
             frame = frameStack.pop();
-            errorLog.append("in ").append(frame.getName());
+            errorLog.append("in ").append(frame.getName()).append(" (");
             int line = frame.line();
             if (line != -1)
-                errorLog.append(" (line: ").append(frame.line()).append(")");
-            errorLog.append(" file: ").append(frame.getModule().getPath());
+                errorLog.append("line: ").append(frame.line()).append("; ");
+            errorLog.append("module: ").append(frame.getModule().getCanonicalPath()).append(")");
 
             errorLog.append('\n');
         }while (!frameStack.isEmpty() && !frameStack.element().inSafeSpot());
