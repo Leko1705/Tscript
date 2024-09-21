@@ -6,7 +6,7 @@ public class ContainerRead implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeContainerRead(this);
     }
 
 }

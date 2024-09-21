@@ -6,6 +6,6 @@ public class GetType implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeGetType(this);
     }
 }

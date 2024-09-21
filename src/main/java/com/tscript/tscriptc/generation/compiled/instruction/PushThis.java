@@ -6,6 +6,6 @@ public class PushThis implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writePushThis(this);
     }
 }

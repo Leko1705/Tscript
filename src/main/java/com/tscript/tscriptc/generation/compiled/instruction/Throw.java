@@ -6,6 +6,6 @@ public class Throw implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeThrow(this);
     }
 }

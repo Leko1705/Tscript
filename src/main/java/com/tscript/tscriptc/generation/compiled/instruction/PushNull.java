@@ -10,6 +10,6 @@ public class PushNull extends ValueLoadInstruction<Void> {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writePushNull(this);
     }
 }

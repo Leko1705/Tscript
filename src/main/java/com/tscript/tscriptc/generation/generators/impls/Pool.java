@@ -1,10 +1,11 @@
-package com.tscript.tscriptc.generation;
+package com.tscript.tscriptc.generation.generators.impls;
 
 import com.tscript.tscriptc.generation.compiled.pool.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class Pool implements ConstantPool {
 
@@ -12,27 +13,27 @@ public class Pool implements ConstantPool {
 
     @Override
     public List<PoolEntry<?>> getEntries() {
-        return List.of();
+        return entries;
     }
 
     public int putInt(int value) {
-        return put(idx -> entries.add(new IntegerEntry(idx, value)));
+        return put(idx -> new IntegerEntry(idx, value));
     }
 
     public int putFloat(double value) {
-        return put(idx -> entries.add(new FloatEntry(idx, value)));
+        return put(idx -> new FloatEntry(idx, value));
     }
 
     public int putString(String value) {
-        return put(idx -> entries.add(new StringEntry(idx, value)));
+        return put(idx -> new StringEntry(idx, value));
     }
 
     public int putBoolean(boolean value) {
-        return put(idx -> entries.add(new BooleanEntry(idx, value)));
+        return put(idx -> new BooleanEntry(idx, value));
     }
 
     public int putNull(){
-        return put(idx -> entries.add(new NullEntry(idx)));
+        return put(NullEntry::new);
     }
 
     public int putArray(int[] value) {
@@ -40,7 +41,7 @@ public class Pool implements ConstantPool {
         for (int j : value) {
             ints.add(j);
         }
-        return put(idx -> entries.add(new ArrayEntry(idx, ints)));
+        return put(idx -> new ArrayEntry(idx, ints));
     }
 
     public int putDictionary(int[] value) {
@@ -48,21 +49,22 @@ public class Pool implements ConstantPool {
         for (int j : value) {
             ints.add(j);
         }
-        return put(idx -> entries.add(new DictionaryEntry(idx, ints)));
+        return put(idx -> new DictionaryEntry(idx, ints));
     }
 
     public int putRange(int start, int end) {
         List<Integer> ints = new ArrayList<>(List.of(start, end));
-        return put(idx -> entries.add(new RangeEntry(idx, ints)));
+        return put(idx -> new RangeEntry(idx, ints));
     }
 
     public int putUTF8(String value) {
-        return put(idx -> entries.add(new UTF8Entry(idx, value)));
+        return put(idx -> new UTF8Entry(idx, value));
     }
 
-    private int put(Consumer<Integer> putter){
+    private int put(Function<Integer, PoolEntry<?>> putter){
         final int next = entries.size();
-        putter.accept(next);
+        PoolEntry<?> entry = putter.apply(next);
+        entries.add(entry);
         return next;
     }
 

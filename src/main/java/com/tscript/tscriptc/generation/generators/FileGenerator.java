@@ -10,6 +10,7 @@ import com.tscript.tscriptc.generation.generators.impls.PoolPutter;
 import com.tscript.tscriptc.tree.*;
 import com.tscript.tscriptc.utils.SimpleTreeVisitor;
 
+import javax.tools.ToolProvider;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,20 +32,39 @@ public class FileGenerator extends SimpleTreeVisitor<Scope, Void> {
     @Override
     public Void visitRoot(RootTree node, Scope scope) {
 
+        file.moduleName = "test";
+
+        GlobalRegistry reg = new GlobalRegistry(scope);
+        for (DefinitionTree definitionTree : node.getDefinitions()) {
+            definitionTree.accept(reg, file.getGlobalVariables());
+        }
+        for (StatementTree statement : node.getStatements()) {
+            statement.accept(reg, file.getGlobalVariables());
+        }
+
         for (DefinitionTree def : node.getDefinitions()) {
             def.accept(this, scope);
         }
 
+        FunctionGenerator generator;
         if (mainFunction != null) {
-            FunctionGenerator generator = new FunctionGenerator(context, mainFunction);
+            generator = new FunctionGenerator(context, mainFunction);
+            generator.stackGrows();
+            generator.stackShrinks();
             generator.addPreInstructions(preloadInstructions);
-            generator.handle(mainFunction, scope, mainFunction);
-            file.entryPoint = generator.func.getIndex();
+            generator.handle(mainFunction, scope);
         }
         else {
             FunctionTree mainFunc = new GlobalMainScriptFunc(node.getStatements());
-            visitFunction(mainFunc, scope);
+
+            generator = new FunctionGenerator(context, mainFunc);
+            generator.stackGrows();
+            generator.stackShrinks();
+            generator.addPreInstructions(preloadInstructions);
+            generator.handle(mainFunc, scope);
         }
+
+        file.entryPoint = generator.func.getIndex();
 
         return null;
     }
@@ -62,14 +82,12 @@ public class FileGenerator extends SimpleTreeVisitor<Scope, Void> {
         if (node.getModifiers().getModifiers().contains(Modifier.NATIVE)){
             int poolAddr = PoolPutter.putUtf8(context, node.getName());
             preloadInstructions.add(new LoadNative(poolAddr));
-            preloadInstructions.add(new StoreGlobal(file.getGlobalVariables().size()));
-            file.getGlobalVariables().add(new GlobalVariable(node.getName(), false));
+            preloadInstructions.add(new StoreGlobal(file.getGlobalIndex(node.getName())));
         }
         else {
-            int index = FunctionGenerator.generate(context, node, scope);
+            int index = FunctionGenerator.generate(context, node, scope.getChildScope(node));
             preloadInstructions.add(new LoadVirtual(index));
-            preloadInstructions.add(new StoreGlobal(file.getGlobalVariables().size()));
-            file.getGlobalVariables().add(new GlobalVariable(node.getName(), false));
+            preloadInstructions.add(new StoreGlobal(file.getGlobalIndex(node.getName())));
         }
         return null;
     }

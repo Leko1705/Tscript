@@ -6,7 +6,7 @@ public class ItrNext implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeItrNext(this);
     }
 
 }

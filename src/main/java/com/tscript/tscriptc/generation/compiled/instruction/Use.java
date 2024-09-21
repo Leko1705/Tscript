@@ -6,6 +6,6 @@ public class Use implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeUse(this);
     }
 }

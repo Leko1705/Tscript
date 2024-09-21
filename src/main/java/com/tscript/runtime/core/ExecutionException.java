@@ -6,4 +6,8 @@ public class ExecutionException extends RuntimeException {
         super(message);
     }
 
+    public ExecutionException(Throwable cause, Frame frame) {
+        super("message", cause);
+    }
+
 }

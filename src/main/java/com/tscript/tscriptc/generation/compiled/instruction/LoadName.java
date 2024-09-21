@@ -10,6 +10,6 @@ public class LoadName extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLoadName(this);
     }
 }

@@ -10,6 +10,6 @@ public class LoadGlobal extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLoadGlobal(this);
     }
 }

@@ -10,6 +10,6 @@ public class StoreExternal extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeStoreExternal(this);
     }
 }

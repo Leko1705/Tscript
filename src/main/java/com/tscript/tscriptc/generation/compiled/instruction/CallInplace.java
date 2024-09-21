@@ -12,6 +12,6 @@ public class CallInplace implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeCallInplace(this);
     }
 }

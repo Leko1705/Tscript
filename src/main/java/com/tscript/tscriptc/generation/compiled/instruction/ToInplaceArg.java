@@ -6,6 +6,6 @@ public class ToInplaceArg implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeToInplaceArg(this);
     }
 }

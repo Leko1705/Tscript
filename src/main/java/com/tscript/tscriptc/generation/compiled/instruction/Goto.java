@@ -10,6 +10,6 @@ public class Goto extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeGoto(this);
     }
 }

@@ -47,11 +47,11 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
 
     @Override
     public Void visitArgument(ArgumentTree node, StringBuilder stringBuilder) {
-        stringBuilder.append(node.getName());
-        if (node.getExpression() != null){
+        if (node.getName() != null){
+            stringBuilder.append(node.getName());
             stringBuilder.append("=");
-            scan(node.getExpression(), stringBuilder);
         }
+        scan(node.getExpression(), stringBuilder);
         return null;
     }
 

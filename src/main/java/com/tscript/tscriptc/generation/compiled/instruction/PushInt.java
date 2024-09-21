@@ -10,6 +10,6 @@ public class PushInt extends ValueLoadInstruction<Integer> {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writePushInt(this);
     }
 }

@@ -6,6 +6,6 @@ public class MakeRange implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeMakeRange(this);
     }
 }

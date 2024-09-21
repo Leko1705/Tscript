@@ -12,6 +12,6 @@ public class CallSuper implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeCallSuper(this);
     }
 }

@@ -12,6 +12,6 @@ public class NewLine implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeNewLine(this);
     }
 }

@@ -10,6 +10,6 @@ public class StoreGlobal extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeStoreGlobal(this);
     }
 }

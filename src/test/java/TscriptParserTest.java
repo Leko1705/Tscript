@@ -17,6 +17,7 @@ public class TscriptParserTest {
     @Test
     public void test(){
         check("var x = 1;");
+        check("print(2);");
         // check("const x = 1 << 3;"); WORKS
         // check("function foo(x=3){return 1;}"); WORKS
         check("if true then f();");

@@ -10,7 +10,7 @@ public class LoadNative extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLoadNative(this);
     }
 
 }

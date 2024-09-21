@@ -12,6 +12,6 @@ public class MakeDict implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeMakeDict(this);
     }
 }

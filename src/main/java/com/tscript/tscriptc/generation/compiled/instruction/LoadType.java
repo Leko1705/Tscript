@@ -10,6 +10,6 @@ public class LoadType extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLoadType(this);
     }
 }

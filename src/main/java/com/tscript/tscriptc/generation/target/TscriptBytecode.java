@@ -17,7 +17,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-public class TscriptBytecodeTarget
+public class TscriptBytecode
         implements Target, PoolWriter, PoolEntryWriter,
         FunctionWriter, InstructionWriter, ClassWriter {
 
@@ -25,7 +25,7 @@ public class TscriptBytecodeTarget
 
     private final OutputStream out;
 
-    public TscriptBytecodeTarget(OutputStream out) {
+    public TscriptBytecode(OutputStream out) {
         this.out = out;
     }
 
@@ -62,17 +62,21 @@ public class TscriptBytecodeTarget
 
     @Override
     public void write(CompiledFile file) {
-        write(Conversion.to2Bytes(LoadingConstants.MAGIC_NUMBER));
-        write(file.getModuleName().getBytes(StandardCharsets.UTF_8));
+        write(0xD);
+        write(0xE);
+        write(0xA);
+        write(0xD);
+        write(file.getModuleName());
         Version version = file.getVersion();
         write(version.getMinor());
         write(version.getMajor());
         write(Conversion.to2Bytes(file.getEntryPoint()));
+
         List<GlobalVariable> vars = file.getGlobalVariables();
         write(Conversion.to2Bytes(vars.size()));
         for (GlobalVariable var : vars) {
             write(var.name);
-            write((byte) (var.isMutable ? 1 : 0));
+            write(var.isMutable ? 1 : 0);
         }
 
         writePool(file.getConstantPool());
@@ -177,22 +181,26 @@ public class TscriptBytecodeTarget
     @Override
     public void writeFunction(CompiledFunction function) {
         write(Conversion.to2Bytes(function.getIndex()));
-        write(function.getName().getBytes(StandardCharsets.UTF_8));
-        write('\0');
+        write(function.getName());
 
         List<CompiledFunction.Parameter> parameters = function.getParameters();
         write(Conversion.to2Bytes(parameters.size()));
         for (CompiledFunction.Parameter parameter : parameters) {
-            write(parameter.name.getBytes(StandardCharsets.UTF_8));
-            write('\0');
-            write(Conversion.to2Bytes(parameter.defaultValueRef));
+            write(parameter.name);
+            if (parameter.defaultValueRef < 0){
+                write(0);
+            }
+            else {
+                write(1);
+                write(Conversion.to2Bytes(parameter.defaultValueRef));
+            }
         }
 
         write(Conversion.to2Bytes(function.getStackSize()));
         write(Conversion.to2Bytes(function.getRegisterAmount()));
 
         List<Instruction> instructions = function.getInstructions();
-        write(Conversion.to2Bytes(instructions.size()));
+        write(Conversion.getBytes(instructions.size()));
         for (Instruction instruction : instructions) {
             instruction.write(this);
         }
@@ -203,7 +211,27 @@ public class TscriptBytecodeTarget
 
     @Override
     public void writeBinaryOperation(BinaryOperation inst) {
-        throw new UnsupportedOperationException("binary instruction generation");
+        Opcode op = switch (inst.operation){
+            case ADD -> Opcode.ADD;
+            case SUB -> Opcode.SUB;
+            case MUL -> Opcode.MUL;
+            case DIV -> Opcode.DIV;
+            case MOD -> Opcode.MOD;
+            case AND -> Opcode.AND;
+            case OR -> Opcode.OR;
+            case XOR -> Opcode.XOR;
+            case IDIV -> Opcode.IDIV;
+            case POW -> Opcode.POW;
+            case SHIFT_AL -> Opcode.SLA;
+            case EQUALS -> Opcode.EQUALS;
+            case NOT_EQUALS -> Opcode.NOT_EQUALS;
+            case LESS -> Opcode.LT;
+            case GREATER -> Opcode.GT;
+            case LESS_EQ -> Opcode.LEQ;
+            case GREATER_EQ -> Opcode.GEQ;
+            case SHIFT_AR -> Opcode.SRA;
+        };
+        write(op);
     }
 
     @Override
@@ -417,6 +445,11 @@ public class TscriptBytecodeTarget
     }
 
     @Override
+    public void writePushNull(PushNull inst) {
+        write(Opcode.PUSH_NULL);
+    }
+
+    @Override
     public void writePushBool(PushBool inst) {
         write(Opcode.PUSH_INT, (byte) (inst.value ? 1 : 0));
     }
@@ -466,8 +499,7 @@ public class TscriptBytecodeTarget
     @Override
     public void writeClass(CompiledClass compiledClass) {
         write(Conversion.to2Bytes(compiledClass.getIndex()));
-        write(compiledClass.getName().getBytes(StandardCharsets.UTF_8));
-        write('\0');
+        write(compiledClass.getName());
         write(Conversion.to2Bytes(compiledClass.getSuperIndex()));
         write(compiledClass.isAbstract() ? 1 : 0);
         write(Conversion.to2Bytes(compiledClass.getConstructorIndex()));
@@ -476,7 +508,7 @@ public class TscriptBytecodeTarget
         List<CompiledClass.Member> members = compiledClass.getStaticMembers();
         write(Conversion.to2Bytes(members.size()));
         for (CompiledClass.Member member : members) {
-            write(member.name.getBytes(StandardCharsets.UTF_8));
+            write(member.name);
             write('\0');
             int specs = switch (member.visibility){
                 case PUBLIC -> 1;

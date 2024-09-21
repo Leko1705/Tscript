@@ -2,10 +2,10 @@ package com.tscript.tscriptc.tools;
 
 import com.tscript.tscriptc.analyze.*;
 import com.tscript.tscriptc.analyze.scoping.Scope;
-import com.tscript.tscriptc.generation.generators.Generator;
 import com.tscript.tscriptc.generation.compiled.CompiledFile;
+import com.tscript.tscriptc.generation.generators.Generator;
+import com.tscript.tscriptc.generation.target.ReadableTscriptBytecode;
 import com.tscript.tscriptc.generation.target.Target;
-import com.tscript.tscriptc.generation.target.TscriptBytecode;
 import com.tscript.tscriptc.parse.Parser;
 import com.tscript.tscriptc.parse.TscriptParser;
 import com.tscript.tscriptc.tree.Tree;
@@ -15,7 +15,7 @@ import com.tscript.tscriptc.utils.InternalToolException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-public class TscriptCompiler implements Compiler {
+public class TscriptBytecodeInspector implements Compiler {
 
     @Override
     public void run(InputStream in, OutputStream out, String[] args) {
@@ -27,7 +27,7 @@ public class TscriptCompiler implements Compiler {
             Scope scope = check(tree);
 
             CompiledFile lower = Generator.generate(tree, scope);
-            Target target = new TscriptBytecode(out);
+            Target target = new ReadableTscriptBytecode(out);
             target.write(lower);
         }
         catch (CompileException e){

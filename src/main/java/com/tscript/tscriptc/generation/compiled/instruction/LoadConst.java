@@ -10,6 +10,6 @@ public class LoadConst extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLoadConst(this);
     }
 }

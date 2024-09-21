@@ -6,6 +6,6 @@ public class Return implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeReturn(this);
     }
 }

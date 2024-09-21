@@ -11,7 +11,7 @@ import java.io.OutputStream;
  * @since 1.0
  * @author Lennart Köhler
  */
-public interface Transpiler extends Tool {
+public interface Transpiler extends Compiler {
 
     /**
      * Transforms the code to the high level representation.

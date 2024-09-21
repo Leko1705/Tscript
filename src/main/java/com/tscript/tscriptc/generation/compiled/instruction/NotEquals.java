@@ -6,6 +6,6 @@ public class NotEquals implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeNotEquals(this);
     }
 }

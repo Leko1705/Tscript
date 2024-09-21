@@ -1,6 +1,9 @@
 package com.tscript.tscriptc.generation.generators;
 
+import com.tscript.tscriptc.analyze.scoping.GlobalScope;
 import com.tscript.tscriptc.analyze.scoping.Scope;
+import com.tscript.tscriptc.analyze.search.SymbolSearcher;
+import com.tscript.tscriptc.analyze.structures.Symbol;
 import com.tscript.tscriptc.generation.compiled.CompiledFunction;
 import com.tscript.tscriptc.generation.compiled.instruction.*;
 import com.tscript.tscriptc.generation.generators.impls.CompFunc;
@@ -9,18 +12,15 @@ import com.tscript.tscriptc.generation.generators.impls.PoolPutter;
 import com.tscript.tscriptc.tree.*;
 import com.tscript.tscriptc.utils.TreeScanner;
 
-import java.util.List;
-import java.util.ListIterator;
-import java.util.StringJoiner;
+import java.util.*;
 
 public class FunctionGenerator extends TreeScanner<Scope, Void> {
 
     public static int generate(Context context, FunctionTree node, Scope scope){
         FunctionGenerator generator = new FunctionGenerator(context, node);
-        generator.handle(node, scope, node);
+        generator.handle(node, scope);
         return generator.func.getIndex();
     }
-
 
     private final Context context;
 
@@ -30,7 +30,9 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     private int currentStackSize = maxStackSize;
 
     private int maxLocals = 0;
-    private int currentLocals = maxLocals;
+    private final List<String> currentLocals = new ArrayList<>();
+
+    private int line;
 
     public FunctionGenerator(Context context, FunctionTree node) {
         this.context = context;
@@ -38,11 +40,11 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     public void addPreInstructions(List<Instruction> instruction){
-        func.getInstructions().addAll(instruction);
+        func.getInstructions().addAll(0, instruction);
     }
 
-    public void handle(FunctionTree node, Scope scope, Object key){
-        scope = scope.getChildScope(key);
+    public void handle(FunctionTree node, Scope scope){
+        newLine(node);
 
         List<? extends ParameterTree> params = node.getParameters();
         stackGrows(params.size());
@@ -56,27 +58,41 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
             func.getInstructions().add(new Return());
         }
 
+        func.stackSize = maxStackSize;
+        func.locals = maxLocals;
+
         context.getFile().functions.add(func);
     }
 
-
+    private void newLine(Tree tree){
+        int newLine = tree.getLocation().line();
+        if (newLine > line){
+            line = newLine;
+            func.getInstructions().add(new NewLine(line));
+        }
+    }
 
     @Override
     public Void visitFunction(FunctionTree node, Scope scope) {
-        int index = FunctionGenerator.generate(context, node, scope);
         if (node.getModifiers().getModifiers().contains(Modifier.NATIVE)){
-            func.getInstructions().add(new LoadNative(index));
+            func.getInstructions().add(new LoadNative(PoolPutter.putUtf8(context, node.getName())));
         }
         else {
-            func.getInstructions().add(new LoadVirtual(PoolPutter.putUtf8(context, node.getName())));
+            newLine(node);
+            int index = FunctionGenerator.generate(context, node, scope.getChildScope(node));
+            func.getInstructions().add(new LoadVirtual(index));
         }
         stackGrows();
+
+        func.getInstructions().add(new StoreLocal(requireLocalAddress(node.getName())));
+        stackShrinks();
+
         return null;
     }
 
     @Override
     public Void visitParameter(ParameterTree node, Scope scope) {
-        func.getInstructions().add(new StoreLocal(requireLocalAddress()));
+        func.getInstructions().add(new StoreLocal(requireLocalAddress(node.getName())));
         int defaultAddr = -1;
         if (node.getDefaultValue() != null) defaultAddr = PoolPutter.put(context, node.getDefaultValue());
         func.parameters.add(CompiledFunction.Parameter.of(node.getName(), defaultAddr));
@@ -86,8 +102,11 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
 
     @Override
     public Void visitBlock(BlockTree node, Scope scope) {
+        Scope child = scope;
+        if (!func.getName().equals("__main__"))
+            child = scope.getChildScope(node);
         for (StatementTree stmt : node.getStatements()) {
-            stmt.accept(this, scope);
+            stmt.accept(this, child);
             if (stmt instanceof Return) break;
             if (stmt instanceof ContinueTree) break;
             if (stmt instanceof BreakTree) break;
@@ -141,6 +160,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     public Void visitRange(RangeTree node, Scope scope) {
         scan(node.getFrom(), scope);
         scan(node.getTo(), scope);
+        newLine(node);
         func.getInstructions().add(new MakeRange());
         stackShrinks();
         return null;
@@ -157,6 +177,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     public Void visitBinaryOperation(BinaryOperationTree node, Scope scope) {
         scan(node.getLeftOperand(), scope);
         scan(node.getRightOperand(), scope);
+        newLine(node);
         switch (node.getOperationType()) {
             case EQUALS -> func.getInstructions().add(new Equals());
             case NOT_EQUALS -> func.getInstructions().add(new NotEquals());
@@ -168,6 +189,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     @Override
     public Void visitNot(NotTree node, Scope scope) {
         scan(node.getOperand(), scope);
+        newLine(node);
         func.getInstructions().add(new Not());
         return null;
     }
@@ -175,6 +197,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     @Override
     public Void visitSign(SignTree node, Scope scope) {
         scan(node.getOperand(), scope);
+        newLine(node);
         if (node.isNegation()){
             func.getInstructions().add(new Neg());
         }
@@ -223,7 +246,8 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     public Void visitLambda(LambdaTree node, Scope scope) {
         LambdaFunction bridge = new LambdaFunction(node, "Lambda@" + context.getNextLambdaIndex());
         FunctionGenerator generator = new FunctionGenerator(context, bridge);
-        generator.handle(bridge, scope, node);
+        scope = scope.getChildScope(node);
+        generator.handle(bridge, scope);
 
         int index = generator.func.getIndex();
 
@@ -247,8 +271,6 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     @Override
     public Void visitCall(CallTree node, Scope scope) {
 
-        node.getCalled().accept(this, scope);
-
         boolean isMapped = false;
         for (ArgumentTree arg : node.getArguments()) {
             if (arg.getName() != null) {
@@ -267,10 +289,43 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
                     func.getInstructions().add(new ToInplaceArg());
                 }
             }
+            node.getCalled().accept(this, scope);
+            stackGrows();
+            newLine(node);
+            func.getInstructions().add(new CallMapped(node.getArguments().size()));
+            stackShrinks(-node.getArguments().size() + 1);
         }
         else {
-            scan(node.getArguments(), scope);
+            for (ArgumentTree arg : node.getArguments()){
+                scan(arg.getExpression(), scope);
+            }
+            node.getCalled().accept(this, scope);
+            stackGrows();
+            newLine(node);
+            func.getInstructions().add(new CallInplace(node.getArguments().size()));
+            stackShrinks(-node.getArguments().size() + 1);
         }
+
+        return null;
+    }
+
+    @Override
+    public Void visitVariable(VariableTree node, Scope scope) {
+        Symbol sym = scope.accept(new SymbolSearcher(), node.getName());
+
+        if (sym != null){
+            if (sym.kind == Symbol.Kind.UNKNOWN){
+                func.getInstructions().add(new LoadName(PoolPutter.putUtf8(context, node.getName())));
+            }
+            else if (sym.scope instanceof GlobalScope) {
+                int addr = context.getFile().getGlobalIndex(sym.name);
+                func.getInstructions().add(new LoadGlobal(addr));
+            }
+            else {
+                func.getInstructions().add(new LoadLocal(requireLocalAddress(node.getName())));
+            }
+        }
+        stackGrows();
 
         return null;
     }
@@ -284,6 +339,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     public Void visitContainerAccess(ContainerAccessTree node, Scope scope) {
         scan(node.getKey(), scope);
         scan(node.getContainer(), scope);
+        newLine(node);
         func.getInstructions().add(new ContainerRead());
         stackShrinks(2);
         return null;
@@ -292,6 +348,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     @Override
     public Void visitMemberAccess(MemberAccessTree node, Scope scope) {
         scan(node.getExpression(), scope);
+        newLine(node);
         func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, node.getMemberName())));
         return null;
     }
@@ -307,6 +364,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     @Override
     public Void visitUse(UseTree node, Scope scope) {
         scan(node.getVariable(), scope);
+        newLine(node);
         func.getInstructions().add(new Use());
         stackShrinks();
         return null;
@@ -314,6 +372,8 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
 
     @Override
     public Void visitThrow(ThrowTree node, Scope scope) {
+        scan(node.getThrown(), scope);
+        newLine(node);
         func.getInstructions().add(new Throw());
         return null;
     }
@@ -352,6 +412,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         StringJoiner joiner = new StringJoiner(".");
         for (String acc : node.getAccessChain())
             joiner.add(acc);
+        newLine(node);
         func.getInstructions().add(new Import(PoolPutter.putUtf8(context, joiner.toString())));
         return null;
     }
@@ -363,6 +424,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
             joiner.add(acc);
         String from = joiner.toString();
 
+        newLine(node);
         func.getInstructions().add(new Import(PoolPutter.putUtf8(context, from)));
         for (String acc : node.getImportAccessChain()){
             func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, acc)));
@@ -371,14 +433,29 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         return super.visitFromImport(node, scope);
     }
 
+    @Override
+    public Void visitVarDef(VarDefTree node, Scope scope) {
+        if (node.getInitializer() != null)
+            scan(node.getInitializer(), scope);
+        else
+            visitNull(null, scope);
 
+
+        if (scope instanceof GlobalScope)
+            func.getInstructions().add(new StoreGlobal(context.getFile().getGlobalIndex(node.getName())));
+        else
+            func.getInstructions().add(new StoreLocal(requireLocalAddress(node.getName())));
+
+        return null;
+    }
 
     private boolean isExplicitReturn(){
+        if (func.getInstructions().isEmpty()) return false;
         return func.getInstructions().get(func.getInstructions().size()-1) instanceof Return;
     }
 
 
-    private void stackGrows(){
+    public void stackGrows(){
         stackGrows(1);
     }
 
@@ -389,7 +466,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         }
     }
 
-    private void stackShrinks(){
+    public void stackShrinks(){
         stackShrinks(1);
     }
 
@@ -397,11 +474,16 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         currentStackSize -= size;
     }
 
-    private int requireLocalAddress(){
-        currentLocals++;
-        if(currentLocals > maxLocals){
-            maxLocals = currentLocals;
+    private int requireLocalAddress(String name){
+        int addr = currentLocals.indexOf(name);
+        if (addr < 0){
+            addr = currentLocals.size();
+            currentLocals.add(name);
         }
-        return currentLocals;
+        if(currentLocals.size() > maxLocals){
+            maxLocals = currentLocals.size();
+        }
+        return addr;
     }
+
 }

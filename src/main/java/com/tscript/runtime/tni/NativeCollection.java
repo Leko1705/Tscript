@@ -3,8 +3,10 @@ package com.tscript.runtime.tni;
 import com.tscript.runtime.core.ExecutionException;
 import com.tscript.runtime.tni.natfuncs.std.*;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class NativeCollection {
 
@@ -23,6 +25,9 @@ public class NativeCollection {
         return natives.get(name);
     }
 
+    public static Collection<NativeFunction> getNativeFunctions(){
+        return natives.values();
+    }
 
     static {
         registerNativeFunction(new NativePrint());

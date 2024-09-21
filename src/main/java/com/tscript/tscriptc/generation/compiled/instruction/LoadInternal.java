@@ -10,6 +10,6 @@ public class LoadInternal extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLoadInternal(this);
     }
 }

@@ -10,6 +10,6 @@ public class LoadStatic extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLoadStatic(this);
     }
 }

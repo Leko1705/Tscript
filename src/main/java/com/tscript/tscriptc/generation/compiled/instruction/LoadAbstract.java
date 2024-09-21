@@ -10,6 +10,6 @@ public class LoadAbstract extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLoadAbstract(this);
     }
 }

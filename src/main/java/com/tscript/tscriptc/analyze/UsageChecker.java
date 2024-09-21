@@ -1,6 +1,7 @@
 package com.tscript.tscriptc.analyze;
 
 import com.tscript.tscriptc.analyze.scoping.*;
+import com.tscript.tscriptc.analyze.search.*;
 import com.tscript.tscriptc.analyze.structures.*;
 import com.tscript.tscriptc.tree.*;
 import com.tscript.tscriptc.utils.Errors;
@@ -156,141 +157,6 @@ public class UsageChecker {
             return Objects.requireNonNull(scope.getChildScope(key));
         }
 
-    }
-
-
-    private static class SymbolSearcher implements ScopeVisitor<String, Symbol> {
-
-        @Override
-        public Symbol visitBlock(BlockScope scope, String s) {
-            Symbol sym = scope.getSymbol(s);
-            if (sym != null) return sym;
-            return scope.getEnclosingScope().accept(this, s);
-        }
-
-        @Override
-        public Symbol visitClass(ClassScope scope, String s) {
-            return scope.getGlobalScope().accept(this, s);
-        }
-
-        @Override
-        public Symbol visitFunction(FunctionScope scope, String s) {
-            Symbol sym = scope.getSymbol(s);
-            if (sym != null) return sym;
-            return scope.getEnclosingScope().accept(this, s);
-        }
-
-        @Override
-        public Symbol visitGlobal(GlobalScope scope, String s) {
-            return scope.getSymbol(s);
-        }
-
-        @Override
-        public Symbol visitLambda(LambdaScope scope, String s) {
-            Symbol sym = scope.getSymbol(s);
-            if (sym != null) return sym;
-            return scope.getGlobalScope().accept(this, s);
-        }
-
-        @Override
-        public Symbol visitNamespace(NamespaceScope scope, String s) {
-            return scope.getSymbol(s);
-        }
-
-        @Override
-        public Symbol visitExternal(ExternalScope scope, String s) {
-            return scope.getSymbol(s);
-        }
-
-    }
-
-
-    private static class ThisClassAccessResolver implements ScopeVisitor<String, Symbol> {
-
-        @Override
-        public Symbol visitBlock(BlockScope scope, String s) {
-            return scope.getEnclosingScope().accept(this, s);
-        }
-
-        @Override
-        public Symbol visitClass(ClassScope scope, String s) {
-            return scope.getSymbol(s);
-        }
-
-        @Override
-        public Symbol visitFunction(FunctionScope scope, String s) {
-            return scope.getEnclosingScope().accept(this, s);
-        }
-
-        @Override
-        public Symbol visitGlobal(GlobalScope scope, String s) {
-            return null;
-        }
-
-        @Override
-        public Symbol visitLambda(LambdaScope scope, String s) {
-            return scope.getSymbol(s);
-        }
-
-        @Override
-        public Symbol visitNamespace(NamespaceScope scope, String s) {
-            return null;
-        }
-
-        @Override
-        public Symbol visitExternal(ExternalScope scope, String s) {
-            return scope.getSymbol(s);
-        }
-
-    }
-
-
-    private static class SuperClassAccessResolver implements ScopeVisitor<String, Symbol> {
-
-        @Override
-        public Symbol visitBlock(BlockScope scope, String s) {
-            return scope.getEnclosingScope().accept(this, s);
-        }
-
-        @Override
-        public Symbol visitClass(ClassScope scope, String s) {
-            Scope curr = scope;
-            while (curr != null){
-                Symbol sym = curr.getSymbol(s);
-                if (sym != null) return sym;
-
-                if (curr instanceof ClassScope cls)
-                    curr = cls.getSuperClassScope();
-                else
-                    curr = null;
-            }
-            return null;
-        }
-
-        @Override
-        public Symbol visitFunction(FunctionScope scope, String s) {
-            return scope.getEnclosingScope().accept(this, s);
-        }
-
-        @Override
-        public Symbol visitGlobal(GlobalScope scope, String s) {
-            return null;
-        }
-
-        @Override
-        public Symbol visitLambda(LambdaScope scope, String s) {
-            return null;
-        }
-
-        @Override
-        public Symbol visitNamespace(NamespaceScope scope, String s) {
-            return null;
-        }
-
-        @Override
-        public Symbol visitExternal(ExternalScope scope, String s) {
-            return scope.getSymbol(s);
-        }
     }
 
 

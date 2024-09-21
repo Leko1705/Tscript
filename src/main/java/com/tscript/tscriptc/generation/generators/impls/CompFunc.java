@@ -13,6 +13,8 @@ public class CompFunc implements CompiledFunction {
     private final List<Instruction> instructions = new ArrayList<>();
 
     private final int index;
+    public int stackSize;
+    public int locals;
 
     public CompFunc(int index, String name) {
         this.index = index;
@@ -36,12 +38,12 @@ public class CompFunc implements CompiledFunction {
 
     @Override
     public int getStackSize() {
-        return 0;
+        return stackSize;
     }
 
     @Override
     public int getRegisterAmount() {
-        return 0;
+        return locals;
     }
 
     @Override

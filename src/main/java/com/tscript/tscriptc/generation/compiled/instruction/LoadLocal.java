@@ -10,6 +10,6 @@ public class LoadLocal extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLoadLocal(this);
     }
 }

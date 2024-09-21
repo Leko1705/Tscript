@@ -6,6 +6,6 @@ public class Dup implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeDup(this);
     }
 }

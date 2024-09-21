@@ -90,6 +90,8 @@ public interface InstructionWriter {
 
     void writePos(Pos inst);
 
+    void writePushNull(PushNull inst);
+
     void writePushBool(PushBool inst);
 
     void writePushInt(PushInt inst);

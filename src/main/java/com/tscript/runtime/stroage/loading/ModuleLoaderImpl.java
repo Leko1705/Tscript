@@ -50,8 +50,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
         // skip the magic number.
         // Was checked earlier in filePathResolving.
-        reader.read();
-        reader.read();
+        reader.readInt();
 
         String canonicalPath = reader.readString();
 
@@ -137,7 +136,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         for (int i = 0; i < functionAmount; i++) {
             int id = Conversion.from2Bytes(reader.read(), reader.read());
             String name = reader.readString();
-            Tuple<String, byte[]>[] params = loadParams(reader);
+            Tuple<String, Integer>[] params = loadParams(reader);
             int stackSize = Conversion.from2Bytes(reader.read(), reader.read());
             int locals = Conversion.from2Bytes(reader.read(), reader.read());
             byte[][] instructions = loadInstructions(reader);
@@ -148,15 +147,16 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
     }
 
     @SuppressWarnings("unchecked")
-    private Tuple<String, byte[]>[] loadParams(LazyReader reader) throws ModuleLoadingException {
-        byte paramCount = reader.read();
-        Tuple<String, byte[]>[] params = new Tuple[paramCount];
+    private Tuple<String, Integer>[] loadParams(LazyReader reader) throws ModuleLoadingException {
+        int paramCount = Conversion.from2Bytes(reader.read(), reader.read());
+        Tuple<String, Integer>[] params = new Tuple[paramCount];
 
         for (int j = 0; j < paramCount; j++) {
             String paramName = reader.readString();
-            byte p1 = reader.read();
-            byte p2 = reader.read();
-            params[j] = new Tuple<>(paramName, new byte[] {p1, p2});
+            int addr = -1;
+            if (reader.read() == 1)
+                addr = Conversion.from2Bytes(reader.read(), reader.read());
+            params[j] = new Tuple<>(paramName, addr);
         }
 
         return params;

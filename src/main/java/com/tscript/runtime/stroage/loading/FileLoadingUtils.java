@@ -1,7 +1,5 @@
 package com.tscript.runtime.stroage.loading;
 
-import com.tscript.runtime.utils.Conversion;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -20,10 +18,10 @@ public class FileLoadingUtils {
         if (!file.exists()) return false;
 
         try(FileReader reader = new FileReader(file)) {
-            int magic = Conversion.from2Bytes((byte) reader.read(), (byte) reader.read());
-
-            if (magic != LoadingConstants.MAGIC_NUMBER)
-                return false;
+            if (reader.read() != 0xD) return false;
+            if (reader.read() != 0xE) return false;
+            if (reader.read() != 0xA) return false;
+            if (reader.read() != 0xD) return false;
 
             StringBuilder sb = new StringBuilder();
             int b;

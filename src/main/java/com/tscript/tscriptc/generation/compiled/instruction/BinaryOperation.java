@@ -13,6 +13,6 @@ public class BinaryOperation implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeBinaryOperation(this);
     }
 }

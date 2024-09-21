@@ -1,5 +1,7 @@
 package com.tscript.tscriptc.parse;
 
+import com.tscript.runtime.tni.NativeCollection;
+import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.tscriptc.tree.*;
 import com.tscript.tscriptc.utils.*;
 
@@ -42,6 +44,15 @@ public class TscriptParser implements Parser {
     public RootTree parseProgram() {
         List<DefinitionTree> definitions = new ArrayList<>();
         List<StatementTree> statements = new ArrayList<>();
+
+        for (NativeFunction n : NativeCollection.getNativeFunctions()){
+            definitions.add(F.FunctionTree(
+                    Location.emptyLocation(),
+                    F.ModifiersTree(Location.emptyLocation(), Set.of(Modifier.NATIVE)),
+                    n.getName(),
+                    List.of(),
+                    null));
+        }
 
         Token<TscriptTokenType> token = lexer.peek();
         while (!token.hasTag(EOF)) {
@@ -641,9 +652,10 @@ public class TscriptParser implements Parser {
     }
 
     private ThrowTree parseThrow(){
-        ExpressionTree thrown = unwrap(parseExpression(), lexer.peek());
+        Token<TscriptTokenType> token = lexer.consume();
+        ExpressionTree thrown = unwrap(parseExpression(), token);
         parseEOS();
-        return F.ThrowTree(lexer.consume().getLocation(), thrown);
+        return F.ThrowTree(token.getLocation(), thrown);
     }
 
     private TryCatchTree parseTryCatch(){
@@ -674,7 +686,9 @@ public class TscriptParser implements Parser {
 
     private ImportTree parseImport(){
         Location location = lexer.consume().getLocation();
-        return F.ImportTree(location, parseAccessChain());
+        List<String> accessChain = parseAccessChain();
+        parseEOS();
+        return F.ImportTree(location, accessChain);
     }
 
     private FromImportTree parseFromImport(){
@@ -683,6 +697,7 @@ public class TscriptParser implements Parser {
         if (!lexer.consume().hasTag(IMPORT))
             error("missing keyword 'import'", lexer.consume());
         List<String> importAccessChain = parseAccessChain();
+        parseEOS();
         return F.FromImportTree(location, fromAccessChain, importAccessChain);
     }
 
@@ -707,7 +722,6 @@ public class TscriptParser implements Parser {
         }
         while (true);
 
-        parseEOS();
         return accessChain;
     }
 
@@ -1012,7 +1026,7 @@ public class TscriptParser implements Parser {
         return F.DictionaryTree(location, keys, values);
     }
 
-    private CallTree parseFunctionCall(ExpressionTree exp){
+    private CallTree parseFunctionCall(ExpressionTree called){
         Location location = lexer.consume().getLocation();
 
         List<ArgumentTree> arguments = new ArrayList<>();
@@ -1039,7 +1053,7 @@ public class TscriptParser implements Parser {
                     }
                 }
 
-                exp = unwrap(parseExpression(), token);
+                ExpressionTree exp = unwrap(parseExpression(), token);
                 ArgumentTree arg = F.ArgumentTree(exp.getLocation(), ref, exp);
                 arguments.add(arg);
 
@@ -1057,7 +1071,7 @@ public class TscriptParser implements Parser {
         if (token.hasTag(EOF)|| !token.hasTag(PARENTHESES_CLOSED))
             error("missing ')'", token);
 
-        return F.CallTree(location, exp, arguments);
+        return F.CallTree(location, called, arguments);
     }
 
     private void parseEOS(){

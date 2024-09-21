@@ -10,6 +10,6 @@ public class StoreLocal extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeStoreLocal(this);
     }
 }

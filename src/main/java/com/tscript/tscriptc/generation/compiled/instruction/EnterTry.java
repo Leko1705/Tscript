@@ -10,6 +10,6 @@ public class EnterTry extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeEnterTry(this);
     }
 }

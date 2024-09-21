@@ -21,11 +21,12 @@ class LoadedFunctionArea implements FunctionArea {
         VirtualFunctionMetaData d = data[index];
 
         Parameters parameters = Parameters.newInstance();
-        for (Tuple<String, byte[]> parameter : d.parameters) {
-            byte[] poolAddr = parameter.getSecond();
+        for (Tuple<String, Integer> parameter : d.parameters) {
+            int poolAddr = parameter.getSecond();
             TObject value = null;
-            if (Conversion.from2Bytes(poolAddr[0], poolAddr[1]) != -1) {
-                value = module.getPool().loadConstant(poolAddr[0], poolAddr[1]);
+            if (poolAddr != -1) {
+                byte[] addrArr = Conversion.to2Bytes(poolAddr);
+                value = module.getPool().loadConstant(addrArr[0], addrArr[1]);
             }
             parameters.add(parameter.getFirst(), value);
         }
@@ -34,7 +35,7 @@ class LoadedFunctionArea implements FunctionArea {
     }
 
     protected record VirtualFunctionMetaData(String name,
-                                             Tuple<String, byte[]>[] parameters,
+                                             Tuple<String, Integer>[] parameters,
                                              int stackSize,
                                              int locals,
                                              byte[][] instructions){

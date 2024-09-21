@@ -6,6 +6,6 @@ public class Not implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeNot(this);
     }
 }

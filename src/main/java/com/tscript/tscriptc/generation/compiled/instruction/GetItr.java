@@ -6,6 +6,6 @@ public class GetItr implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeGetItr(this);
     }
 }

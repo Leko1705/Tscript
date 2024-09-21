@@ -12,6 +12,6 @@ public class MakeArray implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeMakeArray(this);
     }
 }

@@ -10,6 +10,6 @@ public class BranchIfTrue extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeBranchIfTrue(this);
     }
 }

@@ -1,6 +1,5 @@
 package com.tscript.tscriptc.generation.generators.impls;
 
-import com.tscript.tscriptc.generation.Pool;
 import com.tscript.tscriptc.generation.compiled.CompiledClass;
 import com.tscript.tscriptc.generation.compiled.CompiledFile;
 import com.tscript.tscriptc.generation.compiled.CompiledFunction;
@@ -15,6 +14,7 @@ import java.util.Set;
 
 public class CompFile implements CompiledFile {
 
+    public List<GlobalVariable> globals = new ArrayList<>();
     public String moduleName;
     public int entryPoint;
     public final Pool pool = new Pool();
@@ -28,7 +28,7 @@ public class CompFile implements CompiledFile {
 
     @Override
     public Version getVersion() {
-        return new Version(0, 0);
+        return new Version(1, 2);
     }
 
     @Override
@@ -38,7 +38,18 @@ public class CompFile implements CompiledFile {
 
     @Override
     public List<GlobalVariable> getGlobalVariables() {
-        return List.of();
+        return globals;
+    }
+
+    public int getGlobalIndex(String name){
+        int i = 0;
+        for (GlobalVariable glob : globals){
+            if (glob.name.equals(name)){
+                return i;
+            }
+            i++;
+        }
+        return -1;
     }
 
     @Override

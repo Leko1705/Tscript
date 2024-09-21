@@ -24,6 +24,7 @@ public class TypeBuilder {
     private TypeBuilder(String name, String displayName) {
         this.name = name;
         this.displayName = displayName;
+        addOperation(Operation.ADD, "String", "String");
     }
 
     public TypeBuilder setCallable(boolean callable) {
@@ -51,6 +52,7 @@ public class TypeBuilder {
 
             @Override
             protected Type doOperate(Operation operation, Type type, Map<String, Type> typeMap) {
+                if (this == typeMap.get("String")) return this;
                 Map<Operation, String> lowerOpMap = operations.get(type.getName());
                 if (lowerOpMap == null)
                     return null;

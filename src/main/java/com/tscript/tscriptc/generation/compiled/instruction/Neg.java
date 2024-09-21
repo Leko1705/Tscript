@@ -6,6 +6,6 @@ public class Neg implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeNeg(this);
     }
 }

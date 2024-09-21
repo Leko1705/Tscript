@@ -10,6 +10,6 @@ public class ToMapArg extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeToMapArg(this);
     }
 }

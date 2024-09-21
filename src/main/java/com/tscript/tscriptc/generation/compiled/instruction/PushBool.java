@@ -10,6 +10,6 @@ public class PushBool extends ValueLoadInstruction<Boolean> {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writePushBool(this);
     }
 }

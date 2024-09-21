@@ -6,7 +6,7 @@ public class LeaveTry implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeLeaveTry(this);
     }
 
 }

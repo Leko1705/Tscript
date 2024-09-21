@@ -10,6 +10,6 @@ public class Import extends AddressedInstruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeImport(this);
     }
 }

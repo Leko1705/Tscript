@@ -6,7 +6,7 @@ public class SetOwner implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeSetOwner(this);
     }
 
 }

@@ -23,6 +23,10 @@ public interface Callable extends TObject {
     default TObject call(TThread thread, List<TObject> arguments) {
         Parameters parameters = getParameters(thread);
 
+        if (arguments.isEmpty() && parameters.count() == 0) {
+            return eval(thread, List.of());
+        }
+
         if (arguments.size() > parameters.count()) {
             thread.reportRuntimeError(InternalRuntimeErrorMessages.tooManyParameters(this));
             return null;
@@ -30,7 +34,7 @@ public interface Callable extends TObject {
 
         int lastNonDefined = parameters.getLastNonDefinedParameterIndex();
 
-        if (arguments.size() < lastNonDefined){
+        if (arguments.size() <= lastNonDefined){
             List<String> names = parameters.getNames();
             String missing = names.get(lastNonDefined);
             thread.reportRuntimeError(InternalRuntimeErrorMessages.missingParameter(missing));

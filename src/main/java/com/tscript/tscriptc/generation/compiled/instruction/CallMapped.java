@@ -12,6 +12,6 @@ public class CallMapped implements Instruction {
 
     @Override
     public void write(InstructionWriter writer) {
-
+        writer.writeCallMapped(this);
     }
 }
