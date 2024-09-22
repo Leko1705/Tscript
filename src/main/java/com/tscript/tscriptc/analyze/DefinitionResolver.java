@@ -55,11 +55,17 @@ public class DefinitionResolver {
         public Void visitTryCatch(TryCatchTree node, BaseScope scope) {
             scan(node.getTryStatement(), scope);
 
+            scope = new BlockScopeBase(node, scope);
             VarDefTree exVar = node.getExceptionVariable();
             putIfAbsent(exVar, scope, new Symbol(exVar.getName(), null, node, scope, Symbol.Kind.VARIABLE, false));
 
             scan(node.getCatchStatement(), scope);
             return null;
+        }
+
+        @Override
+        public Void visitDoWhileLoop(DoWhileTree node, BaseScope scope) {
+            return super.visitDoWhileLoop(node, scope);
         }
 
         private Visibility visibilityOfField = null;
@@ -127,6 +133,14 @@ public class DefinitionResolver {
             return super.visitLambda(node, lambdaScope);
         }
 
+        @Override
+        public Void visitForLoop(ForLoopTree node, BaseScope scope) {
+            scope = new BlockScopeBase(node, scope);
+            if (node.getVariable() != null){
+                putIfAbsent(node, scope, new Symbol(node.getVariable().getName(), null, node, scope, Symbol.Kind.VARIABLE, false));
+            }
+            return scan(node.getStatement(), scope);
+        }
 
         private static void putIfAbsent(Tree caller, BaseScope scope, Symbol symbol) {
 

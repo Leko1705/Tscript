@@ -10,6 +10,7 @@ import com.tscript.tscriptc.generation.generators.impls.CompFunc;
 import com.tscript.tscriptc.generation.generators.impls.LambdaFunction;
 import com.tscript.tscriptc.generation.generators.impls.PoolPutter;
 import com.tscript.tscriptc.tree.*;
+import com.tscript.tscriptc.utils.Location;
 import com.tscript.tscriptc.utils.TreeScanner;
 
 import java.util.*;
@@ -32,6 +33,8 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     private int maxLocals = 0;
     private final List<String> currentLocals = new ArrayList<>();
 
+    private final Deque<List<LoopFlowAction>> loopControlFlowStack = new ArrayDeque<>();
+
     private int line;
 
     public FunctionGenerator(Context context, FunctionTree node) {
@@ -51,7 +54,14 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         stackShrinks(params.size());
         scan(params, scope);
 
-        node.getBody().accept(this, scope);
+        if (node.getName().equals("__main__")) {
+            for (StatementTree stmt : node.getBody().getStatements()){
+                scan(stmt, scope);
+            }
+        }
+        else {
+            scan(node.getBody(), scope);
+        }
 
         if (!isExplicitReturn()){
             func.getInstructions().add(new PushNull());
@@ -102,9 +112,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
 
     @Override
     public Void visitBlock(BlockTree node, Scope scope) {
-        Scope child = scope;
-        if (!func.getName().equals("__main__"))
-            child = scope.getChildScope(node);
+        Scope child = scope.getChildScope(node);
         for (StatementTree stmt : node.getStatements()) {
             stmt.accept(this, child);
             if (stmt instanceof Return) break;
@@ -311,21 +319,22 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
 
     @Override
     public Void visitVariable(VariableTree node, Scope scope) {
+        stackGrows();
+
         Symbol sym = scope.accept(new SymbolSearcher(), node.getName());
 
-        if (sym != null){
-            if (sym.kind == Symbol.Kind.UNKNOWN){
-                func.getInstructions().add(new LoadName(PoolPutter.putUtf8(context, node.getName())));
-            }
-            else if (sym.scope instanceof GlobalScope) {
-                int addr = context.getFile().getGlobalIndex(sym.name);
-                func.getInstructions().add(new LoadGlobal(addr));
-            }
-            else {
-                func.getInstructions().add(new LoadLocal(requireLocalAddress(node.getName())));
-            }
+        if (sym == null || sym.kind == Symbol.Kind.UNKNOWN){
+            func.getInstructions().add(new LoadName(PoolPutter.putUtf8(context, node.getName())));
+            return null;
         }
-        stackGrows();
+
+        if (sym.scope instanceof GlobalScope) {
+            int addr = context.getFile().getGlobalIndex(sym.name);
+            func.getInstructions().add(new LoadGlobal(addr));
+        }
+        else {
+            func.getInstructions().add(new LoadLocal(requireLocalAddress(node.getName())));
+        }
 
         return null;
     }
@@ -385,7 +394,6 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         BranchIfFalse branchIf = new BranchIfFalse(0);
         func.getInstructions().add(branchIf);
 
-
         stackShrinks();
 
         scan(node.getThenStatement(), scope);
@@ -403,6 +411,134 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
             branchIf.address = ifEndIndex;
             goto_.address = elseEndIndex;
         }
+
+        return null;
+    }
+
+    @Override
+    public Void visitBreak(BreakTree node, Scope scope) {
+        AddressedInstruction instruction = new Goto(0);
+        func.getInstructions().add(instruction);
+        loopControlFlowStack.element().add(new BreakAction(instruction));
+        return null;
+    }
+
+    @Override
+    public Void visitContinue(ContinueTree node, Scope scope) {
+        AddressedInstruction instruction = new Goto(0);
+        func.getInstructions().add(instruction);
+        loopControlFlowStack.element().add(new ContinueAction(instruction));
+        return null;
+    }
+
+    @Override
+    public Void visitWhileDoLoop(WhileDoTree node, Scope scope) {
+        TransformedWhileDoTree transform = new TransformedWhileDoTree(
+                node.getCondition(),
+                node.getStatement());
+        scan(transform, scope);
+        return null;
+    }
+
+    @Override
+    public Void visitDoWhileLoop(DoWhileTree node, Scope scope) {
+        int headerAddress = func.getInstructions().size();
+
+        loopControlFlowStack.push(new LinkedList<>());
+
+        scan(node.getStatement(), scope);
+
+        List<LoopFlowAction> loopCFActions = loopControlFlowStack.remove();
+
+        int conditionStartAddress = func.getInstructions().size();
+        scan(node.getCondition(), scope);
+        func.getInstructions().add(new BranchIfTrue(headerAddress));
+        stackShrinks();
+
+        for (LoopFlowAction loopCFAction : loopCFActions) {
+            AddressedInstruction instruction = loopCFAction.getInstruction();
+            if (loopCFAction.isBreak()){
+                instruction.address = func.getInstructions().size();
+            }
+            else {
+                instruction.address = conditionStartAddress;
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitForLoop(ForLoopTree node, Scope scope) {
+        newLine(node);
+        scope = scope.getChildScope(node);
+
+        scan(node.getIterable(), scope);
+        func.getInstructions().add(new GetItr());
+        stackGrows();
+
+        int jumpBackAddr = func.getInstructions().size();
+        AddressedInstruction branchItr = new BranchItr(0);
+        func.getInstructions().add(branchItr);
+
+        if (node.getVariable() != null) {
+
+            func.getInstructions().add(new ItrNext());
+            stackGrows();
+
+            func.getInstructions().add(new StoreLocal(requireLocalAddress(node.getVariable().getName())));
+        }
+        else {
+            func.getInstructions().add(new ItrNext());
+            stackGrows();
+            func.getInstructions().add(new Pop());
+            stackShrinks();
+        }
+
+        loopControlFlowStack.push(new LinkedList<>());
+        scan(node.getStatement(), scope);
+        List<LoopFlowAction> loopCFActions = loopControlFlowStack.remove();
+
+        func.getInstructions().add(new Goto(jumpBackAddr));
+        branchItr.address = func.getInstructions().size();
+
+        stackShrinks(); // pop the iterator implicitly
+
+        for (LoopFlowAction loopCFAction : loopCFActions) {
+            AddressedInstruction instruction = loopCFAction.getInstruction();
+            if (loopCFAction.isBreak()){
+                instruction.address = func.getInstructions().size();
+            }
+            else {
+                instruction.address = jumpBackAddr;
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitTryCatch(TryCatchTree node, Scope scope) {
+        AddressedInstruction enterTry =  new EnterTry(0);
+        func.getInstructions().add(enterTry);
+
+        scan(node.getTryStatement(), scope);
+        int tryEndIndex = func.getInstructions().size()+1;
+        enterTry.address = tryEndIndex+1;
+        func.getInstructions().add(new LeaveTry());
+        AddressedInstruction goto_ = new Goto(0);
+        func.getInstructions().add(goto_);
+
+        //localScope = new LocalScope(scope);
+        //localScope.putIfAbsent(SymbolKind.VARIABLE, tryCatchTree.getExceptionName(), Set.of());
+        int exVarAddr = requireLocalAddress(node.getExceptionVariable().getName());
+
+        stackGrows();
+        func.getInstructions().add(new StoreLocal(exVarAddr));
+        stackShrinks();
+
+        scan(node.getCatchStatement(), scope.getChildScope(node));
+        goto_.address = func.getInstructions().size();
 
         return null;
     }
@@ -485,5 +621,45 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         }
         return addr;
     }
+
+
+    private record TransformedWhileDoTree(ExpressionTree condition, StatementTree body) implements IfElseTree {
+
+        @Override
+        public ExpressionTree getCondition() {
+            return condition;
+        }
+
+        @Override
+        public StatementTree getThenStatement() {
+            return new DoWhileTree() {
+                @Override
+                public StatementTree getStatement() {
+                    return body;
+                }
+
+                @Override
+                public ExpressionTree getCondition() {
+                    return condition;
+                }
+
+                @Override
+                public Location getLocation() {
+                    return condition.getLocation();
+                }
+            };
+        }
+
+        @Override
+        public StatementTree getElseStatement() {
+            return null;
+        }
+
+        @Override
+        public Location getLocation() {
+            return condition.getLocation();
+        }
+    }
+
 
 }

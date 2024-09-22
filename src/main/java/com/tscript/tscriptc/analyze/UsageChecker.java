@@ -84,6 +84,20 @@ public class UsageChecker {
         }
 
         @Override
+        public Symbol visitForLoop(ForLoopTree node, Scope scope) {
+            return super.visitForLoop(node, enterScope(scope, node));
+        }
+
+        @Override
+        public Symbol visitTryCatch(TryCatchTree node, Scope scope) {
+            scan(node.getTryStatement(), scope);
+            scope = enterScope(scope, node);
+            scan(node.getExceptionVariable(), scope);
+            scan(node.getCatchStatement(), scope);
+            return null;
+        }
+
+        @Override
         public Symbol visitVariable(VariableTree node, Scope scope) {
 
             Symbol sym = scope.accept(new SymbolSearcher(), node.getName());

@@ -1,6 +1,5 @@
 package com.tscript.tscriptc.analyze;
 
-import com.tscript.tscriptc.analyze.scoping.ClassScope;
 import com.tscript.tscriptc.analyze.scoping.ExternalScope;
 import com.tscript.tscriptc.analyze.scoping.Scope;
 import com.tscript.tscriptc.analyze.scoping.ScopeVisitor;
@@ -94,6 +93,20 @@ public class HierarchyResolver {
         @Override
         public Map<String, TreeHierarchy.Node> visitBlock(BlockTree node, Scope scope) {
             return super.visitBlock(node, notNull(scope.getChildScope(node)));
+        }
+
+        @Override
+        public Map<String, TreeHierarchy.Node> visitForLoop(ForLoopTree node, Scope scope) {
+            return super.visitForLoop(node, notNull(scope.getChildScope(node)));
+        }
+
+        @Override
+        public Map<String, TreeHierarchy.Node> visitTryCatch(TryCatchTree node, Scope scope) {
+            scan(node.getTryStatement(), scope);
+            scope = notNull(scope.getChildScope(node));
+            scan(node.getExceptionVariable(), scope);
+            scan(node.getCatchStatement(), scope);
+            return null;
         }
 
         @Override
@@ -198,6 +211,20 @@ public class HierarchyResolver {
         @Override
         public Void visitBlock(BlockTree node, Scope scope) {
             return super.visitBlock(node, notNull(scope.getChildScope(node)));
+        }
+
+        @Override
+        public Void visitForLoop(ForLoopTree node, Scope scope) {
+            return super.visitForLoop(node, notNull(scope.getChildScope(node)));
+        }
+
+        @Override
+        public Void visitTryCatch(TryCatchTree node, Scope scope) {
+            scan(node.getTryStatement(), scope);
+            scope = scope.getChildScope(node);
+            scan(node.getExceptionVariable(), scope);
+            scan(node.getCatchStatement(), scope);
+            return null;
         }
 
         @Override
