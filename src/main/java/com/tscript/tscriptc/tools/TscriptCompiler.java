@@ -1,7 +1,9 @@
 package com.tscript.tscriptc.tools;
 
-import com.tscript.tscriptc.analyze.*;
 import com.tscript.tscriptc.analyze.scoping.Scope;
+import com.tscript.tscriptc.analyze2.PostSyntaxChecker;
+import com.tscript.tscriptc.analyze2.ScopeChecker;
+import com.tscript.tscriptc.analyze2.TypeChecker;
 import com.tscript.tscriptc.generation.generators.Generator;
 import com.tscript.tscriptc.generation.compiled.CompiledFile;
 import com.tscript.tscriptc.generation.target.Target;
@@ -25,6 +27,7 @@ public class TscriptCompiler implements Compiler {
             Tree tree = parser.parseProgram();
 
             Scope scope = check(tree);
+            if (true)return;
 
             CompiledFile lower = Generator.generate(tree, scope);
             Target target = new TscriptBytecode(out);
@@ -41,12 +44,10 @@ public class TscriptCompiler implements Compiler {
 
     private static Scope check(Tree tree){
         PostSyntaxChecker.check(tree);
-        Scope scope = DefinitionResolver.resolve(tree);
-        HierarchyResolver.resolve(tree, scope);
-        UsageChecker.check(tree, scope);
+        DefinitionChecker.check(tree);
         ScopeChecker.check(tree);
         TypeChecker.check(tree);
-        return scope;
+        return null;
     }
 
 }

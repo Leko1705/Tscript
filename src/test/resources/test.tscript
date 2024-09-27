@@ -1,8 +1,7 @@
 
+var x;
+var y;
 
-do var x; while false;
-
-print(x);
 
 
 

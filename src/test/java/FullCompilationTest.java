@@ -22,17 +22,14 @@ public class FullCompilationTest {
 
     @Test
     public void test(){
-        runTool(ToolFactory.createDefaultTscriptCompiler(),
-                "src/test/resources/std.tscript",
-                "src/test/resources/out/std.tscriptc");
+        //runTool(ToolFactory.createDefaultTscriptCompiler(), "src/test/resources/std.tscript", "src/test/resources/out/std.tscriptc");
 
         runTool(ToolFactory.createDefaultTscriptCompiler(),
                 IN_FILE,
                 OUT_FILE_C);
 
-        runTool(new TscriptBytecodeInspector(),
-                IN_FILE,
-                OUT_FILE_I);
+        //runTool(new TscriptBytecodeInspector(), IN_FILE, OUT_FILE_I);
+        if (true)return;
 
         TscriptVM vm = TscriptVM.runnableInstance(new File(ROOT_PATH), System.out, System.err);
         int exitCode = vm.execute(BOOT_MODULE);

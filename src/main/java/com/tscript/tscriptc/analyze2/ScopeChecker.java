@@ -1,4 +1,4 @@
-package com.tscript.tscriptc.analyze;
+package com.tscript.tscriptc.analyze2;
 
 import com.tscript.tscriptc.tree.*;
 import com.tscript.tscriptc.utils.Errors;

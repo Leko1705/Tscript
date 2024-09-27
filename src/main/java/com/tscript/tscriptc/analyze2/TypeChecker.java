@@ -1,4 +1,4 @@
-package com.tscript.tscriptc.analyze;
+package com.tscript.tscriptc.analyze2;
 
 import com.tscript.tscriptc.analyze.structures.typing.BuiltInTypes;
 import com.tscript.tscriptc.analyze.structures.typing.Type;
