@@ -1,7 +1,7 @@
 import com.tscript.runtime.core.TscriptVM;
-import com.tscript.tscriptc.tools.*;
-import com.tscript.tscriptc.tools.Compiler;
-import com.tscript.tscriptc.utils.CompileException;
+import com.tscript.compiler.tools.*;
+import com.tscript.compiler.tools.Compiler;
+import com.tscript.compiler.source.utils.CompileException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

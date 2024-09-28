@@ -1,7 +1,7 @@
-import com.tscript.tscriptc.parse.TscriptTokenType;
-import com.tscript.tscriptc.parse.Token;
-import com.tscript.tscriptc.parse.TscriptScanner;
-import com.tscript.tscriptc.parse.UnicodeReader;
+import com.tscript.compiler.impl.parse.TscriptTokenType;
+import com.tscript.compiler.impl.parse.Token;
+import com.tscript.compiler.impl.parse.TscriptScanner;
+import com.tscript.compiler.impl.parse.UnicodeReader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -9,7 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.tscript.tscriptc.parse.TscriptTokenType.*;
+import static com.tscript.compiler.impl.parse.TscriptTokenType.*;
 
 public class TscriptLexerTest {
 

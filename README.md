@@ -296,16 +296,17 @@ To Archive this you might use:
 
 ```java
 import java.io.*;
-import com.tscript.tscriptc.tools.Compiler;
-import com.tscript.tscriptc.tools.ToolFactory;
+
+import com.tscript.compiler.tools.Compiler;
+import com.tscript.compiler.tools.ToolFactory;
 
 public static void main(String[] args) {
     InputStream in = new FileInputStream("code.tscript");
     OutputStream out = new FileOutputStream("code.tscriptc");
-    
+
     Compiler compiler = CompilerProvider.createDefaultTscriptCompiler();
     int exitCode = compiler.run(in, out, null, null);
-    
+
     System.exit(exitCode);
 }
 ```
@@ -317,16 +318,16 @@ Architecture allows plugins. Plugins allow to access the compiler logic.
 Compilers can be used as follows:
 
 ```java
-import com.tscript.tscriptc.plugin.Plugin;
-import com.tscript.tscriptc.tools.Compiler;
-import com.tscript.tscriptc.tools.CompilerBuilder;
-import com.tscript.tscriptc.tools.Language;
-import com.tscript.tscriptc.utils.Phase;
+import com.tscript.compiler.plugin.Plugin;
+import com.tscript.compiler.tools.Compiler;
+import com.tscript.compiler.tools.CompilerBuilder;
+import com.tscript.compiler.tools.Language;
+import com.tscript.compiler.utils.Phase;
 
 public static void main(String[] args) {
     Compiler compiler = new CompilerBuilder(Language.TSCRIPT)
             .addPlugin((event) -> {
-                if (event.getPhase() == Phase.CHECKING){
+                if (event.getPhase() == Phase.CHECKING) {
                     // perform some operation while checking phase
                 }
             }).build();

@@ -1,10 +1,10 @@
-import com.tscript.tscriptc.parse.Parser;
-import com.tscript.tscriptc.parse.TscriptParser;
-import com.tscript.tscriptc.parse.TscriptScanner;
-import com.tscript.tscriptc.parse.UnicodeReader;
-import com.tscript.tscriptc.tools.Transpiler;
-import com.tscript.tscriptc.tools.TscriptTranspiler;
-import com.tscript.tscriptc.utils.TreeMaker;
+import com.tscript.compiler.impl.parse.Parser;
+import com.tscript.compiler.impl.parse.TscriptParser;
+import com.tscript.compiler.impl.parse.TscriptScanner;
+import com.tscript.compiler.impl.parse.UnicodeReader;
+import com.tscript.compiler.tools.Transpiler;
+import com.tscript.compiler.tools.TscriptTranspiler;
+import com.tscript.compiler.impl.utils.TreeMaker;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +46,7 @@ public class TscriptParserTest {
         UnicodeReader unicodeReader = new UnicodeReader(bais);
 
         TscriptScanner scanner = new TscriptScanner(unicodeReader);
-        Parser parser = new TscriptParser(scanner, new TreeMaker());
+        Parser parser = new TscriptParser(scanner);
 
         testOp.accept(parser);
     }
