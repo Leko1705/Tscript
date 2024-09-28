@@ -1,4 +1,4 @@
-package com.tscript.compiler.impl.analyze.structures.typing;
+package com.tscript.compiler.impl.utils.typing;
 
 import com.tscript.compiler.source.tree.Operation;
 

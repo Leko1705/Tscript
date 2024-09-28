@@ -1,6 +1,5 @@
 package com.tscript.compiler.impl.utils;
 
-import com.tscript.compiler.impl.analyze.structures.typing.Type;
 import com.tscript.compiler.source.tree.Modifier;
 
 import java.util.Set;
@@ -57,8 +56,6 @@ public abstract class Symbol {
 
 
     public static final class VarSymbol extends Symbol {
-
-        public Type type;
 
         public VarSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr) {
             super(Kind.VARIABLE, name, modifiers, owner, addr);

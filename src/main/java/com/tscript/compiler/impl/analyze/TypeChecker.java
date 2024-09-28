@@ -1,9 +1,9 @@
-package com.tscript.compiler.impl.analyze2;
+package com.tscript.compiler.impl.analyze;
 
-import com.tscript.compiler.impl.analyze.structures.typing.BuiltInTypes;
-import com.tscript.compiler.impl.analyze.structures.typing.Type;
-import com.tscript.compiler.impl.analyze.structures.typing.TypeBuilder;
-import com.tscript.compiler.impl.analyze.structures.typing.UnknownType;
+import com.tscript.compiler.impl.utils.typing.BuiltInTypes;
+import com.tscript.compiler.impl.utils.typing.Type;
+import com.tscript.compiler.impl.utils.typing.TypeBuilder;
+import com.tscript.compiler.impl.utils.typing.UnknownType;
 import com.tscript.compiler.source.tree.*;
 import com.tscript.compiler.impl.utils.Errors;
 import com.tscript.compiler.source.utils.TreeScanner;
