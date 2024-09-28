@@ -31,11 +31,11 @@ public interface ClassTree extends DefinitionTree, StatementTree {
     String getName();
 
     /**
-     * Returns the name of the inherited class or <code>null</code> if this
+     * Returns the access chain of the inherited class or <code>null</code> if this
      * class does not inherit any other class.
      * @return the inherited class name
      */
-    String getSuperName();
+    List<String> getSuper();
 
     /**
      * Returns a list of all members defined in this class.

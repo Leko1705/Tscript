@@ -52,8 +52,8 @@ public class TCTreeScanner<P, R> implements TCTree.Visitor<P, R> {
 
     @Override
     public R visitAssign(TCAssignTree node, P p) {
-        R r = scan(node.left, p);
-        r = scanSelective(node.right, p, r);
+        R r = scan(node.right, p);
+        r = scanSelective(node.left, p, r);
         return r;
     }
 
@@ -145,8 +145,8 @@ public class TCTreeScanner<P, R> implements TCTree.Visitor<P, R> {
 
     @Override
     public R visitForLoop(TCForLoopTree node, P p) {
-        R r = scan(node.runVar, p);
-        r = scanSelective(node.iterable, p, r);
+        R r = scan(node.iterable, p);
+        r = scanSelective(node.runVar, p, r);
         r = scanSelective(node.statement, p, r);
         return r;
     }

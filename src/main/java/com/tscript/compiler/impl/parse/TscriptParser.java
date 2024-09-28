@@ -141,21 +141,18 @@ public class TscriptParser implements Parser {
             error("identifier expected", token);
 
         String name = token.getLexeme();
-        String superName = null;
+        List<String> superName = null;
 
         token = lexer.peek();
         if (token.hasTag(COLON)){
             lexer.consume();
-            token = lexer.consume();
-            if (!token.hasTag(IDENTIFIER))
-                error("identifier expected", token);
-            superName = token.getLexeme();
+            superName = parseAccessChain();
         }
         return parseClassBody(location, Set.of(modifiers), name, superName);
     }
 
     private TCClassTree parseClassBody(Location location, Set<Modifier> classModifiers,
-                                     String className, String superName){
+                                     String className, List<String> superName){
 
         Token<TscriptTokenType> token = lexer.consume();
         if (!token.hasTag(CURVED_OPEN))

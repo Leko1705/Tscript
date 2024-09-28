@@ -24,12 +24,15 @@ public abstract class Symbol {
 
     public final Set<Modifier> modifiers;
 
+    public int address;
 
-    Symbol(Kind kind, String name, Set<Modifier> modifiers, Scope owner) {
+
+    Symbol(Kind kind, String name, Set<Modifier> modifiers, Scope owner, int addr) {
         this.kind = kind;
         this.name = name;
         this.owner = owner;
         this.modifiers = modifiers;
+        this.address = addr;
     }
 
     public boolean isConstant() {
@@ -55,12 +58,10 @@ public abstract class Symbol {
 
     public static final class VarSymbol extends Symbol {
 
-        public int address;
-
         public Type type;
 
-        public VarSymbol(String name, Set<Modifier> modifiers, Scope owner) {
-            super(Kind.VARIABLE, name, modifiers, owner);
+        public VarSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr) {
+            super(Kind.VARIABLE, name, modifiers, owner, addr);
         }
 
     }
@@ -68,8 +69,11 @@ public abstract class Symbol {
 
     public static final class FunctionSymbol extends Symbol {
 
-        public FunctionSymbol(String name, Set<Modifier> modifiers, Scope owner) {
-            super(Kind.FUNCTION, name, modifiers, owner);
+        public final Scope.FunctionScope subScope;
+
+        public FunctionSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr) {
+            super(Kind.FUNCTION, name, modifiers, owner, addr);
+            this.subScope = new Scope.FunctionScope(owner);
         }
 
         public boolean isNative(){
@@ -90,8 +94,11 @@ public abstract class Symbol {
 
         public ClassSymbol superClass;
 
-        public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner) {
-            super(Kind.CLASS, name, modifiers, owner);
+        public final Scope.ClassScope subScope;
+
+        public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr) {
+            super(Kind.CLASS, name, modifiers, owner, addr);
+            this.subScope = new Scope.ClassScope(owner);
         }
 
         public boolean isAbstract(){
@@ -102,8 +109,11 @@ public abstract class Symbol {
 
     public static final class NamespaceSymbol extends Symbol {
 
-        public NamespaceSymbol(String name, Set<Modifier> modifiers, Scope owner) {
-            super(Kind.NAMESPACE, name, modifiers, owner);
+        public final Scope.NamespaceScope subScope;
+
+        public NamespaceSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr) {
+            super(Kind.NAMESPACE, name, modifiers, owner, addr);
+            this.subScope = new Scope.NamespaceScope(owner);
         }
     }
 

@@ -2,8 +2,8 @@ package com.tscript.compiler.impl.utils;
 
 import com.tscript.compiler.source.tree.*;
 import com.tscript.compiler.impl.utils.Symbol.*;
+import com.tscript.compiler.impl.utils.Scope.*;
 import com.tscript.compiler.source.utils.Location;
-import com.tscript.compiler.source.utils.TreeVisitor;
 
 import java.util.List;
 import java.util.Set;
@@ -15,7 +15,7 @@ import java.util.Set;
  */
 public abstract class TCTree implements Tree {
 
-    private final Location location;
+    public final Location location;
 
     private TCTree(Location location){
         this.location = location;
@@ -152,6 +152,8 @@ public abstract class TCTree implements Tree {
 
         public final List<? extends TCStatementTree> statements;
 
+        public LocalScope scope;
+
         public TCBlockTree(Location location, List<? extends TCStatementTree> statements) {
             super(location);
             this.statements = statements;
@@ -255,21 +257,21 @@ public abstract class TCTree implements Tree {
 
     public static class TCClassTree extends TCDefinitionTree implements ClassTree {
 
-        public final String superName;
+        public final List<String> superName;
 
         public final List<? extends TCTree> members;
 
         public ClassSymbol sym;
 
         public TCClassTree(Location location, String name, TCModifiersTree modifiers,
-                           String superName, List<? extends TCTree> members) {
+                           List<String> superName, List<? extends TCTree> members) {
             super(location, name, modifiers);
             this.superName = superName;
             this.members = members;
         }
 
         @Override
-        public String getSuperName() {
+        public List<String> getSuper() {
             return superName;
         }
 
@@ -299,12 +301,16 @@ public abstract class TCTree implements Tree {
         public String getName() {
             return name;
         }
+
         public ExpressionTree getInitializer() {
             return initializer;
         }
     }
 
     public static class TCClosureTree extends TCNameInitTree implements ClosureTree {
+
+        public VarSymbol sym;
+
         public TCClosureTree(Location location, String name, TCExpressionTree initializer) {
             super(location, name, initializer);
         }
@@ -324,6 +330,8 @@ public abstract class TCTree implements Tree {
         public final List<? extends TCArgumentTree> superArgs;
 
         public final TCBlockTree body;
+
+        public FunctionScope scope;
 
         public TCConstructorTree(Location location, TCModifiersTree modifiers,
                                  List<? extends TCParameterTree> parameters,
@@ -435,6 +443,8 @@ public abstract class TCTree implements Tree {
 
         public final TCExpressionTree condition;
 
+        public LocalScope scope;
+
         public TCDoWhileTree(Location location, TCStatementTree statement, TCExpressionTree condition) {
             super(location);
             this.statement = statement;
@@ -494,6 +504,8 @@ public abstract class TCTree implements Tree {
         public final TCExpressionTree iterable;
 
         public final TCStatementTree statement;
+
+        public LocalScope scope;
 
         public TCForLoopTree(Location location, TCVarDefTree runVar,
                              TCExpressionTree iterable, TCStatementTree statement) {
@@ -617,6 +629,10 @@ public abstract class TCTree implements Tree {
 
         public final TCStatementTree elseStatement;
 
+        public LocalScope thenScope;
+
+        public LocalScope elseScope;
+
         public TCIfElseTree(Location location, TCExpressionTree condition,
                             TCStatementTree thenStatement, TCStatementTree elseStatement) {
             super(location);
@@ -685,6 +701,8 @@ public abstract class TCTree implements Tree {
 
         public final TCBlockTree body;
 
+        public LambdaScope scope;
+
         public TCLambdaTree(Location location, List<? extends TCClosureTree> closures,
                             List<? extends TCParameterTree> parameters, TCBlockTree body) {
             super(location);
@@ -744,16 +762,16 @@ public abstract class TCTree implements Tree {
 
     public static class TCModifiersTree extends TCTree implements ModifiersTree {
 
-        public final Set<Modifier> modifiers;
+        public final Set<Modifier> flags;
 
         public TCModifiersTree(Location location, Set<Modifier> modifiers) {
             super(location);
-            this.modifiers = modifiers;
+            this.flags = modifiers;
         }
 
         @Override
-        public Set<Modifier> getModifiers() {
-            return modifiers;
+        public Set<Modifier> getFlags() {
+            return flags;
         }
 
         @Override
@@ -819,6 +837,8 @@ public abstract class TCTree implements Tree {
     public static class TCParameterTree extends TCDefinitionTree implements ParameterTree {
 
         public final TCExpressionTree defaultValue;
+
+        public VarSymbol sym;
 
         public TCParameterTree(Location location, String name, TCModifiersTree modifiers,
                                TCExpressionTree defaultValue) {
@@ -890,6 +910,8 @@ public abstract class TCTree implements Tree {
         public final List<? extends TCDefinitionTree> definitions;
 
         public final List<? extends TCStatementTree> statements;
+
+        public GlobalScope scope;
 
         public TCRootTree(Location location, List<? extends TCDefinitionTree> definitions,
                           List<? extends TCStatementTree> statements) {
@@ -1003,6 +1025,8 @@ public abstract class TCTree implements Tree {
         public final TCVarDefTree exceptionVar;
 
         public final TCStatementTree catchStatement;
+
+        public LocalScope tryScope;
 
         public TCTryCatchTree(Location location, TCStatementTree tryStatement, TCVarDefTree exceptionVar,
                               TCStatementTree catchStatement) {
@@ -1123,6 +1147,8 @@ public abstract class TCTree implements Tree {
 
         public final TCStatementTree statement;
 
+        public LocalScope scope;
+
         public TCWhileDoTree(Location location, TCExpressionTree condition, TCStatementTree statement) {
             super(location);
             this.condition = condition;
@@ -1179,7 +1205,7 @@ public abstract class TCTree implements Tree {
         TCClassTree ClassTree(Location location,
                             TCModifiersTree modifiers,
                             String name,
-                            String superName,
+                            List<String> superName,
                             List<? extends TCTree> members);
 
         TCClosureTree ClosureTree(Location location,

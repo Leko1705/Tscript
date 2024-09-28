@@ -31,10 +31,10 @@ import java.util.Set;
 public interface ModifiersTree extends Tree {
 
     /**
-     * Returns a set of all modifiers.
+     * Returns a set of all modifier flags.
      * @return the modifiers
      */
-    Set<Modifier> getModifiers();
+    Set<Modifier> getFlags();
 
     /**
      * {@inheritDoc}

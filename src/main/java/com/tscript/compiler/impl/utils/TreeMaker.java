@@ -66,7 +66,7 @@ public class TreeMaker implements TCTree.Factory {
     public TCClassTree ClassTree(Location location,
                                  TCModifiersTree modifiers,
                                  String name,
-                                 String superName,
+                                 List<String> superName,
                                  List<? extends TCTree> members) {
         return new TCClassTree(location, name, modifiers, superName, members);
     }

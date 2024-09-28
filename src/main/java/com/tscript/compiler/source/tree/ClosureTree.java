@@ -23,7 +23,8 @@ public interface ClosureTree extends Tree {
     String getName();
 
     /**
-     * Returns the value passed for this closure.
+     * Returns the value passed for this closure or <code>null</code> if
+     * there is none.
      * @return the closures value
      */
     ExpressionTree getInitializer();
