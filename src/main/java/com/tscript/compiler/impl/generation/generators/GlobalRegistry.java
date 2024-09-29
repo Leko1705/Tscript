@@ -1,8 +1,8 @@
 package com.tscript.compiler.impl.generation.generators;
 
-import com.tscript.compiler.impl.analyze.scoping.Scope;
-import com.tscript.compiler.impl.analyze.structures.Symbol;
 import com.tscript.compiler.impl.generation.compiled.GlobalVariable;
+import com.tscript.compiler.impl.utils.Scope;
+import com.tscript.compiler.impl.utils.Symbol;
 import com.tscript.compiler.source.tree.*;
 import com.tscript.compiler.source.utils.SimpleTreeVisitor;
 
@@ -31,7 +31,7 @@ public class GlobalRegistry extends SimpleTreeVisitor<List<GlobalVariable>, Void
 
     @Override
     public Void visitVarDef(VarDefTree node, List<GlobalVariable> globalVariables) {
-        boolean mutable = scope.getSymbol(node.getName()).kind == Symbol.Kind.VARIABLE;
+        boolean mutable = scope.symbols.get(node.getName()).kind == Symbol.Kind.VARIABLE;
         globalVariables.add(new GlobalVariable(node.getName(), mutable));
         return null;
     }

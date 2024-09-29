@@ -7,6 +7,8 @@ import java.util.Set;
 
 public abstract class Symbol {
 
+    public static final int NO_ADDRESS = -1;
+
     public enum Kind {
         VARIABLE,
         FUNCTION,
@@ -99,7 +101,7 @@ public abstract class Symbol {
 
         public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
             super(Kind.CLASS, name, modifiers, owner, addr, location);
-            this.subScope = new Scope.ClassScope(owner);
+            this.subScope = new Scope.ClassScope(owner, this);
         }
 
         public boolean isAbstract(){
@@ -115,6 +117,12 @@ public abstract class Symbol {
         public NamespaceSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
             super(Kind.NAMESPACE, name, modifiers, owner, addr, location);
             this.subScope = new Scope.NamespaceScope(owner);
+        }
+    }
+
+    public static final class UnknownSymbol extends Symbol {
+        public UnknownSymbol(String name, Location location) {
+            super(Kind.UNKNOWN, name, Set.of(), null, NO_ADDRESS, location);
         }
     }
 

@@ -79,7 +79,7 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
                 node.getLocation(),
                 copy(node.modifiers),
                 node.getName(),
-                node.getSuperName(),
+                node.getSuper(),
                 copy(node.members));
     }
 
@@ -192,7 +192,7 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
 
     @Override
     public TCModifiersTree visitModifiers(TCModifiersTree node, Void unused) {
-        return F.ModifiersTree(node.getLocation(), node.getModifiers());
+        return F.ModifiersTree(node.getLocation(), node.getFlags());
     }
 
     @Override

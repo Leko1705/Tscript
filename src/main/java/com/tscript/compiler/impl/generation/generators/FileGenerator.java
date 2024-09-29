@@ -1,6 +1,5 @@
 package com.tscript.compiler.impl.generation.generators;
 
-import com.tscript.compiler.impl.analyze.scoping.Scope;
 import com.tscript.compiler.impl.generation.compiled.CompiledFile;
 import com.tscript.compiler.impl.generation.compiled.instruction.Instruction;
 import com.tscript.compiler.impl.generation.compiled.instruction.LoadNative;
@@ -9,6 +8,8 @@ import com.tscript.compiler.impl.generation.compiled.instruction.StoreGlobal;
 import com.tscript.compiler.impl.generation.generators.impls.CompFile;
 import com.tscript.compiler.impl.generation.generators.impls.GlobalMainScriptFunc;
 import com.tscript.compiler.impl.generation.generators.impls.PoolPutter;
+import com.tscript.compiler.impl.utils.Scope;
+import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.source.tree.*;
 import com.tscript.compiler.source.utils.SimpleTreeVisitor;
 
@@ -35,7 +36,7 @@ public class FileGenerator extends SimpleTreeVisitor<Scope, Void> {
 
         file.moduleName = "test";
 
-        GlobalRegistry reg = new GlobalRegistry(scope);
+        GlobalRegistry reg = new GlobalRegistry(((TCTree.TCRootTree)node).scope);
         for (DefinitionTree definitionTree : node.getDefinitions()) {
             definitionTree.accept(reg, file.getGlobalVariables());
         }
@@ -80,13 +81,13 @@ public class FileGenerator extends SimpleTreeVisitor<Scope, Void> {
             return null;
         }
 
-        if (node.getModifiers().getModifiers().contains(Modifier.NATIVE)){
+        if (node.getModifiers().getFlags().contains(Modifier.NATIVE)){
             int poolAddr = PoolPutter.putUtf8(context, node.getName());
             preloadInstructions.add(new LoadNative(poolAddr));
             preloadInstructions.add(new StoreGlobal(file.getGlobalIndex(node.getName())));
         }
         else {
-            int index = FunctionGenerator.generate(context, node, scope.getChildScope(node));
+            int index = FunctionGenerator.generate(context, node, ((TCTree.TCFunctionTree)node).sym.subScope);
             preloadInstructions.add(new LoadVirtual(index));
             preloadInstructions.add(new StoreGlobal(file.getGlobalIndex(node.getName())));
         }

@@ -1123,7 +1123,7 @@ public abstract class TCTree implements Tree {
 
         public final String name;
 
-        Symbol sym;
+        public Symbol sym;
 
         public TCVariableTree(Location location, String name) {
             super(location);

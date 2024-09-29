@@ -1,6 +1,6 @@
 package com.tscript.compiler.impl.generation.compiled;
 
-import com.tscript.compiler.impl.analyze.structures.Visibility;
+import com.tscript.compiler.impl.utils.Visibility;
 
 import java.util.List;
 

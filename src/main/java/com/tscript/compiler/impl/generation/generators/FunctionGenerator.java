@@ -1,14 +1,13 @@
 package com.tscript.compiler.impl.generation.generators;
 
-import com.tscript.compiler.impl.analyze.scoping.GlobalScope;
-import com.tscript.compiler.impl.analyze.scoping.Scope;
-import com.tscript.compiler.impl.analyze.search.SymbolSearcher;
-import com.tscript.compiler.impl.analyze.structures.Symbol;
 import com.tscript.compiler.impl.generation.compiled.CompiledFunction;
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
 import com.tscript.compiler.impl.generation.generators.impls.CompFunc;
 import com.tscript.compiler.impl.generation.generators.impls.LambdaFunction;
 import com.tscript.compiler.impl.generation.generators.impls.PoolPutter;
+import com.tscript.compiler.impl.utils.Scope;
+import com.tscript.compiler.impl.utils.Symbol;
+import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.source.tree.*;
 import com.tscript.compiler.source.utils.Location;
 import com.tscript.compiler.source.utils.TreeScanner;
@@ -84,12 +83,12 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
 
     @Override
     public Void visitFunction(FunctionTree node, Scope scope) {
-        if (node.getModifiers().getModifiers().contains(Modifier.NATIVE)){
+        if (node.getModifiers().getFlags().contains(Modifier.NATIVE)){
             func.getInstructions().add(new LoadNative(PoolPutter.putUtf8(context, node.getName())));
         }
         else {
             newLine(node);
-            int index = FunctionGenerator.generate(context, node, scope.getChildScope(node));
+            int index = FunctionGenerator.generate(context, node, ((TCTree.TCFunctionTree)node).sym.subScope);
             func.getInstructions().add(new LoadVirtual(index));
         }
         stackGrows();
@@ -112,7 +111,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
 
     @Override
     public Void visitBlock(BlockTree node, Scope scope) {
-        Scope child = scope.getChildScope(node);
+        Scope child = ((TCTree.TCBlockTree)node).scope;
         for (StatementTree stmt : node.getStatements()) {
             stmt.accept(this, child);
             if (stmt instanceof Return) break;
@@ -254,7 +253,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     public Void visitLambda(LambdaTree node, Scope scope) {
         LambdaFunction bridge = new LambdaFunction(node, "Lambda@" + context.getNextLambdaIndex());
         FunctionGenerator generator = new FunctionGenerator(context, bridge);
-        scope = scope.getChildScope(node);
+        scope = ((TCTree.TCLambdaTree)node).scope;
         generator.handle(bridge, scope);
 
         int index = generator.func.getIndex();
@@ -321,14 +320,14 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     public Void visitVariable(VariableTree node, Scope scope) {
         stackGrows();
 
-        Symbol sym = scope.accept(new SymbolSearcher(), node.getName());
+        Symbol sym = scope.accept(null);
 
         if (sym == null || sym.kind == Symbol.Kind.UNKNOWN){
             func.getInstructions().add(new LoadName(PoolPutter.putUtf8(context, node.getName())));
             return null;
         }
 
-        if (sym.scope instanceof GlobalScope) {
+        if (sym.owner .kind == Scope.Kind.GLOBAL) {
             int addr = context.getFile().getGlobalIndex(sym.name);
             func.getInstructions().add(new LoadGlobal(addr));
         }
@@ -471,7 +470,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     @Override
     public Void visitForLoop(ForLoopTree node, Scope scope) {
         newLine(node);
-        scope = scope.getChildScope(node);
+        scope = ((TCTree.TCForLoopTree)node).scope;
 
         scan(node.getIterable(), scope);
         func.getInstructions().add(new GetItr());
@@ -537,7 +536,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         func.getInstructions().add(new StoreLocal(exVarAddr));
         stackShrinks();
 
-        scan(node.getCatchStatement(), scope.getChildScope(node));
+        scan(node.getCatchStatement(), ((TCTree.TCTryCatchTree)node).exceptionVar.sym.owner);
         goto_.address = func.getInstructions().size();
 
         return null;
@@ -577,7 +576,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
             visitNull(null, scope);
 
 
-        if (scope instanceof GlobalScope)
+        if (scope.kind == Scope.Kind.GLOBAL)
             func.getInstructions().add(new StoreGlobal(context.getFile().getGlobalIndex(node.getName())));
         else
             func.getInstructions().add(new StoreLocal(requireLocalAddress(node.getName())));

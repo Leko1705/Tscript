@@ -2,7 +2,9 @@ package com.tscript.compiler.tools;
 
 import com.tscript.compiler.impl.parse.Parser;
 import com.tscript.compiler.impl.parse.TscriptParser;
+import com.tscript.compiler.impl.utils.DottetClassNameFormatter;
 import com.tscript.compiler.source.tree.*;
+import com.tscript.compiler.source.utils.ClassNameFormatter;
 import com.tscript.compiler.source.utils.TreeScanner;
 
 import java.io.IOException;
@@ -19,6 +21,8 @@ import java.util.Iterator;
  * @author Lennart Köhler
  */
 public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implements Transpiler {
+
+    private static final ClassNameFormatter FMT = new DottetClassNameFormatter();
 
     private final boolean webVersion;
 
@@ -165,8 +169,11 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
     public Void visitClass(ClassTree node, StringBuilder stringBuilder) {
         scan(node.getModifiers(), stringBuilder);
         stringBuilder.append("class ").append(node.getName());
-        if (node.getSuperName() != null)
-            stringBuilder.append(": ").append(node.getSuperName());
+
+        if (node.getSuper() != null && !node.getSuper().isEmpty()) {
+            String superName = FMT.format(node.getSuper());
+            stringBuilder.append(": ").append(superName);
+        }
         stringBuilder.append("{");
 
         for (Tree member : node.getMembers()) {
@@ -430,26 +437,26 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
 
     @Override
     public Void visitModifiers(ModifiersTree node, StringBuilder stringBuilder) {
-        for (Modifier modifier : node.getModifiers()) {
+        for (Modifier modifier : node.getFlags()) {
             if (modifier.isVisibility()){
                 stringBuilder.append(modifier.name).append(": ");
             }
         }
 
-        if (!webVersion && node.getModifiers().contains(Modifier.CONSTANT))
+        if (!webVersion && node.getFlags().contains(Modifier.CONSTANT))
             stringBuilder.append("const");
 
-        if (node.getModifiers().contains(Modifier.STATIC))
+        if (node.getFlags().contains(Modifier.STATIC))
             stringBuilder.append("static");
 
         if (!webVersion) {
-            if (node.getModifiers().contains(Modifier.ABSTRACT))
+            if (node.getFlags().contains(Modifier.ABSTRACT))
                 stringBuilder.append("abstract");
 
-            if (node.getModifiers().contains(Modifier.OVERRIDDEN))
+            if (node.getFlags().contains(Modifier.OVERRIDDEN))
                 stringBuilder.append("overridden");
 
-            if (node.getModifiers().contains(Modifier.NATIVE))
+            if (node.getFlags().contains(Modifier.NATIVE))
                 stringBuilder.append("native");
         }
 
@@ -480,7 +487,7 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
 
     @Override
     public Void visitParameter(ParameterTree node, StringBuilder stringBuilder) {
-        if (!webVersion && node.getModifiers().getModifiers().contains(Modifier.CONSTANT)){
+        if (!webVersion && node.getModifiers().getFlags().contains(Modifier.CONSTANT)){
             stringBuilder.append("const ");
         }
         stringBuilder.append(node.getName());
@@ -571,7 +578,7 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
 
     @Override
     public Void visitVarDefs(VarDefsTree node, StringBuilder stringBuilder) {
-        if (!webVersion && node.getModifiers().getModifiers().contains(Modifier.CONSTANT)){
+        if (!webVersion && node.getModifiers().getFlags().contains(Modifier.CONSTANT)){
             stringBuilder.append("const ");
         }
         else {

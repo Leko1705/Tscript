@@ -96,7 +96,7 @@ public class SymbolResolver {
                 scan(cls.initializer, scope);
                 // address is -1 since closures are
                 // compiled to private fields of the lambda
-                cls.sym = new VarSymbol(cls.name, Set.of(), node.scope, -1, node.location);
+                cls.sym = new VarSymbol(cls.name, Set.of(), node.scope, Symbol.NO_ADDRESS, node.location);
             }
             int prevNextAddress = nextAddress;
             nextAddress = 0;

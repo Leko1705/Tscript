@@ -21,7 +21,7 @@ public class LambdaFunction implements LambdaTree, FunctionTree {
     public ModifiersTree getModifiers() {
         return new ModifiersTree() {
             @Override
-            public Set<Modifier> getModifiers() {
+            public Set<Modifier> getFlags() {
                 return Set.of();
             }
 

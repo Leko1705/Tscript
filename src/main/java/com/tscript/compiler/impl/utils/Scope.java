@@ -33,11 +33,16 @@ public abstract class Scope {
         this.topLevel = topLevel;
     }
 
+    public abstract <R> R accept(Visitor<R> visitor);
 
     public static final class GlobalScope extends Scope {
         public GlobalScope() {
             super(Kind.GLOBAL, null, null, null);
             topLevel = this;
+        }
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitGlobal(this);
         }
     }
 
@@ -45,11 +50,20 @@ public abstract class Scope {
         public LocalScope(Scope enclosing) {
             super(Kind.LOCAL, enclosing, enclosing.owner, enclosing.topLevel);
         }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitLocal(this);
+        }
     }
 
     public static final class FunctionScope extends Scope {
         public FunctionScope(Scope enclosing) {
             super(Kind.FUNCTION, enclosing, enclosing.owner, enclosing.topLevel);
+        }
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitFunction(this);
         }
     }
 
@@ -57,12 +71,23 @@ public abstract class Scope {
         public LambdaScope(Scope enclosing) {
             super(Kind.LAMBDA, enclosing, null, enclosing.topLevel);
         }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitLambda(this);
+        }
     }
 
     public static final class ClassScope extends Scope {
-        public ClassScope(Scope enclosing) {
+        public Symbol.ClassSymbol sym;
+        public ClassScope(Scope enclosing, Symbol.ClassSymbol sym) {
             super(Kind.CLASS, enclosing, null, enclosing.topLevel);
             owner = this;
+            this.sym = sym;
+        }
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitClass(this);
         }
     }
 
@@ -71,6 +96,20 @@ public abstract class Scope {
             super(Kind.NAMESPACE, enclosing, null, enclosing.topLevel);
             owner = this;
         }
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitNamespace(this);
+        }
+    }
+
+
+    public interface Visitor<R> {
+        R visitGlobal(GlobalScope scope);
+        R visitLocal(LocalScope scope);
+        R visitFunction(FunctionScope scope);
+        R visitLambda(LambdaScope scope);
+        R visitClass(ClassScope scope);
+        R visitNamespace(NamespaceScope scope);
     }
 
 

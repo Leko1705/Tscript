@@ -27,7 +27,7 @@ public class TscriptBytecodeInspector implements Compiler {
 
             check(tree);
 
-            CompiledFile lower = Generator.generate(tree, null);
+            CompiledFile lower = Generator.generate(tree);
             Target target = new ReadableTscriptBytecode(out);
             target.write(lower);
         }
