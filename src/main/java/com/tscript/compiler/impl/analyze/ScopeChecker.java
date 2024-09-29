@@ -29,7 +29,7 @@ public class ScopeChecker {
             boolean inClass = this.inClass;
             boolean inAbstractScope = this.inAbstractScope;
             this.inClass = true;
-            this.inAbstractScope = node.getModifiers().getModifiers().contains(Modifier.ABSTRACT);
+            this.inAbstractScope = node.getModifiers().getFlags().contains(Modifier.ABSTRACT);
             super.visitClass(node, unused);
             this.inClass = inClass;
             this.inAbstractScope = inAbstractScope;
@@ -39,7 +39,7 @@ public class ScopeChecker {
         @Override
         public Void visitFunction(FunctionTree functionTree, Void unused) {
 
-            Set<Modifier> modifiers = functionTree.getModifiers().getModifiers();
+            Set<Modifier> modifiers = functionTree.getModifiers().getFlags();
 
             if (modifiers.contains(Modifier.ABSTRACT) && !inAbstractScope) {
                 throw Errors.canNotDefineOutOfAbstractClass(functionTree.getLocation());

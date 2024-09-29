@@ -38,7 +38,7 @@ public class SymbolResolver {
 
         @Override
         public Void visitFunction(TCFunctionTree node, Scope scope) {
-            node.sym = new FunctionSymbol(node.name, node.modifiers.flags, scope, nextAddress++);
+            node.sym = new FunctionSymbol(node.name, node.modifiers.flags, scope, nextAddress++, node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
             nextAddress = 0;
@@ -50,7 +50,7 @@ public class SymbolResolver {
         @Override
         public Void visitParameter(TCParameterTree node, Scope scope) {
             scan(node.defaultValue, scope);
-            node.sym = new VarSymbol(node.name, node.modifiers.flags, scope, nextAddress++);
+            node.sym = new VarSymbol(node.name, node.modifiers.flags, scope, nextAddress++, node.location);
             putIfAbsent(node, scope, node.sym);
             return null;
         }
@@ -59,7 +59,7 @@ public class SymbolResolver {
         public Void visitNamespace(TCNamespaceTree node, Scope scope) {
             // since namespaces are compiled
             // as classes we give it an address
-            node.sym = new NamespaceSymbol(node.name, node.modifiers.flags, scope, nextAddress++);
+            node.sym = new NamespaceSymbol(node.name, node.modifiers.flags, scope, nextAddress++, node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
             nextAddress = 0;
@@ -70,7 +70,7 @@ public class SymbolResolver {
 
         @Override
         public Void visitClass(TCClassTree node, Scope scope) {
-            node.sym = new ClassSymbol(node.name, node.modifiers.flags, scope, nextAddress++);
+            node.sym = new ClassSymbol(node.name, node.modifiers.flags, scope, nextAddress++, node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
             nextAddress = 0;
@@ -96,7 +96,7 @@ public class SymbolResolver {
                 scan(cls.initializer, scope);
                 // address is -1 since closures are
                 // compiled to private fields of the lambda
-                cls.sym = new VarSymbol(cls.name, Set.of(), node.scope, -1);
+                cls.sym = new VarSymbol(cls.name, Set.of(), node.scope, -1, node.location);
             }
             int prevNextAddress = nextAddress;
             nextAddress = 0;
@@ -170,7 +170,7 @@ public class SymbolResolver {
         @Override
         public Void visitVarDef(TCVarDefTree node, Scope scope) {
             scan(node.initializer, scope);
-            node.sym = new VarSymbol(node.name, modifiers, scope, nextAddress++);
+            node.sym = new VarSymbol(node.name, modifiers, scope, nextAddress++, node.location);
             putIfAbsent(node, scope, node.sym);
             return null;
         }

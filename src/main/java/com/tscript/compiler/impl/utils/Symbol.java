@@ -1,6 +1,7 @@
 package com.tscript.compiler.impl.utils;
 
 import com.tscript.compiler.source.tree.Modifier;
+import com.tscript.compiler.source.utils.Location;
 
 import java.util.Set;
 
@@ -17,6 +18,8 @@ public abstract class Symbol {
 
     public final Kind kind;
 
+    public final Location location;
+
     public final String name;
 
     public final Scope owner;
@@ -26,12 +29,13 @@ public abstract class Symbol {
     public int address;
 
 
-    Symbol(Kind kind, String name, Set<Modifier> modifiers, Scope owner, int addr) {
+    Symbol(Kind kind, String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
         this.kind = kind;
         this.name = name;
         this.owner = owner;
         this.modifiers = modifiers;
         this.address = addr;
+        this.location = location;
     }
 
     public boolean isConstant() {
@@ -57,8 +61,8 @@ public abstract class Symbol {
 
     public static final class VarSymbol extends Symbol {
 
-        public VarSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr) {
-            super(Kind.VARIABLE, name, modifiers, owner, addr);
+        public VarSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
+            super(Kind.VARIABLE, name, modifiers, owner, addr, location);
         }
 
     }
@@ -68,8 +72,8 @@ public abstract class Symbol {
 
         public final Scope.FunctionScope subScope;
 
-        public FunctionSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr) {
-            super(Kind.FUNCTION, name, modifiers, owner, addr);
+        public FunctionSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
+            super(Kind.FUNCTION, name, modifiers, owner, addr, location);
             this.subScope = new Scope.FunctionScope(owner);
         }
 
@@ -93,8 +97,8 @@ public abstract class Symbol {
 
         public final Scope.ClassScope subScope;
 
-        public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr) {
-            super(Kind.CLASS, name, modifiers, owner, addr);
+        public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
+            super(Kind.CLASS, name, modifiers, owner, addr, location);
             this.subScope = new Scope.ClassScope(owner);
         }
 
@@ -108,8 +112,8 @@ public abstract class Symbol {
 
         public final Scope.NamespaceScope subScope;
 
-        public NamespaceSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr) {
-            super(Kind.NAMESPACE, name, modifiers, owner, addr);
+        public NamespaceSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
+            super(Kind.NAMESPACE, name, modifiers, owner, addr, location);
             this.subScope = new Scope.NamespaceScope(owner);
         }
     }

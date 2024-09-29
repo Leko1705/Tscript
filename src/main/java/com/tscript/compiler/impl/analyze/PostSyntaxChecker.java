@@ -21,7 +21,7 @@ public class PostSyntaxChecker {
         public Void visitFunction(FunctionTree node, Void unused) {
             scan(node.getParameters(), null);
 
-            Set<Modifier> modifiers = node.getModifiers().getModifiers();
+            Set<Modifier> modifiers = node.getModifiers().getFlags();
 
             if (modifiers.contains(Modifier.ABSTRACT) && modifiers.contains(Modifier.STATIC)) {
                 throw Errors.canNotUseStaticOnAbstract(node.getLocation());
@@ -41,7 +41,7 @@ public class PostSyntaxChecker {
         @Override
         public Void visitVarDefs(VarDefsTree node, Void unused) {
             boolean isConstant = this.isConstant;
-            this.isConstant = node.getModifiers().getModifiers().contains(Modifier.CONSTANT);
+            this.isConstant = node.getModifiers().getFlags().contains(Modifier.CONSTANT);
             scan(node.getDefinitions(), null);
             this.isConstant = isConstant;
             return null;
