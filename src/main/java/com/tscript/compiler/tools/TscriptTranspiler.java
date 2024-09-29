@@ -34,6 +34,9 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
         this.webVersion = webVersion;
     }
 
+    public TscriptTranspiler() {
+        this(false);
+    }
 
     @Override
     public void run(InputStream in, OutputStream out, String[] args) {

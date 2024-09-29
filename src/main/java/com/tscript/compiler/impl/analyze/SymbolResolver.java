@@ -97,6 +97,7 @@ public class SymbolResolver {
                 // address is -1 since closures are
                 // compiled to private fields of the lambda
                 cls.sym = new VarSymbol(cls.name, Set.of(), node.scope, Symbol.NO_ADDRESS, node.location);
+                putIfAbsent(node, node.scope, cls.sym);
             }
             int prevNextAddress = nextAddress;
             nextAddress = 0;
@@ -185,9 +186,47 @@ public class SymbolResolver {
 
 
     private static void putIfAbsent(TCTree caller, Scope scope, Symbol symbol) {
-        if (scope.symbols.containsKey(symbol.name))
+        Symbol prevDecl = scope.accept(new AlreadyDeclared(symbol.name));
+        if (prevDecl != null)
             throw Errors.alreadyDefinedError(symbol.name, caller.location);
         scope.symbols.put(symbol.name, symbol);
+    }
+
+
+    private record AlreadyDeclared(String name) implements Scope.Visitor<Symbol> {
+
+        @Override
+        public Symbol visitGlobal(GlobalScope scope) {
+            return scope.symbols.get(name);
+        }
+
+        @Override
+        public Symbol visitLocal(LocalScope scope) {
+            Symbol sym = scope.symbols.get(name);
+            if (sym != null)
+                return sym;
+            return scope.enclosing.accept(this);
+        }
+
+        @Override
+        public Symbol visitFunction(FunctionScope scope) {
+            return scope.symbols.get(name);
+        }
+
+        @Override
+        public Symbol visitLambda(LambdaScope scope) {
+            return scope.symbols.get(name);
+        }
+
+        @Override
+        public Symbol visitClass(ClassScope scope) {
+            return scope.symbols.get(name);
+        }
+
+        @Override
+        public Symbol visitNamespace(NamespaceScope scope) {
+            return scope.symbols.get(name);
+        }
     }
 
 }

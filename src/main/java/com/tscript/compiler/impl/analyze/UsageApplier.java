@@ -2,6 +2,7 @@ package com.tscript.compiler.impl.analyze;
 
 import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.source.tree.Modifier;
+import com.tscript.compiler.source.tree.ThisTree;
 
 public class UsageApplier {
 
@@ -10,6 +11,9 @@ public class UsageApplier {
     }
 
     private static class Checker extends TCTreeScanner<Scope, Void> {
+
+        private boolean inStaticContext = false;
+        private boolean inSuperConstructorParams = false;
 
         @Override
         public Void visitRoot(TCTree.TCRootTree node, Scope unused) {
@@ -23,7 +27,25 @@ public class UsageApplier {
 
         @Override
         public Void visitFunction(TCTree.TCFunctionTree node, Scope unused) {
-            return super.visitFunction(node, node.sym.subScope);
+            boolean prev = inStaticContext;
+            inStaticContext = node.modifiers.flags.contains(Modifier.STATIC);
+            super.visitFunction(node, node.sym.subScope);
+            inStaticContext = prev;
+            return null;
+        }
+
+        @Override
+        public Void visitConstructor(TCTree.TCConstructorTree node, Scope scope) {
+            scan(node.modifiers, node.scope);
+            scan(node.parameters, node.scope);
+            boolean prevStat = inStaticContext;
+            inStaticContext = false;
+            inSuperConstructorParams = true;
+            scan(node.superArgs, node.scope);
+            inStaticContext = prevStat;
+            inSuperConstructorParams = false;
+            scan(node.body, scope);
+            return super.visitConstructor(node, node.scope);
         }
 
         @Override
@@ -79,18 +101,83 @@ public class UsageApplier {
         @Override
         public Void visitVariable(TCTree.TCVariableTree node, Scope scope) {
             Symbol sym = scope.accept(new SimpleSymbolResolver(node.getName()));
-            if (sym == null && scope.owner != null && scope.owner.kind == Scope.Kind.CLASS){
-                Scope.ClassScope clsScope = (Scope.ClassScope) scope;
-                if (clsScope.sym.superClass != null){
-                    sym = clsScope.sym.superClass.subScope.accept(new SuperSymbolResolver(node.getName()));
+            if (sym == null && hasSuperClass(scope)){
+                Scope.ClassScope clsScope = (Scope.ClassScope) scope.owner;
+                sym = clsScope.sym.superClass.subScope.accept(new SuperSymbolResolver(node.getName()));
+                if (sym != null){
+                    if (sym.modifiers.contains(Modifier.PRIVATE))
+                        throw Errors.memberIsNotVisible(node.location, Modifier.PRIVATE, node.name);
+                    if (inSuperConstructorParams)
+                        throw Errors.canNotUseBeforeConstructorCalled(node.location, node.name);
                 }
             }
+
             if (sym != null){
                 node.sym = sym;
+                if (sym.owner == scope.enclosing){
+                    // in current class
+                    if (inSuperConstructorParams)
+                        throw Errors.canNotUseBeforeConstructorCalled(node.location, node.name);
+                }
+                if (inStaticContext
+                        && sym.owner.kind == Scope.Kind.CLASS
+                        && !sym.modifiers.contains(Modifier.STATIC)){
+                    throw Errors.canNotAccessFromStaticContext(node.location);
+                }
             }
             else {
                 throw Errors.canNotFindSymbol(node.getName(), node.location);
             }
+            return null;
+        }
+
+        @Override
+        public Void visitSuper(TCTree.TCSuperTree node, Scope scope) {
+            if (inSuperConstructorParams)
+                throw Errors.canNotUseBeforeConstructorCalled(node.location, "super");
+
+            Scope.ClassScope currClass = (Scope.ClassScope) scope.owner;
+
+            if (!hasSuperClass(scope)){
+                throw Errors.invalidSuperAccessFound(node.location, currClass.sym.name);
+            }
+
+            // has at least a super class
+            Symbol sym = currClass.sym.superClass.subScope.accept(new SuperSymbolResolver(node.getName()));
+            if (sym != null){
+                if (sym.modifiers.contains(Modifier.PRIVATE)){
+                    throw Errors.memberIsNotVisible(node.location, Modifier.PRIVATE, node.name);
+                }
+            }
+            else {
+                throw Errors.noSuchMemberFound(node.location, currClass.sym.superClass.name, node.name);
+            }
+
+            return null;
+        }
+
+        private static boolean hasSuperClass(Scope scope){
+            if (scope.owner == null || scope.owner.kind != Scope.Kind.CLASS)
+                return false;
+            Scope.ClassScope clsScope = (Scope.ClassScope) scope.owner;
+            return clsScope.sym.superClass != null;
+        }
+
+        @Override
+        public Void visitMemberAccess(TCTree.TCMemberAccessTree node, Scope scope) {
+            super.visitMemberAccess(node, scope);
+            if (node.expression instanceof ThisTree){
+                Scope.ClassScope clsScope = (Scope.ClassScope) scope.owner;
+                if (!clsScope.symbols.containsKey(node.memberName))
+                    throw Errors.noSuchMemberFound(node.location, clsScope.sym.name, node.memberName);
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitThis(TCTree.TCThisTree node, Scope scope) {
+            if (inSuperConstructorParams)
+                throw Errors.canNotUseBeforeConstructorCalled(node.location, "this");
             return null;
         }
     }
@@ -128,10 +215,6 @@ public class UsageApplier {
         public Symbol visitClass(Scope.ClassScope scope) {
             Symbol sym = scope.symbols.get(name);
             if (sym != null) return sym;
-            if (scope.sym.superClass != null) {
-                sym = scope.sym.superClass.subScope.accept(this);
-                if (sym != null) return sym;
-            }
             if (scope.sym.modifiers.contains(Modifier.STATIC))
                 return scope.topLevel.accept(this);
             else

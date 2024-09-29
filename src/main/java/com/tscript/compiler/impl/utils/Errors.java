@@ -155,4 +155,8 @@ public class Errors {
     public static CompileException canNotReassignToConstant(Location location) {
         return new CompileException("can not reassign to constant", location, Phase.CHECKING);
     }
+
+    public static CompileException canNotUseBeforeConstructorCalled(Location location, String what){
+        return new CompileException("can not use '" + what + "' before constructor", location, Phase.CHECKING);
+    }
 }

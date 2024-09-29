@@ -1,4 +1,5 @@
-import com.tscript.runtime.core.TscriptVM;
+package compiler.impl;
+
 import com.tscript.compiler.tools.*;
 import com.tscript.compiler.tools.Compiler;
 import com.tscript.compiler.source.utils.CompileException;
@@ -29,11 +30,13 @@ public class FullCompilationTest {
                 OUT_FILE_C);
 
         //runTool(new TscriptBytecodeInspector(), IN_FILE, OUT_FILE_I);
-        if (true)return;
 
+       /*
         TscriptVM vm = TscriptVM.runnableInstance(new File(ROOT_PATH), System.out, System.err);
         int exitCode = vm.execute(BOOT_MODULE);
         Assertions.assertEquals(0, exitCode);
+
+        */
     }
 
     private void runTool(Tool tool, String inPath, String outPath, String... args){

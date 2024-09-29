@@ -229,6 +229,8 @@ public class TscriptParser implements Parser {
                     if (isStatic){
                         error("constructor can not be static", token);
                     }
+
+                    defTree = constructor;
                 }
                 else {
                     error("class member definition expected", token);
@@ -297,8 +299,7 @@ public class TscriptParser implements Parser {
 
             if (!token.hasTag(PARENTHESES_CLOSED)){
                 do {
-                    TCParameterTree param = parseParam();
-                    TCArgumentTree arg = F.ArgumentTree(param.getLocation(), param.getName(), param.defaultValue);
+                    TCArgumentTree arg = parseArgument();
                     superArgs.add(arg);
 
                     token = lexer.peek();
@@ -1034,26 +1035,8 @@ public class TscriptParser implements Parser {
 
         if (!token.hasTag(PARENTHESES_CLOSED)){
             do {
-                String ref = null;
-                token = lexer.peek();
 
-                if (token.hasTag(IDENTIFIER))
-                {
-                    Token<TscriptTokenType> dummy = lexer.consume();
-                    token = lexer.peek();
-                    if (token.hasTag(EQ_ASSIGN)) {
-                        ref = dummy.getLexeme();
-                        lexer.consume();
-                        token = lexer.peek();
-                    }
-                    else {
-                        lexer.pushBack(dummy);
-                        token = dummy;
-                    }
-                }
-
-                TCExpressionTree exp = unwrap(parseExpression(), token);
-                TCArgumentTree arg = F.ArgumentTree(exp.getLocation(), ref, exp);
+                TCArgumentTree arg = parseArgument();
                 arguments.add(arg);
 
                 token = lexer.peek();
@@ -1071,6 +1054,29 @@ public class TscriptParser implements Parser {
             error("missing ')'", token);
 
         return F.CallTree(location, called, arguments);
+    }
+
+    private TCArgumentTree parseArgument(){
+        String ref = null;
+        Token<TscriptTokenType> token = lexer.peek();
+
+        if (token.hasTag(IDENTIFIER))
+        {
+            Token<TscriptTokenType> dummy = lexer.consume();
+            token = lexer.peek();
+            if (token.hasTag(EQ_ASSIGN)) {
+                ref = dummy.getLexeme();
+                lexer.consume();
+                token = lexer.peek();
+            }
+            else {
+                lexer.pushBack(dummy);
+                token = dummy;
+            }
+        }
+
+        TCExpressionTree exp = unwrap(parseExpression(), token);
+        return F.ArgumentTree(exp.getLocation(), ref, exp);
     }
 
     private void parseEOS(){

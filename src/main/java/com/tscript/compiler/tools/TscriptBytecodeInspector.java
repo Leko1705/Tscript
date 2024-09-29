@@ -32,7 +32,9 @@ public class TscriptBytecodeInspector implements Compiler {
             target.write(lower);
         }
         catch (CompileException e){
-            throw e;
+            // rethrow the exception in order to hide
+            // core compiler logic
+            throw new CompileException(e.message, e.location, e.phase);
         }
         catch (Exception e) {
             throw new InternalToolException(e);

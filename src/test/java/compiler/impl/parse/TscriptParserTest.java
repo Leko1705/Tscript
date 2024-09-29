@@ -1,10 +1,11 @@
+package compiler.impl.parse;
+
 import com.tscript.compiler.impl.parse.Parser;
 import com.tscript.compiler.impl.parse.TscriptParser;
 import com.tscript.compiler.impl.parse.TscriptScanner;
 import com.tscript.compiler.impl.parse.UnicodeReader;
 import com.tscript.compiler.tools.Transpiler;
 import com.tscript.compiler.tools.TscriptTranspiler;
-import com.tscript.compiler.impl.utils.TreeMaker;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

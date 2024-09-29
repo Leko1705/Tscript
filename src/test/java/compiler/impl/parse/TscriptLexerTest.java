@@ -1,3 +1,5 @@
+package compiler.impl.parse;
+
 import com.tscript.compiler.impl.parse.TscriptTokenType;
 import com.tscript.compiler.impl.parse.Token;
 import com.tscript.compiler.impl.parse.TscriptScanner;

@@ -23,6 +23,7 @@ public class HierarchyResolver {
             Symbol sym = task.owner.resolve(task.superName.iterator());
             if (sym != null){
                 if (sym.kind == Symbol.Kind.CLASS){
+
                     task.tree.sym.superClass = (Symbol.ClassSymbol) sym;
                 }
                 else {
@@ -51,21 +52,24 @@ public class HierarchyResolver {
         for (Symbol.ClassSymbol clazz : collector.allClasses){
             if (done.contains(clazz))
                 continue;
-            traverseInheritancePath(clazz, done);
+            traverseInheritancePath(clazz, done, new HashSet<>());
         }
     }
 
     private static void traverseInheritancePath(
             Symbol.ClassSymbol curr,
-            Set<Symbol.ClassSymbol> done) {
+            Set<Symbol.ClassSymbol> done,
+            Set<Symbol.ClassSymbol> visited) {
 
-        if (done.contains(curr))
+        if (visited.contains(curr))
             throw Errors.hasInfiniteInheritance(curr.location);
 
         done.add(curr);
+        visited.add(curr);
+
         Symbol.ClassSymbol superClass = curr.superClass;
         if (superClass == null) return;
-        traverseInheritancePath(superClass, done);
+        traverseInheritancePath(superClass, done, visited);
     }
 
     private static void throwSuperClassNotFound(CheckTask task, ClassNameFormatter fmt){
