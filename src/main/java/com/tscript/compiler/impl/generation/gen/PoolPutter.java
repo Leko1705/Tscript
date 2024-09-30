@@ -1,6 +1,5 @@
-package com.tscript.compiler.impl.generation.generators.impls;
+package com.tscript.compiler.impl.generation.gen;
 
-import com.tscript.compiler.impl.generation.generators.Context;
 import com.tscript.compiler.source.tree.*;
 import com.tscript.compiler.source.utils.SimpleTreeVisitor;
 

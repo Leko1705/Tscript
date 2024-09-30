@@ -1,7 +1,6 @@
-package com.tscript.compiler.impl.generation.generators;
+package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.generation.compiled.CompiledFile;
-import com.tscript.compiler.impl.generation.generators2.FileGenerator;
 import com.tscript.compiler.impl.utils.TCTree;
 
 public class Generator {

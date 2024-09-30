@@ -1,6 +1,4 @@
-package com.tscript.compiler.impl.generation.generators;
-
-import com.tscript.compiler.impl.generation.generators.impls.CompFile;
+package com.tscript.compiler.impl.generation.gen;
 
 public class Context {
 

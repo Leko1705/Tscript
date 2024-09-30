@@ -1,13 +1,9 @@
-package com.tscript.compiler.impl.generation.generators2;
+package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.generation.compiled.instruction.Instruction;
 import com.tscript.compiler.impl.generation.compiled.instruction.LoadNative;
 import com.tscript.compiler.impl.generation.compiled.instruction.LoadVirtual;
 import com.tscript.compiler.impl.generation.compiled.instruction.StoreGlobal;
-import com.tscript.compiler.impl.generation.generators.Context;
-import com.tscript.compiler.impl.generation.generators.GlobalRegistry;
-import com.tscript.compiler.impl.generation.generators.impls.CompFile;
-import com.tscript.compiler.impl.generation.generators.impls.PoolPutter;
 import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.impl.utils.TCTreeScanner;
 import com.tscript.compiler.source.tree.DefinitionTree;

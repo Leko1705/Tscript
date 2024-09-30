@@ -2,14 +2,12 @@ package com.tscript.compiler.tools;
 
 import com.tscript.compiler.impl.analyze.*;
 import com.tscript.compiler.impl.generation.compiled.CompiledFile;
-import com.tscript.compiler.impl.generation.generators.Generator;
+import com.tscript.compiler.impl.generation.gen.Generator;
 import com.tscript.compiler.impl.generation.target.ReadableTscriptBytecode;
 import com.tscript.compiler.impl.generation.target.Target;
-import com.tscript.compiler.impl.parse.Parser;
 import com.tscript.compiler.impl.parse.TscriptParser;
 import com.tscript.compiler.impl.utils.DottetClassNameFormatter;
 import com.tscript.compiler.impl.utils.TCTree;
-import com.tscript.compiler.source.tree.Tree;
 import com.tscript.compiler.source.utils.CompileException;
 import com.tscript.compiler.source.utils.InternalToolException;
 

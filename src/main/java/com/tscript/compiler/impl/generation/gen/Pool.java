@@ -1,4 +1,4 @@
-package com.tscript.compiler.impl.generation.generators.impls;
+package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.generation.compiled.pool.*;
 

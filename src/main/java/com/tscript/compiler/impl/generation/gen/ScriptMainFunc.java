@@ -1,4 +1,4 @@
-package com.tscript.compiler.impl.generation.generators2;
+package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.utils.Scope;
 import com.tscript.compiler.impl.utils.Symbol;

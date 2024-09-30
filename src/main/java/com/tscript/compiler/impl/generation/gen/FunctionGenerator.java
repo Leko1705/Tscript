@@ -1,13 +1,7 @@
-package com.tscript.compiler.impl.generation.generators2;
+package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.generation.compiled.CompiledFunction;
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
-import com.tscript.compiler.impl.generation.generators.BreakAction;
-import com.tscript.compiler.impl.generation.generators.Context;
-import com.tscript.compiler.impl.generation.generators.ContinueAction;
-import com.tscript.compiler.impl.generation.generators.LoopFlowAction;
-import com.tscript.compiler.impl.generation.generators.impls.CompFunc;
-import com.tscript.compiler.impl.generation.generators.impls.PoolPutter;
 import com.tscript.compiler.impl.utils.Scope;
 import com.tscript.compiler.impl.utils.Symbol;
 import com.tscript.compiler.impl.utils.TCTree;
