@@ -63,9 +63,12 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
         Pool pool = loadPool(reader);
         LoadedFunctionArea functionArea = loadFunctions(reader);
-        TypeArea typeArea = loadTypes(reader, pool);
 
-        return new LoadedModule(
+        ModuleProxy moduleProxy = new ModuleProxy(pool);
+
+        LoadedTypeArea typeArea = loadTypes(reader, functionArea, moduleProxy);
+
+        moduleProxy.module = new LoadedModule(
                 file.getPath(),
                 canonicalPath,
                 major,
@@ -75,6 +78,8 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
                 entryPoint,
                 functionArea,
                 typeArea);
+
+        return moduleProxy;
     }
 
     private Member[] loadGlobalNamedRegisters(LazyReader reader) throws ModuleLoadingException {
@@ -180,7 +185,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         return instructions;
     }
 
-    private TypeArea loadTypes(LazyReader reader, Pool pool) throws ModuleLoadingException {
+    private LoadedTypeArea loadTypes(LazyReader reader, LoadedFunctionArea functionArea, Module module) throws ModuleLoadingException {
         int typeAmount = Conversion.from2Bytes(reader.read(), reader.read());
         LoadedTypeArea area = new LoadedTypeArea(typeAmount);
 
@@ -191,12 +196,17 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
             String name = reader.readString();
 
-            inheritors[id] = Conversion.from2Bytes(reader.read(), reader.read());
+            int superIndex;
+            if (reader.read() == 0)
+                superIndex = -1;
+            else
+                superIndex = Conversion.from2Bytes(reader.read(), reader.read());
+            inheritors[id] = superIndex;
 
             boolean isAbstract = reader.read() == 1;
 
-            Function constructor = loadSpecialTypeMethod(reader, pool);
-            Function staticBlock = loadSpecialTypeMethod(reader, pool);
+            Function constructor = loadSpecialTypeMethod(reader, functionArea, module);
+            Function staticBlock = loadSpecialTypeMethod(reader, functionArea, module);
 
             int staticMemberAmount = Conversion.from2Bytes(reader.read(), reader.read());
             Member[] staticMembers = readMembers(reader, staticMemberAmount);
@@ -220,11 +230,10 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         return area;
     }
 
-    private Function loadSpecialTypeMethod(LazyReader reader, Pool pool) throws ModuleLoadingException {
-        byte b1 = reader.read();
-        byte b2 = reader.read();
-        if (Conversion.from2Bytes(b1, b2) == -1) return null;
-        return (Function) pool.loadConstant(b1, b2);
+    private VirtualFunction loadSpecialTypeMethod(LazyReader reader, LoadedFunctionArea functionArea, Module module) throws ModuleLoadingException {
+        if (reader.read() == 0) return null;
+        int index = Conversion.from2Bytes(reader.read(), reader.read());
+        return functionArea.loadFunction(index, module);
     }
 
     private Member[] readMembers(LazyReader reader, int amount) throws ModuleLoadingException {
@@ -295,5 +304,6 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         }
 
     }
+
 
 }

@@ -70,6 +70,7 @@ public class VirtualType implements Type {
 
     @Override
     public Parameters getParameters(TThread thread) {
+        if (constructor == null) return Parameters.newInstance();
         return constructor.getParameters(thread);
     }
 
@@ -92,7 +93,7 @@ public class VirtualType implements Type {
             copy.eval(thread, params);
         }
 
-        return object;
+        return null;
     }
 
     @Override

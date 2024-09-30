@@ -57,7 +57,38 @@ public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWri
 
     @Override
     public void writeClass(CompiledClass compiledClass) {
+        StringBuilder sb = new StringBuilder();
 
+        sb.append(compiledClass.getIndex())
+                .append(" ")
+                .append(compiledClass.getName())
+                .append(": ").append(compiledClass.getSuperIndex()).append(" ");
+
+        if (compiledClass.isAbstract())
+            sb.append("(abstract) ");
+
+        sb.append("{\n\tconstructor:ref=").append(compiledClass.getConstructorIndex())
+                .append("\n\tstaticBlock:ref=").append(compiledClass.getStaticInitializerIndex())
+                .append("\n");
+
+        for (CompiledClass.Member member : compiledClass.getStaticMembers()){
+            sb.append("\t");
+            sb.append("static ");
+            if (!member.isMutable) sb.append("const ");
+            sb.append(member.name)
+                    .append(" ").append(member.visibility)
+                    .append("\n");
+        }
+
+        for (CompiledClass.Member member : compiledClass.getInstanceMembers()){
+            sb.append("\t");
+            if (!member.isMutable) sb.append("const ");
+            sb.append(member.name)
+                    .append(" ").append(member.visibility)
+                    .append("\n");
+        }
+
+        write(sb.append("}").toString());
     }
 
     @Override

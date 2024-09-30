@@ -8,4 +8,29 @@ public interface LoopFlowAction {
 
     boolean isBreak();
 
+    record BreakAction(AddressedInstruction instruction) implements LoopFlowAction {
+
+        @Override
+        public AddressedInstruction getInstruction() {
+            return instruction;
+        }
+
+        @Override
+        public boolean isBreak() {
+            return true;
+        }
+    }
+
+    record ContinueAction(AddressedInstruction instruction) implements LoopFlowAction {
+
+        @Override
+        public AddressedInstruction getInstruction() {
+            return instruction;
+        }
+
+        @Override
+        public boolean isBreak() {
+            return false;
+        }
+    }
 }

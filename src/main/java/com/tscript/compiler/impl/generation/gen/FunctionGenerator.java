@@ -2,6 +2,8 @@ package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.generation.compiled.CompiledFunction;
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
+import com.tscript.compiler.impl.generation.gen.adapter.LambdaFunction;
+import com.tscript.compiler.impl.generation.gen.adapter.TransformedWhileLoop;
 import com.tscript.compiler.impl.utils.Scope;
 import com.tscript.compiler.impl.utils.Symbol;
 import com.tscript.compiler.impl.utils.TCTree;
@@ -10,6 +12,7 @@ import com.tscript.compiler.impl.utils.TCTreeScanner;
 import com.tscript.compiler.source.tree.*;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
@@ -42,6 +45,15 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     }
 
     public int generate(List<Instruction> preInstructions) {
+        return generate(preInstructions, f -> {}, func -> {
+            func.getInstructions().add(new PushNull());
+            func.getInstructions().add(new Return());
+            stackGrows();
+            stackShrinks();
+        });
+    }
+
+    public int generate(List<Instruction> preInstructions, Consumer<CompFunc> postParameterAction, Consumer<CompFunc> returnGenerator) {
         func.getInstructions().addAll(preInstructions);
 
         newLine(handled);
@@ -50,6 +62,8 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         stackGrows(params.size());
         stackShrinks(params.size());
         scan(params, null);
+
+        postParameterAction.accept(func);
 
         if (handled.name.equals("__main__")) {
             for (TCStatementTree stmt : handled.body.statements){
@@ -61,8 +75,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         }
 
         if (!isExplicitReturn()){
-            func.getInstructions().add(new PushNull());
-            func.getInstructions().add(new Return());
+            returnGenerator.accept(func);
         }
 
         func.stackSize = maxStackSize;
@@ -263,40 +276,11 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     @Override
     public Void visitCall(TCCallTree node, Void unused) {
 
-        boolean isMapped = false;
-        for (ArgumentTree arg : node.getArguments()) {
-            if (arg.getName() != null) {
-                isMapped = true;
-                break;
-            }
-        }
-
-        if (isMapped) {
-            for (TCArgumentTree arg : node.arguments) {
-                scan(arg.expression, null);
-                if (arg.getName() != null) {
-                    func.getInstructions().add(new ToMapArg(PoolPutter.putUtf8(context, arg.getName())));
-                }
-                else {
-                    func.getInstructions().add(new ToInplaceArg());
-                }
-            }
+        GenUtils.genCall(context, node.arguments, () -> {
             node.called.accept(this, null);
             stackGrows();
             newLine(node);
-            func.getInstructions().add(new CallMapped(node.getArguments().size()));
-            stackShrinks(-node.getArguments().size() + 1);
-        }
-        else {
-            for (TCArgumentTree arg : node.arguments){
-                scan(arg.expression, null);
-            }
-            node.called.accept(this, null);
-            stackGrows();
-            newLine(node);
-            func.getInstructions().add(new CallInplace(node.getArguments().size()));
-            stackShrinks(-node.getArguments().size() + 1);
-        }
+        }, this);
 
         return null;
     }
@@ -394,7 +378,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     public Void visitBreak(TCBreakTree node, Void unused) {
         AddressedInstruction instruction = new Goto(0);
         func.getInstructions().add(instruction);
-        loopControlFlowStack.element().add(new BreakAction(instruction));
+        loopControlFlowStack.element().add(new LoopFlowAction.BreakAction(instruction));
         return null;
     }
 
@@ -402,7 +386,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     public Void visitContinue(TCContinueTree node, Void unused) {
         AddressedInstruction instruction = new Goto(0);
         func.getInstructions().add(instruction);
-        loopControlFlowStack.element().add(new ContinueAction(instruction));
+        loopControlFlowStack.element().add(new LoopFlowAction.ContinueAction(instruction));
         return null;
     }
 
@@ -612,7 +596,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         return null;
     }
 
-    private void newLine(Tree tree){
+    void newLine(Tree tree){
         int newLine = tree.getLocation().line();
         if (newLine > line){
             line = newLine;

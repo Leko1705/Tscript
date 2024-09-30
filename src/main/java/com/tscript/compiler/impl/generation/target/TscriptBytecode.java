@@ -341,12 +341,12 @@ public class TscriptBytecode
 
     @Override
     public void writeLoadInternal(LoadInternal inst) {
-        write(Opcode.LOAD_INTERNAL, (byte) inst.address);
+        write(Opcode.LOAD_INTERNAL, Conversion.to2Bytes(inst.address));
     }
 
     @Override
     public void writeStoreInternal(StoreInternal inst) {
-        write(Opcode.STORE_INTERNAL, (byte) inst.address);
+        write(Opcode.STORE_INTERNAL, Conversion.to2Bytes(inst.address));
     }
 
     @Override
@@ -500,16 +500,36 @@ public class TscriptBytecode
     public void writeClass(CompiledClass compiledClass) {
         write(Conversion.to2Bytes(compiledClass.getIndex()));
         write(compiledClass.getName());
-        write(Conversion.to2Bytes(compiledClass.getSuperIndex()));
+        if (compiledClass.getSuperIndex() == -1) {
+            write(0);
+        }
+        else {
+            write(1);
+            write(Conversion.to2Bytes(compiledClass.getSuperIndex()));
+        }
         write(compiledClass.isAbstract() ? 1 : 0);
-        write(Conversion.to2Bytes(compiledClass.getConstructorIndex()));
-        write(Conversion.to2Bytes(compiledClass.getStaticInitializerIndex()));
+        if (compiledClass.getConstructorIndex() == -1) {
+            write(0);
+        }
+        else {
+            write(1);
+            write(Conversion.to2Bytes(compiledClass.getConstructorIndex()));
+        }
+        if (compiledClass.getStaticInitializerIndex() == -1) {
+            write(0);
+        }
+        else {
+            write(1);
+            write(Conversion.to2Bytes(compiledClass.getStaticInitializerIndex()));
+        }
+        write(compiledClass.getStaticMembers());
+        write(compiledClass.getInstanceMembers());
+    }
 
-        List<CompiledClass.Member> members = compiledClass.getStaticMembers();
+    private void write(List<CompiledClass.Member> members){
         write(Conversion.to2Bytes(members.size()));
         for (CompiledClass.Member member : members) {
             write(member.name);
-            write('\0');
             int specs = switch (member.visibility){
                 case PUBLIC -> 1;
                 case PROTECTED -> 2;

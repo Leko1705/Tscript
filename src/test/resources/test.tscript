@@ -1,7 +1,7 @@
 
-var x = 3;
-while x > 0 do
-{
-    print(x);
-    x -= 1;
+class X {
+    public:
+    var x = 4;
 }
+
+print(X());

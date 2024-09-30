@@ -1,9 +1,7 @@
 package com.tscript.compiler.impl.generation.gen;
 
-import com.tscript.compiler.impl.generation.compiled.instruction.Instruction;
-import com.tscript.compiler.impl.generation.compiled.instruction.LoadNative;
-import com.tscript.compiler.impl.generation.compiled.instruction.LoadVirtual;
-import com.tscript.compiler.impl.generation.compiled.instruction.StoreGlobal;
+import com.tscript.compiler.impl.generation.compiled.instruction.*;
+import com.tscript.compiler.impl.generation.gen.adapter.ScriptMainFunc;
 import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.impl.utils.TCTreeScanner;
 import com.tscript.compiler.source.tree.DefinitionTree;
@@ -76,6 +74,15 @@ public class FileGenerator extends TCTreeScanner<Void, Void> {
             int index = generator.generate(List.of());
             preloadInstructions.add(new LoadVirtual(index));
         }
+        preloadInstructions.add(new StoreGlobal(node.sym.address));
+        return null;
+    }
+
+    @Override
+    public Void visitClass(TCTree.TCClassTree node, Void unused) {
+        ClassGenerator generator = new ClassGenerator(context, node);
+        int index = generator.generate();
+        preloadInstructions.add(new LoadType(index));
         preloadInstructions.add(new StoreGlobal(node.sym.address));
         return null;
     }

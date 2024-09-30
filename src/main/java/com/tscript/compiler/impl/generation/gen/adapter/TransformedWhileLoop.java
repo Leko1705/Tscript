@@ -1,4 +1,4 @@
-package com.tscript.compiler.impl.generation.gen;
+package com.tscript.compiler.impl.generation.gen.adapter;
 
 import com.tscript.compiler.impl.utils.TCTree;
 

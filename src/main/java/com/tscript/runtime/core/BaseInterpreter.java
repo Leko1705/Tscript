@@ -174,8 +174,8 @@ public class BaseInterpreter implements Interpreter {
         Pool pool = module.getPool();
         String name = pool.loadName(b1, b2);
 
-        TObject value = thread.pop();
         TObject owner = thread.getFrame().getOwner();
+        TObject value = thread.pop();
         Member member = owner.loadMember(name);
         member.content = value;
     }
