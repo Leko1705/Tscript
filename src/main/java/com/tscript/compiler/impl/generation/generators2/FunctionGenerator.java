@@ -1,32 +1,30 @@
-package com.tscript.compiler.impl.generation.generators;
+package com.tscript.compiler.impl.generation.generators2;
 
 import com.tscript.compiler.impl.generation.compiled.CompiledFunction;
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
+import com.tscript.compiler.impl.generation.generators.BreakAction;
+import com.tscript.compiler.impl.generation.generators.Context;
+import com.tscript.compiler.impl.generation.generators.ContinueAction;
+import com.tscript.compiler.impl.generation.generators.LoopFlowAction;
 import com.tscript.compiler.impl.generation.generators.impls.CompFunc;
-import com.tscript.compiler.impl.generation.generators.impls.LambdaFunction;
 import com.tscript.compiler.impl.generation.generators.impls.PoolPutter;
 import com.tscript.compiler.impl.utils.Scope;
 import com.tscript.compiler.impl.utils.Symbol;
 import com.tscript.compiler.impl.utils.TCTree;
+import com.tscript.compiler.impl.utils.TCTree.*;
+import com.tscript.compiler.impl.utils.TCTreeScanner;
 import com.tscript.compiler.source.tree.*;
-import com.tscript.compiler.source.utils.Location;
-import com.tscript.compiler.source.utils.TreeScanner;
 
 import java.util.*;
 
-public class FunctionGenerator extends TreeScanner<Scope, Void> {
-
-    public static int generate(Context context, FunctionTree node, Scope scope){
-        FunctionGenerator generator = new FunctionGenerator(context, node);
-        generator.handle(node, scope);
-        return generator.func.getIndex();
-    }
+public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     private final Context context;
 
-    public final CompFunc func;
+    CompFunc func;
 
     private int maxStackSize = 0;
+
     private int currentStackSize = maxStackSize;
 
     private int maxLocals = 0;
@@ -35,30 +33,37 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
 
     private int line;
 
-    public FunctionGenerator(Context context, FunctionTree node) {
+    private final TCFunctionTree handled;
+
+
+    public FunctionGenerator(Context context, TCFunctionTree generated) {
         this.context = context;
-        func = new CompFunc(context.getNextFunctionIndex(), node.getName());
+        func = new CompFunc(context.getNextFunctionIndex(), generated.name);
+        this.handled = generated;
     }
 
-    public void addPreInstructions(List<Instruction> instruction){
-        func.getInstructions().addAll(0, instruction);
+    private int asLocalAddress(int addr){
+        maxLocals = Math.max(maxLocals, addr + 1);
+        return addr;
     }
 
-    public void handle(FunctionTree node, Scope scope){
-        newLine(node);
+    public int generate(List<Instruction> preInstructions) {
+        func.getInstructions().addAll(preInstructions);
 
-        List<? extends ParameterTree> params = node.getParameters();
+        newLine(handled);
+
+        List<? extends TCParameterTree> params = handled.parameters;
         stackGrows(params.size());
         stackShrinks(params.size());
-        scan(params, scope);
+        scan(params, null);
 
-        if (node.getName().equals("__main__")) {
-            for (StatementTree stmt : node.getBody().getStatements()){
-                scan(stmt, scope);
+        if (handled.name.equals("__main__")) {
+            for (TCStatementTree stmt : handled.body.statements){
+                scan(stmt, null);
             }
         }
         else {
-            scan(node.getBody(), scope);
+            scan(handled.body, null);
         }
 
         if (!isExplicitReturn()){
@@ -70,63 +75,47 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         func.locals = maxLocals;
 
         context.getFile().functions.add(func);
-    }
 
-    private void newLine(Tree tree){
-        int newLine = tree.getLocation().line();
-        if (newLine > line){
-            line = newLine;
-            func.getInstructions().add(new NewLine(line));
-        }
+        return func.getIndex();
     }
 
     @Override
-    public Void visitFunction(FunctionTree node, Scope scope) {
+    public Void visitModifiers(TCModifiersTree node, Void unused) {
+        return null;
+    }
+
+    @Override
+    public Void visitFunction(TCFunctionTree node, Void unused) {
         if (node.getModifiers().getFlags().contains(Modifier.NATIVE)){
             func.getInstructions().add(new LoadNative(PoolPutter.putUtf8(context, node.getName())));
         }
         else {
             newLine(node);
-            int index = FunctionGenerator.generate(context, node, ((TCTree.TCFunctionTree)node).sym.subScope);
+            FunctionGenerator generator = new FunctionGenerator(context, node);
+            int index = generator.generate(List.of());
             func.getInstructions().add(new LoadVirtual(index));
         }
         stackGrows();
 
-        int addr = ((TCTree.TCFunctionTree)node).sym.address;
-        maxLocals = Math.max(maxLocals, addr);
-        func.getInstructions().add(new StoreLocal(addr));
+        int addr = node.sym.address;
+        func.getInstructions().add(new StoreLocal(asLocalAddress(addr)));
         stackShrinks();
 
         return null;
     }
 
     @Override
-    public Void visitParameter(ParameterTree node, Scope scope) {
-        int addr = ((TCTree.TCParameterTree)node).sym.address;
-        maxLocals = Math.max(maxLocals, addr);
-        func.getInstructions().add(new StoreLocal(addr));
+    public Void visitParameter(TCParameterTree node, Void unused) {
+        int addr = node.sym.address;
+        func.getInstructions().add(new StoreLocal(asLocalAddress(addr)));
         int defaultAddr = -1;
         if (node.getDefaultValue() != null) defaultAddr = PoolPutter.put(context, node.getDefaultValue());
         func.parameters.add(CompiledFunction.Parameter.of(node.getName(), defaultAddr));
         return null;
     }
 
-
     @Override
-    public Void visitBlock(BlockTree node, Scope scope) {
-        Scope child = ((TCTree.TCBlockTree)node).scope;
-        for (StatementTree stmt : node.getStatements()) {
-            stmt.accept(this, child);
-            if (stmt instanceof Return) break;
-            if (stmt instanceof ContinueTree) break;
-            if (stmt instanceof BreakTree) break;
-            if (stmt instanceof ThrowTree) break;
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitInteger(IntegerTree node, Scope scope) {
+    public Void visitInteger(TCIntegerTree node, Void unused) {
         int value = node.get();
         if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
             func.getInstructions().add(new PushInt(value));
@@ -139,37 +128,37 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitFloat(FloatTree node, Scope scope) {
+    public Void visitFloat(TCFloatTree node, Void unused) {
         func.getInstructions().add(new LoadConst(PoolPutter.put(context, node)));
         stackGrows();
         return null;
     }
 
     @Override
-    public Void visitNull(NullTree node, Scope scope) {
+    public Void visitNull(TCNullTree node, Void unused) {
         func.getInstructions().add(new PushNull());
         stackGrows();
         return null;
     }
 
     @Override
-    public Void visitString(StringTree node, Scope scope) {
+    public Void visitString(TCStringTree node, Void unused) {
         func.getInstructions().add(new LoadConst(PoolPutter.put(context, node)));
         stackGrows();
         return null;
     }
 
     @Override
-    public Void visitBoolean(BooleanTree node, Scope scope) {
+    public Void visitBoolean(TCBooleanTree node, Void unused) {
         func.getInstructions().add(new PushBool(node.get()));
         stackGrows();
         return null;
     }
 
     @Override
-    public Void visitRange(RangeTree node, Scope scope) {
-        scan(node.getFrom(), scope);
-        scan(node.getTo(), scope);
+    public Void visitRange(TCRangeTree node, Void unused) {
+        scan(node.from, null);
+        scan(node.to, null);
         newLine(node);
         func.getInstructions().add(new MakeRange());
         stackShrinks();
@@ -177,16 +166,16 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitThis(ThisTree node, Scope scope) {
+    public Void visitThis(TCThisTree node, Void unused) {
         func.getInstructions().add(new PushThis());
         stackGrows();
         return null;
     }
 
     @Override
-    public Void visitBinaryOperation(BinaryOperationTree node, Scope scope) {
-        scan(node.getLeftOperand(), scope);
-        scan(node.getRightOperand(), scope);
+    public Void visitBinaryOperation(TCBinaryOperationTree node, Void unused) {
+        scan(node.left, null);
+        scan(node.right, null);
         newLine(node);
         switch (node.getOperationType()) {
             case EQUALS -> func.getInstructions().add(new Equals());
@@ -197,16 +186,16 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitNot(NotTree node, Scope scope) {
-        scan(node.getOperand(), scope);
+    public Void visitNot(TCNotTree node, Void unused) {
+        scan(node.operand, null);
         newLine(node);
         func.getInstructions().add(new Not());
         return null;
     }
 
     @Override
-    public Void visitSign(SignTree node, Scope scope) {
-        scan(node.getOperand(), scope);
+    public Void visitSign(TCSignTree node, Void unused) {
+        scan(node.operand, null);
         newLine(node);
         if (node.isNegation()){
             func.getInstructions().add(new Neg());
@@ -218,18 +207,18 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitReturn(ReturnTree node, Scope scope) {
-        scan(node.getExpression(), scope);
+    public Void visitReturn(TCReturnTree node, Void unused) {
+        scan(node.returned, null);
         func.getInstructions().add(new Return());
         stackShrinks();
         return null;
     }
 
     @Override
-    public Void visitArray(ArrayTree node, Scope scope) {
-        ListIterator<? extends ExpressionTree> listItr = node.getContents().listIterator(node.getContents().size());
+    public Void visitArray(TCArrayTree node, Void unused) {
+        ListIterator<? extends TCExpressionTree> listItr = node.content.listIterator(node.getContents().size());
         while (listItr.hasPrevious()) {
-            listItr.previous().accept(this, scope);
+            listItr.previous().accept(this, null);
         }
         func.getInstructions().add(new MakeArray(node.getContents().size()));
         stackShrinks(-node.getContents().size() + 1);
@@ -237,13 +226,13 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitDictionary(DictionaryTree node, Scope scope) {
-        ListIterator<? extends ExpressionTree> keyItr = node.getKeys().listIterator(node.getKeys().size());
-        ListIterator<? extends ExpressionTree> valueItr = node.getValues().listIterator(node.getValues().size());
+    public Void visitDictionary(TCDictionaryTree node, Void unused) {
+        ListIterator<? extends TCExpressionTree> keyItr = node.keys.listIterator(node.getKeys().size());
+        ListIterator<? extends TCExpressionTree> valueItr = node.values.listIterator(node.getValues().size());
 
         while (keyItr.hasPrevious()) {
-            keyItr.previous().accept(this, scope);
-            valueItr.previous().accept(this, scope);
+            keyItr.previous().accept(this, null);
+            valueItr.previous().accept(this, null);
         }
 
         func.getInstructions().add(new MakeArray(node.getKeys().size()));
@@ -253,11 +242,10 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitLambda(LambdaTree node, Scope scope) {
+    public Void visitLambda(TCLambdaTree node, Void unused) {
         LambdaFunction bridge = new LambdaFunction(node, "Lambda@" + context.getNextLambdaIndex());
         FunctionGenerator generator = new FunctionGenerator(context, bridge);
-        scope = ((TCTree.TCLambdaTree)node).scope;
-        generator.handle(bridge, scope);
+        generator.generate(List.of());
 
         int index = generator.func.getIndex();
 
@@ -272,14 +260,14 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitGetType(GetTypeTree node, Scope scope) {
-        scan(node.getOperand(), scope);
+    public Void visitGetType(TCGetTypeTree node, Void unused) {
+        scan(node.operand, null);
         func.getInstructions().add(new GetType());
         return null;
     }
 
     @Override
-    public Void visitCall(CallTree node, Scope scope) {
+    public Void visitCall(TCCallTree node, Void unused) {
 
         boolean isMapped = false;
         for (ArgumentTree arg : node.getArguments()) {
@@ -290,8 +278,8 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         }
 
         if (isMapped) {
-            for (ArgumentTree arg : node.getArguments()) {
-                arg.getExpression().accept(this, scope);
+            for (TCArgumentTree arg : node.arguments) {
+                scan(arg.expression, null);
                 if (arg.getName() != null) {
                     func.getInstructions().add(new ToMapArg(PoolPutter.putUtf8(context, arg.getName())));
                 }
@@ -299,17 +287,17 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
                     func.getInstructions().add(new ToInplaceArg());
                 }
             }
-            node.getCalled().accept(this, scope);
+            node.called.accept(this, null);
             stackGrows();
             newLine(node);
             func.getInstructions().add(new CallMapped(node.getArguments().size()));
             stackShrinks(-node.getArguments().size() + 1);
         }
         else {
-            for (ArgumentTree arg : node.getArguments()){
-                scan(arg.getExpression(), scope);
+            for (TCArgumentTree arg : node.arguments){
+                scan(arg.expression, null);
             }
-            node.getCalled().accept(this, scope);
+            node.called.accept(this, null);
             stackGrows();
             newLine(node);
             func.getInstructions().add(new CallInplace(node.getArguments().size()));
@@ -320,38 +308,26 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitVariable(VariableTree node, Scope scope) {
-        stackGrows();
-
-        Symbol sym = ((TCTree.TCVariableTree)node).sym;
-
-        if (sym == null || sym.kind == Symbol.Kind.UNKNOWN){
-            func.getInstructions().add(new LoadName(PoolPutter.putUtf8(context, node.getName())));
-            return null;
-        }
-
-        if (sym.owner .kind == Scope.Kind.GLOBAL) {
-            int addr = -1;
-            func.getInstructions().add(new LoadGlobal(addr));
-        }
-        else {
-            int addr = ((TCTree.TCVariableTree)node).sym.address;
-            maxLocals = Math.max(maxLocals, addr);
-            func.getInstructions().add(new LoadLocal(addr));
-        }
-
-        return null;
-    }
-
-    @Override
-    public Void visitArgument(ArgumentTree node, Scope scope) {
+    public Void visitArgument(TCArgumentTree node, Void unused) {
         throw new AssertionError("should be covered by visitCall");
     }
 
     @Override
-    public Void visitContainerAccess(ContainerAccessTree node, Scope scope) {
-        scan(node.getKey(), scope);
-        scan(node.getContainer(), scope);
+    public Void visitBlock(TCBlockTree node, Void unused) {
+        for (TCStatementTree stmt : node.statements) {
+            scan(stmt, null);
+            if (stmt instanceof ReturnTree) break;
+            if (stmt instanceof ContinueTree) break;
+            if (stmt instanceof BreakTree) break;
+            if (stmt instanceof ThrowTree) break;
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitContainerAccess(TCContainerAccessTree node, Void unused) {
+        scan(node.key, null);
+        scan(node.container, null);
         newLine(node);
         func.getInstructions().add(new ContainerRead());
         stackShrinks(2);
@@ -359,24 +335,24 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitMemberAccess(MemberAccessTree node, Scope scope) {
-        scan(node.getExpression(), scope);
+    public Void visitMemberAccess(TCMemberAccessTree node, Void unused) {
+        scan(node.expression, null);
         newLine(node);
         func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, node.getMemberName())));
         return null;
     }
 
     @Override
-    public Void visitExpressionStatement(ExpressionStatementTree node, Scope scope) {
-        scan(node.getExpression(), scope);
+    public Void visitExpressionStatement(TCExpressionStatementTree node, Void unused) {
+        scan(node.expression, null);
         func.getInstructions().add(new Pop());
         stackShrinks();
         return null;
     }
 
     @Override
-    public Void visitUse(UseTree node, Scope scope) {
-        scan(node.getVariable(), scope);
+    public Void visitUse(TCUseTree node, Void unused) {
+        scan(node.varTree, null);
         newLine(node);
         func.getInstructions().add(new Use());
         stackShrinks();
@@ -384,23 +360,23 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitThrow(ThrowTree node, Scope scope) {
-        scan(node.getThrown(), scope);
+    public Void visitThrow(TCThrowTree node, Void unused) {
+        scan(node.thrown, null);
         newLine(node);
         func.getInstructions().add(new Throw());
         return null;
     }
 
     @Override
-    public Void visitIfElse(IfElseTree node, Scope scope) {
-        scan(node.getCondition(), scope);
+    public Void visitIfElse(TCIfElseTree node, Void unused) {
+        scan(node.condition, null);
 
         BranchIfFalse branchIf = new BranchIfFalse(0);
         func.getInstructions().add(branchIf);
 
         stackShrinks();
 
-        scan(node.getThenStatement(), scope);
+        scan(node.thenStatement, null);
 
         if (node.getElseStatement() == null) {
             branchIf.address = func.getInstructions().size();
@@ -409,7 +385,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
             func.getInstructions().add(goto_);
             int ifEndIndex = func.getInstructions().size();
 
-            scan(node.getElseStatement(), scope);
+            scan(node.elseStatement, null);
             int elseEndIndex = func.getInstructions().size();
 
             branchIf.address = ifEndIndex;
@@ -420,7 +396,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitBreak(BreakTree node, Scope scope) {
+    public Void visitBreak(TCBreakTree node, Void unused) {
         AddressedInstruction instruction = new Goto(0);
         func.getInstructions().add(instruction);
         loopControlFlowStack.element().add(new BreakAction(instruction));
@@ -428,7 +404,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitContinue(ContinueTree node, Scope scope) {
+    public Void visitContinue(TCContinueTree node, Void unused) {
         AddressedInstruction instruction = new Goto(0);
         func.getInstructions().add(instruction);
         loopControlFlowStack.element().add(new ContinueAction(instruction));
@@ -436,26 +412,17 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitWhileDoLoop(WhileDoTree node, Scope scope) {
-        TransformedWhileDoTree transform = new TransformedWhileDoTree(
-                node.getCondition(),
-                node.getStatement());
-        scan(transform, scope);
-        return null;
-    }
-
-    @Override
-    public Void visitDoWhileLoop(DoWhileTree node, Scope scope) {
+    public Void visitDoWhileLoop(TCDoWhileTree node, Void unused) {
         int headerAddress = func.getInstructions().size();
 
         loopControlFlowStack.push(new LinkedList<>());
 
-        scan(node.getStatement(), scope);
+        scan(node.statement, null);
 
         List<LoopFlowAction> loopCFActions = loopControlFlowStack.remove();
 
         int conditionStartAddress = func.getInstructions().size();
-        scan(node.getCondition(), scope);
+        scan(node.condition, null);
         func.getInstructions().add(new BranchIfTrue(headerAddress));
         stackShrinks();
 
@@ -473,11 +440,10 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitForLoop(ForLoopTree node, Scope scope) {
+    public Void visitForLoop(TCForLoopTree node, Void unused) {
         newLine(node);
-        scope = ((TCTree.TCForLoopTree)node).scope;
 
-        scan(node.getIterable(), scope);
+        scan(node.iterable, null);
         func.getInstructions().add(new GetItr());
         stackGrows();
 
@@ -490,8 +456,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
             func.getInstructions().add(new ItrNext());
             stackGrows();
             int addr = ((TCTree.TCVarDefTree)node.getVariable()).sym.address;
-            maxLocals = Math.max(maxLocals, addr);
-            func.getInstructions().add(new StoreLocal(addr));
+            func.getInstructions().add(new StoreLocal(asLocalAddress(addr)));
         }
         else {
             func.getInstructions().add(new ItrNext());
@@ -501,7 +466,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
         }
 
         loopControlFlowStack.push(new LinkedList<>());
-        scan(node.getStatement(), scope);
+        scan(node.statement, null);
         List<LoopFlowAction> loopCFActions = loopControlFlowStack.remove();
 
         func.getInstructions().add(new Goto(jumpBackAddr));
@@ -523,34 +488,31 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitTryCatch(TryCatchTree node, Scope scope) {
+    public Void visitTryCatch(TCTryCatchTree node, Void unused) {
         AddressedInstruction enterTry =  new EnterTry(0);
         func.getInstructions().add(enterTry);
 
-        scan(node.getTryStatement(), scope);
+        scan(node.tryStatement, null);
         int tryEndIndex = func.getInstructions().size()+1;
         enterTry.address = tryEndIndex+1;
         func.getInstructions().add(new LeaveTry());
         AddressedInstruction goto_ = new Goto(0);
         func.getInstructions().add(goto_);
 
-        //localScope = new LocalScope(scope);
-        //localScope.putIfAbsent(SymbolKind.VARIABLE, tryCatchTree.getExceptionName(), Set.of());
-        int exVarAddr = ((TCTree.TCVarDefTree)node.getExceptionVariable()).sym.address;
-        maxLocals = Math.max(maxLocals, exVarAddr);
+        int exVarAddr = node.exceptionVar.sym.address;
 
         stackGrows();
-        func.getInstructions().add(new StoreLocal(exVarAddr));
+        func.getInstructions().add(new StoreLocal(asLocalAddress(exVarAddr)));
         stackShrinks();
 
-        scan(node.getCatchStatement(), ((TCTree.TCTryCatchTree)node).exceptionVar.sym.owner);
+        scan(node.catchStatement, null);
         goto_.address = func.getInstructions().size();
 
         return null;
     }
 
     @Override
-    public Void visitImport(ImportTree node, Scope scope) {
+    public Void visitImport(TCImportTree node, Void unused) {
         StringJoiner joiner = new StringJoiner(".");
         for (String acc : node.getAccessChain())
             joiner.add(acc);
@@ -560,7 +522,7 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
     @Override
-    public Void visitFromImport(FromImportTree node, Scope scope) {
+    public Void visitFromImport(TCFromImportTree node, Void unused) {
         StringJoiner joiner = new StringJoiner(".");
         for (String acc : node.getFromAccessChain())
             joiner.add(acc);
@@ -572,34 +534,74 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
             func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, acc)));
         }
 
-        return super.visitFromImport(node, scope);
+        return super.visitFromImport(node, null);
     }
 
     @Override
-    public Void visitVarDef(VarDefTree node, Scope scope) {
-        if (node.getInitializer() != null)
-            scan(node.getInitializer(), scope);
-        else
-            visitNull(null, scope);
+    public Void visitVarDefs(TCVarDefsTree node, Void unused) {
+        return super.visitVarDefs(node, unused);
+    }
 
-
-        if (scope.kind == Scope.Kind.GLOBAL) {
-            func.getInstructions().add(new StoreGlobal(-1));
+    @Override
+    public Void visitVarDef(TCVarDefTree node, Void unused) {
+        scan(node.initializer, null);
+        if (node.initializer == null){
+            visitNull(null, null);
+        }
+        int addr = node.sym.address;
+        if (node.sym.owner.kind == Scope.Kind.GLOBAL){
+            func.getInstructions().add(new StoreGlobal(addr));
         }
         else {
-            int addr = ((TCTree.TCVarDefTree)node).sym.address;
-            maxLocals = Math.max(maxLocals, addr);
-            func.getInstructions().add(new StoreLocal(addr));
+            func.getInstructions().add(new StoreLocal(asLocalAddress(addr)));
         }
-
+        stackShrinks();
         return null;
     }
 
-    private boolean isExplicitReturn(){
-        if (func.getInstructions().isEmpty()) return false;
-        return func.getInstructions().get(func.getInstructions().size()-1) instanceof Return;
+    @Override
+    public Void visitVariable(TCVariableTree node, Void unused) {
+        stackGrows();
+
+        int addr = node.sym.address;
+
+        if (node.sym.owner.kind == Scope.Kind.GLOBAL){
+            func.getInstructions().add(new LoadGlobal(addr));
+            return null;
+        }
+
+        if (node.sym.owner.kind.isContainer()){
+            if (node.sym.isStatic()){
+                func.getInstructions().add(new LoadStatic(PoolPutter.putUtf8(context, node.name)));
+            }
+            else {
+                func.getInstructions().add(new LoadInternal(PoolPutter.putUtf8(context, node.name)));
+            }
+            return null;
+        }
+
+        if (node.sym.kind == Symbol.Kind.UNKNOWN){
+            func.getInstructions().add(new LoadName(PoolPutter.putUtf8(context, node.name)));
+            return null;
+        }
+
+        func.getInstructions().add(new LoadLocal(addr));
+        return null;
     }
 
+    @Override
+    public Void visitSuper(TCSuperTree node, Void unused) {
+        func.getInstructions().add(new LoadInternal(PoolPutter.putUtf8(context, node.name)));
+        return null;
+    }
+
+    private void newLine(Tree tree){
+        int newLine = tree.getLocation().line();
+        if (newLine > line){
+            line = newLine;
+            func.getInstructions().add(new NewLine(line));
+        }
+    }
 
     public void stackGrows(){
         stackGrows(1);
@@ -621,43 +623,14 @@ public class FunctionGenerator extends TreeScanner<Scope, Void> {
     }
 
 
-    private record TransformedWhileDoTree(ExpressionTree condition, StatementTree body) implements IfElseTree {
-
-        @Override
-        public ExpressionTree getCondition() {
-            return condition;
-        }
-
-        @Override
-        public StatementTree getThenStatement() {
-            return new DoWhileTree() {
-                @Override
-                public StatementTree getStatement() {
-                    return body;
-                }
-
-                @Override
-                public ExpressionTree getCondition() {
-                    return condition;
-                }
-
-                @Override
-                public Location getLocation() {
-                    return condition.getLocation();
-                }
-            };
-        }
-
-        @Override
-        public StatementTree getElseStatement() {
-            return null;
-        }
-
-        @Override
-        public Location getLocation() {
-            return condition.getLocation();
-        }
+    private boolean isExplicitReturn(){
+        if (func.getInstructions().isEmpty()) return false;
+        return func.getInstructions().get(func.getInstructions().size()-1) instanceof Return;
     }
 
-
+    private boolean inGlobalScope(Scope scope){
+        while (scope != null && scope.kind == Scope.Kind.LOCAL)
+            scope = scope.enclosing;
+        return scope != null && scope.kind == Scope.Kind.GLOBAL;
+    }
 }

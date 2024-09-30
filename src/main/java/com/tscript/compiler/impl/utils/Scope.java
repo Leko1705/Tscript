@@ -12,7 +12,11 @@ public abstract class Scope {
         FUNCTION,
         LAMBDA,
         CLASS,
-        NAMESPACE
+        NAMESPACE;
+
+        public boolean isContainer(){
+            return this == CLASS || this == NAMESPACE;
+        }
     }
 
     public final Kind kind;

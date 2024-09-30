@@ -41,17 +41,6 @@ public class CompFile implements CompiledFile {
         return globals;
     }
 
-    public int getGlobalIndex(String name){
-        int i = 0;
-        for (GlobalVariable glob : globals){
-            if (glob.name.equals(name)){
-                return i;
-            }
-            i++;
-        }
-        return -1;
-    }
-
     @Override
     public ConstantPool getConstantPool() {
         return pool;

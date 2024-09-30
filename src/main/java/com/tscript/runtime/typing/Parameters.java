@@ -52,4 +52,10 @@ public class Parameters {
         return orderedDefaultList.subList(fromIndex, orderedDefaultList.size());
     }
 
+    @Override
+    public String toString() {
+        return "Parameters{" +
+                "defaultValues=" + defaultValues +
+                '}';
+    }
 }

@@ -25,8 +25,6 @@ public class TscriptCompiler implements Compiler {
 
             check(tree);
 
-            if (true) return;
-
             CompiledFile lower = Generator.generate(tree);
             Target target = new TscriptBytecode(out);
             target.write(lower);

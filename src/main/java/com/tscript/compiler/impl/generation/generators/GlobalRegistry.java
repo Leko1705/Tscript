@@ -1,20 +1,13 @@
 package com.tscript.compiler.impl.generation.generators;
 
 import com.tscript.compiler.impl.generation.compiled.GlobalVariable;
-import com.tscript.compiler.impl.utils.Scope;
-import com.tscript.compiler.impl.utils.Symbol;
+import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.source.tree.*;
 import com.tscript.compiler.source.utils.SimpleTreeVisitor;
 
 import java.util.List;
 
 public class GlobalRegistry extends SimpleTreeVisitor<List<GlobalVariable>, Void> {
-
-    private final Scope scope;
-
-    public GlobalRegistry(Scope scope) {
-        this.scope = scope;
-    }
 
     @Override
     public Void visitFunction(FunctionTree node, List<GlobalVariable> globalVariables) {
@@ -31,23 +24,10 @@ public class GlobalRegistry extends SimpleTreeVisitor<List<GlobalVariable>, Void
 
     @Override
     public Void visitVarDef(VarDefTree node, List<GlobalVariable> globalVariables) {
-        boolean mutable = scope.symbols.get(node.getName()).kind == Symbol.Kind.VARIABLE;
+        TCTree.TCVarDefTree def = (TCTree.TCVarDefTree) node;
+        boolean mutable = !def.sym.modifiers.contains(Modifier.CONSTANT);
         globalVariables.add(new GlobalVariable(node.getName(), mutable));
         return null;
     }
 
-    @Override
-    public Void visitForLoop(ForLoopTree node, List<GlobalVariable> globalVariables) {
-        if (node.getVariable() != null){
-            globalVariables.add(new GlobalVariable(node.getVariable().getName(), true));
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitBlock(BlockTree node, List<GlobalVariable> globalVariables) {
-        for (StatementTree statement : node.getStatements())
-            statement.accept(this, globalVariables);
-        return null;
-    }
 }

@@ -1,6 +1,7 @@
 package com.tscript.runtime.utils;
 
 import java.util.AbstractList;
+import java.util.Iterator;
 import java.util.List;
 
 public final class FastMergedList<T> extends AbstractList<T> implements ImmutableList<T> {
@@ -16,7 +17,7 @@ public final class FastMergedList<T> extends AbstractList<T> implements Immutabl
     public T get(int index) {
         if (index < first.size())
             return first.get(index);
-        return second.get(index);
+        return second.get(index - first.size());
     }
 
     @Override
@@ -24,4 +25,11 @@ public final class FastMergedList<T> extends AbstractList<T> implements Immutabl
         return first.size() + second.size();
     }
 
+    @Override
+    public String toString() {
+        return "FastMergedList{" +
+                "first=" + first +
+                ", second=" + second +
+                '}';
+    }
 }

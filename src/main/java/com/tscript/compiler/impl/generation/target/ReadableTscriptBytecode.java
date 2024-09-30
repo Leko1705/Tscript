@@ -76,7 +76,7 @@ public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWri
             sb.append("[]");
         }
         else {
-            StringJoiner joiner = new StringJoiner("[", ", ", "]");
+            StringJoiner joiner = new StringJoiner(", ", "[", "]");
             for (CompiledFunction.Parameter parameter : function.getParameters()) {
                 String s = parameter.name;
                 if (parameter.defaultValueRef != -1){

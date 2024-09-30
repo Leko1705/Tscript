@@ -31,6 +31,7 @@ public class SymbolResolver {
         public Void visitBlock(TCBlockTree node, Scope scope) {
             node.scope = new LocalScope(scope);
             int prevNextAddress = nextAddress;
+            if (scope.kind == Scope.Kind.GLOBAL) nextAddress = 0;
             super.visitBlock(node, node.scope);
             nextAddress = prevNextAddress;
             return null;
@@ -110,10 +111,13 @@ public class SymbolResolver {
         @Override
         public Void visitTryCatch(TCTryCatchTree node, Scope scope) {
             node.tryScope = new LocalScope(scope);
-            int prevNextAddress = nextAddress;
-            scan(node.tryStatement, node.tryScope);
-            nextAddress = prevNextAddress;
 
+            int prevNextAddress = nextAddress;
+            if (scope.kind == Scope.Kind.GLOBAL) nextAddress = 0;
+            scan(node.tryStatement, node.tryScope);
+
+            nextAddress = prevNextAddress;
+            if (scope.kind == Scope.Kind.GLOBAL) nextAddress = 0;
             LocalScope catchScope = new LocalScope(scope);
             modifiers = Set.of();
             scan(node.exceptionVar, catchScope);
@@ -128,8 +132,10 @@ public class SymbolResolver {
             node.thenScope = new LocalScope(scope);
             node.elseScope = new LocalScope(scope);
             int prevNextAddress = nextAddress;
+            if (scope.kind == Scope.Kind.GLOBAL) nextAddress = 0;
             scan(node.thenStatement, node.thenScope);
             nextAddress = prevNextAddress;
+            if (scope.kind == Scope.Kind.GLOBAL) nextAddress = 0;
             scan(node.elseStatement, node.elseScope);
             nextAddress = prevNextAddress;
             return null;
@@ -139,6 +145,7 @@ public class SymbolResolver {
         public Void visitWhileDoLoop(TCWhileDoTree node, Scope scope) {
             node.scope = new LocalScope(scope);
             int prevNextAddress = nextAddress;
+            if (scope.kind == Scope.Kind.GLOBAL) nextAddress = 0;
             super.visitWhileDoLoop(node, node.scope);
             nextAddress = prevNextAddress;
             return null;
@@ -148,6 +155,7 @@ public class SymbolResolver {
         public Void visitDoWhileLoop(TCDoWhileTree node, Scope scope) {
             node.scope = new LocalScope(scope);
             int prevNextAddress = nextAddress;
+            if (scope.kind == Scope.Kind.GLOBAL) nextAddress = 0;
             super.visitDoWhileLoop(node, node.scope);
             nextAddress = prevNextAddress;
             return null;
@@ -157,6 +165,7 @@ public class SymbolResolver {
         public Void visitForLoop(TCForLoopTree node, Scope scope) {
             node.scope = new LocalScope(scope);
             int prevNextAddress = nextAddress;
+            if (scope.kind == Scope.Kind.GLOBAL) nextAddress = 0;
             super.visitForLoop(node, node.scope);
             nextAddress = prevNextAddress;
             return null;

@@ -60,6 +60,8 @@ public abstract class Symbol {
         return modifiers.contains(Modifier.PUBLIC);
     }
 
+    public abstract void generate(Generator generator);
+
 
     public static final class VarSymbol extends Symbol {
 
@@ -67,6 +69,10 @@ public abstract class Symbol {
             super(Kind.VARIABLE, name, modifiers, owner, addr, location);
         }
 
+        @Override
+        public void generate(Generator generator) {
+            generator.generate(this);
+        }
     }
 
 
@@ -90,6 +96,11 @@ public abstract class Symbol {
         public boolean isOverridden(){
             return modifiers.contains(Modifier.OVERRIDDEN);
         }
+
+        @Override
+        public void generate(Generator generator) {
+            generator.generate(this);
+        }
     }
 
 
@@ -107,6 +118,11 @@ public abstract class Symbol {
         public boolean isAbstract(){
             return modifiers.contains(Modifier.ABSTRACT);
         }
+
+        @Override
+        public void generate(Generator generator) {
+            generator.generate(this);
+        }
     }
 
 
@@ -118,12 +134,31 @@ public abstract class Symbol {
             super(Kind.NAMESPACE, name, modifiers, owner, addr, location);
             this.subScope = new Scope.NamespaceScope(owner);
         }
+
+        @Override
+        public void generate(Generator generator) {
+            generator.generate(this);
+        }
     }
 
     public static final class UnknownSymbol extends Symbol {
         public UnknownSymbol(String name, Location location) {
             super(Kind.UNKNOWN, name, Set.of(), null, NO_ADDRESS, location);
         }
+
+        @Override
+        public void generate(Generator generator) {
+            generator.generate(this);
+        }
+    }
+
+
+    public interface Generator {
+        void generate(VarSymbol symbol);
+        void generate(FunctionSymbol symbol);
+        void generate(ClassSymbol symbol);
+        void generate(NamespaceSymbol symbol);
+        void generate(UnknownSymbol symbol);
     }
 
 }
