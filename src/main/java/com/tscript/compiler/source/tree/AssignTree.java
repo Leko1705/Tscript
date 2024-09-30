@@ -13,7 +13,7 @@ import com.tscript.compiler.source.utils.TreeVisitor;
  * @since 1.0
  * @author Lennart Köhler
  */
-public interface AssignTree extends BinaryExpressionTree {
+public interface AssignTree extends BinaryExpressionTree, NoPopOnStandaloneTree {
 
     /**
      * {@inheritDoc}

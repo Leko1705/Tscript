@@ -1,11 +1,7 @@
 
-function foo(x, y=5){
-    return function(){};
-}
-
+var x = 3;
+while x > 0 do
 {
-    foo(null, 4)();
+    print(x);
+    x -= 1;
 }
-
-
-

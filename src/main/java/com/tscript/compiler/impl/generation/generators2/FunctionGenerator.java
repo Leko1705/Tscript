@@ -345,7 +345,8 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     @Override
     public Void visitExpressionStatement(TCExpressionStatementTree node, Void unused) {
         scan(node.expression, null);
-        func.getInstructions().add(new Pop());
+        if (!(node.expression instanceof NoPopOnStandaloneTree))
+            func.getInstructions().add(new Pop());
         stackShrinks();
         return null;
     }
@@ -437,6 +438,11 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         }
 
         return null;
+    }
+
+    @Override
+    public Void visitWhileDoLoop(TCWhileDoTree node, Void unused) {
+        return scan(new TransformedWhileLoop(node), null);
     }
 
     @Override
@@ -595,6 +601,23 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         return null;
     }
 
+    @Override
+    public Void visitRoot(TCRootTree node, Void unused) {
+        throw new IllegalStateException("root can not exist inside of a function");
+    }
+
+    @Override
+    public Void visitConstructor(TCConstructorTree node, Void unused) {
+        throw new IllegalStateException("constructor can not exist inside of a function");
+    }
+
+    @Override
+    public Void visitAssign(TCAssignTree node, Void unused) {
+        scan(node.right, null);
+        node.left.accept(new AssignGenerator(this, context, func), null);
+        return null;
+    }
+
     private void newLine(Tree tree){
         int newLine = tree.getLocation().line();
         if (newLine > line){
@@ -607,18 +630,18 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         stackGrows(1);
     }
 
-    private void stackGrows(int size){
+    protected void stackGrows(int size){
         currentStackSize = currentStackSize + size;
         if(currentStackSize > maxStackSize){
             maxStackSize = currentStackSize;
         }
     }
 
-    public void stackShrinks(){
+    protected void stackShrinks(){
         stackShrinks(1);
     }
 
-    private void stackShrinks(int size){
+    protected void stackShrinks(int size){
         currentStackSize -= size;
     }
 
