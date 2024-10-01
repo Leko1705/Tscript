@@ -102,6 +102,10 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         }
 
         for (Symbol sym : handled.sym.subScope){
+            if (sym.kind == Symbol.Kind.FUNCTION){
+                Symbol.FunctionSymbol funcSym = (Symbol.FunctionSymbol) sym;
+                if (funcSym.isAbstract()) continue;
+            }
             addMember(sym);
         }
 
