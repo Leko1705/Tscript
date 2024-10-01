@@ -24,6 +24,7 @@ class LoadedTypeArea implements TypeArea {
 
         if (unloadedStaticBlocks[index] != null) {
             Function staticBlock = unloadedStaticBlocks[index];
+            staticBlock.setOwner(type);
             unloadedStaticBlocks[index] = null;
             thread.call(staticBlock, List.of());
         }

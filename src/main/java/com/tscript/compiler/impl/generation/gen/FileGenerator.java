@@ -51,7 +51,7 @@ public class FileGenerator extends TCTreeScanner<Void, Void> {
         generator.stackGrows();
         generator.stackShrinks();
 
-        file.entryPoint = generator.generate(preloadInstructions);
+        file.entryPoint = generator.addInstructions(preloadInstructions).genBody().genReturn(null).complete();
 
         return null;
     }
@@ -71,7 +71,7 @@ public class FileGenerator extends TCTreeScanner<Void, Void> {
         }
         else {
             FunctionGenerator generator = new FunctionGenerator(context, node);
-            int index = generator.generate(List.of());
+            int index = generator.genParams().genBody().genReturn(null).complete();
             preloadInstructions.add(new LoadVirtual(index));
         }
         preloadInstructions.add(new StoreGlobal(node.sym.address));

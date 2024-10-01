@@ -81,6 +81,10 @@ public class VirtualType implements Type {
 
     @Override
     public synchronized TObject eval(TThread thread, List<TObject> params) {
+        if (isAbstract){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidAbstractInstantiation(name));
+            return null;
+        }
 
         Member[] members = new Member[instanceMembers.length];
         for (int i = 0; i < instanceMembers.length; i++)

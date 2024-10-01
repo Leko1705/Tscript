@@ -17,7 +17,12 @@ public interface Type extends Callable {
 
    String getName();
 
-   Type getSuperType();
+    @Override
+    default String getDisplayName() {
+        return "Type<" + getName() + ">";
+    }
+
+    Type getSuperType();
 
    boolean isAbstract();
 
@@ -85,11 +90,6 @@ public interface Type extends Callable {
                 @Override
                 public String getName() {
                     return name;
-                }
-
-                @Override
-                public String getDisplayName() {
-                    return "Type<" + name + ">";
                 }
 
                 @Override

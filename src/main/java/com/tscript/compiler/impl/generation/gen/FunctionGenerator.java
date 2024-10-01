@@ -34,8 +34,12 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
 
     public FunctionGenerator(Context context, TCFunctionTree generated) {
+        this(context, generated, context.getNextFunctionIndex());
+    }
+
+    public FunctionGenerator(Context context, TCFunctionTree generated, int index) {
         this.context = context;
-        func = new CompFunc(context.getNextFunctionIndex(), generated.name);
+        func = new CompFunc(index, generated.name);
         this.handled = generated;
     }
 
@@ -44,27 +48,22 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         return addr;
     }
 
-    public int generate(List<Instruction> preInstructions) {
-        return generate(preInstructions, f -> {}, func -> {
-            func.getInstructions().add(new PushNull());
-            func.getInstructions().add(new Return());
-            stackGrows();
-            stackShrinks();
-        });
+    public FunctionGenerator addInstructions(List<Instruction> instructions){
+        func.getInstructions().addAll(instructions);
+        return this;
     }
 
-    public int generate(List<Instruction> preInstructions, Consumer<CompFunc> postParameterAction, Consumer<CompFunc> returnGenerator) {
-        func.getInstructions().addAll(preInstructions);
-
+    public FunctionGenerator genParams(){
         newLine(handled);
-
         List<? extends TCParameterTree> params = handled.parameters;
         stackGrows(params.size());
         stackShrinks(params.size());
         scan(params, null);
+        return this;
+    }
 
-        postParameterAction.accept(func);
-
+    public FunctionGenerator genBody(){
+        newLine(handled);
         if (handled.name.equals("__main__")) {
             for (TCStatementTree stmt : handled.body.statements){
                 scan(stmt, null);
@@ -73,16 +72,28 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         else {
             scan(handled.body, null);
         }
+        return this;
+    }
 
-        if (!isExplicitReturn()){
-            returnGenerator.accept(func);
+    public FunctionGenerator genReturn(Consumer<CompFunc> gen){
+        newLine(handled);
+        if (gen != null){
+            gen.accept(func);
+            return this;
         }
+        if (!isExplicitReturn()){
+            func.getInstructions().add(new PushNull());
+            func.getInstructions().add(new Return());
+            stackGrows();
+            stackShrinks();
+        }
+        return this;
+    }
 
+    public int complete(){
         func.stackSize = maxStackSize;
         func.locals = maxLocals;
-
         context.getFile().functions.add(func);
-
         return func.getIndex();
     }
 
@@ -99,7 +110,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         else {
             newLine(node);
             FunctionGenerator generator = new FunctionGenerator(context, node);
-            int index = generator.generate(List.of());
+            int index = generator.genParams().genBody().genReturn(null).complete();
             func.getInstructions().add(new LoadVirtual(index));
         }
         stackGrows();
@@ -252,7 +263,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     public Void visitLambda(TCLambdaTree node, Void unused) {
         LambdaFunction bridge = new LambdaFunction(node, "Lambda@" + context.getNextLambdaIndex());
         FunctionGenerator generator = new FunctionGenerator(context, bridge);
-        generator.generate(List.of());
+        generator.genParams().genBody().genReturn(null).complete();
 
         int index = generator.func.getIndex();
 
@@ -555,7 +566,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         }
 
         if (node.sym.owner.kind.isContainer()){
-            if (node.sym.isStatic()){
+            if (node.sym.isStatic() && !handled.modifiers.flags.contains(Modifier.STATIC)){
                 func.getInstructions().add(new LoadStatic(PoolPutter.putUtf8(context, node.name)));
             }
             else {

@@ -1,7 +1,9 @@
 
-class X {
+class X {}
+
+class Y: X {
     public:
-    var x = 4;
+
 }
 
-print(X());
+Y();

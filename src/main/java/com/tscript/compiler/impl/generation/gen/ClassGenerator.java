@@ -4,14 +4,15 @@ import com.tscript.compiler.impl.generation.compiled.CompiledClass;
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
 import com.tscript.compiler.impl.generation.gen.adapter.ConstructorFunction;
 import com.tscript.compiler.impl.generation.gen.adapter.EmptyConstructorFunction;
-import com.tscript.compiler.impl.utils.Symbol;
-import com.tscript.compiler.impl.utils.TCTree;
+import com.tscript.compiler.impl.generation.gen.adapter.Method;
+import com.tscript.compiler.impl.generation.gen.adapter.StaticBlock;
+import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.impl.utils.TCTree.*;
-import com.tscript.compiler.impl.utils.TCTreeScanner;
-import com.tscript.compiler.impl.utils.Visibility;
+import com.tscript.compiler.source.tree.Tree;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
@@ -20,7 +21,9 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
     private final CompClass clazz;
 
     private FunctionGenerator staticBlockGenerator;
+
     private FunctionGenerator constructorGenerator;
+    List<Runnable> constructorGens = new ArrayList<>();
 
     public ClassGenerator(Context context, TCClassTree generated) {
         this.context = context;
@@ -29,11 +32,10 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
     }
 
 
-
     public int generate(){
         clazz.constructorIndex = -1;
         clazz.staticIndex = -1;
-        clazz.superIndex = 0;
+        clazz.superIndex = -1;
 
         if (handled.superName != null && !handled.superName.isEmpty()) {
             // TODO compile super class first
@@ -42,9 +44,51 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         for (TCTree member : handled.members)
             member.accept(this);
 
-        if (clazz.constructorIndex == -1){
+        return complete();
+    }
+
+    public int complete(){
+        if (constructorGenerator == null){
             constructorGenerator = new FunctionGenerator(context, new EmptyConstructorFunction(handled.location, handled.sym.name));
-            clazz.constructorIndex = constructorGenerator.generate(List.of());
+
+            constructorGenerator
+                    .genParams();
+
+            if (handled.superName != null && !handled.superName.isEmpty()){
+                constructorGenerator.addInstructions(List.of(new CallSuper(0)));
+            }
+
+            for (Runnable r : constructorGens)
+                r.run();
+
+            constructorGenerator.genReturn(compFunc -> {
+                compFunc.getInstructions().add(new PushThis());
+                compFunc.getInstructions().add(new Return());
+            });
+
+            constructorGenerator.stackGrows();
+            constructorGenerator.stackShrinks();
+
+        }
+        else {
+            constructorGenerator
+                    .genParams();
+
+            for (Runnable r : constructorGens)
+                r.run();
+
+            constructorGenerator.genBody()
+                    .genReturn(compFunc -> {
+                        compFunc.getInstructions().add(new PushThis());
+                        compFunc.getInstructions().add(new Return());
+                    });
+
+        }
+
+        clazz.constructorIndex = constructorGenerator.complete();
+
+        if (staticBlockGenerator != null){
+            clazz.staticIndex = staticBlockGenerator.genReturn(null).complete();
         }
 
         context.getFile().classes.add(clazz);
@@ -54,24 +98,13 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitConstructor(TCConstructorTree node, Void unused) {
-
         TCFunctionTree transformed = new ConstructorFunction(node, handled.name);
         constructorGenerator = new FunctionGenerator(context, transformed);
 
-        Consumer<CompFunc> postParamLoadGen = compFunc -> {
-            if (handled.superName == null || handled.superName.isEmpty()) return;
-            GenUtils.genCall(context, node.superArgs, () -> {
-                constructorGenerator.stackGrows();
-                compFunc.getInstructions().add(new LoadVirtual(compFunc.getIndex()));
-                constructorGenerator.newLine(node);
-            }, constructorGenerator);
-        };
-
-        clazz.constructorIndex = constructorGenerator.generate(List.of(), postParamLoadGen, compFunc -> {
-            compFunc.getInstructions().add(new PushThis());
-            compFunc.getInstructions().add(new Return());
-            constructorGenerator.stackGrows();
-            constructorGenerator.stackShrinks();
+        constructorGens.add(0, () -> {
+            GenUtils.genArgFetch(context, node.superArgs, constructorGenerator);
+            constructorGenerator.addInstructions(List.of(new CallSuper(node.superArgs.size())));
+            constructorGenerator.stackShrinks(node.superArgs.size());
         });
 
         return null;
@@ -79,8 +112,45 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitFunction(TCFunctionTree node, Void unused) {
-        FunctionGenerator gen = new FunctionGenerator(context, node);
-        int refIndex = gen.generate(List.of());
+
+        BiConsumer<Instruction, Integer> instructionAdder = (instruction, growth) -> {
+            if (node.sym.isStatic()) {
+                staticBlock(node).addInstructions(List.of(instruction));
+                staticBlock(node).stackGrows(growth);
+            }
+            else {
+                constructorGens.add(() -> {
+                    constructorGenerator.addInstructions(List.of(instruction));
+                    constructorGenerator.stackGrows(growth);
+                });
+            }
+        };
+
+
+        instructionAdder.accept(new PushThis(), 1);
+
+        if (node.sym.isNative()) {
+            int poolAddr = PoolPutter.putUtf8(context, node.name);
+            Instruction loadInstr = new LoadNative(poolAddr);
+            instructionAdder.accept(loadInstr, 1);
+        }
+        else if (node.sym.isAbstract()){
+            int poolAddr = PoolPutter.putUtf8(context, node.name);
+            Instruction loadInstr = new LoadAbstract(poolAddr);
+            instructionAdder.accept(loadInstr, 1);
+        }
+        else {
+            TCFunctionTree method = new Method(node, handled.name);
+            FunctionGenerator gen = new FunctionGenerator(context, method);
+            int refIndex = gen.genParams().genBody().genReturn(null).complete();
+            Instruction loadInstr = new LoadVirtual(refIndex);
+            instructionAdder.accept(loadInstr, 1);
+        }
+
+        instructionAdder.accept(new SetOwner(), -1);
+
+        Instruction storeInstr = new StoreInternal(PoolPutter.putUtf8(context, node.name));
+        instructionAdder.accept(storeInstr, -1);
 
         addMember(node.sym);
         return null;
@@ -88,6 +158,20 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitVarDef(TCVarDefTree node, Void unused) {
+
+        if (node.sym.isStatic()){
+            FunctionGenerator staticBlock = staticBlock(node);
+            staticBlock.scan(node.initializer, null);
+            staticBlock.addInstructions(List.of(new StoreInternal(PoolPutter.putUtf8(context, node.name))));
+            staticBlock.stackShrinks();
+        }
+        else {
+            constructorGens.add(() -> {
+                constructorGenerator.scan(node.initializer, null);
+                constructorGenerator.addInstructions(List.of(new StoreInternal(PoolPutter.putUtf8(context, node.name))));
+                constructorGenerator.stackShrinks();
+            });
+        }
 
         addMember(node.sym);
         return null;
@@ -108,10 +192,18 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         }
     }
 
+    private FunctionGenerator staticBlock(Tree tree){
+        if (staticBlockGenerator == null){
+            staticBlockGenerator = new FunctionGenerator(context, new StaticBlock(tree.getLocation(), handled.name));
+        }
+        return staticBlockGenerator;
+    }
+
     private static Visibility visibility(Symbol sym){
         if (sym.isPublic()) return Visibility.PUBLIC;
         if (sym.isProtected()) return Visibility.PROTECTED;
         if (sym.isPrivate()) return Visibility.PRIVATE;
         throw new AssertionError();
     }
+
 }

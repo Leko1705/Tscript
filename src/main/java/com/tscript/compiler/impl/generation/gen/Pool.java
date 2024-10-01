@@ -63,6 +63,8 @@ public class Pool implements ConstantPool {
     private int put(Function<Integer, PoolEntry<?>> putter){
         final int next = entries.size();
         PoolEntry<?> entry = putter.apply(next);
+        int index = entries.indexOf(entry);
+        if (index != -1) return index;
         entries.add(entry);
         return next;
     }

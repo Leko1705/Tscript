@@ -15,11 +15,6 @@ class TypeType implements Type {
     }
 
     @Override
-    public  String getDisplayName() {
-        return "Type<Type>";
-    }
-
-    @Override
     public  Type getSuperType() {
         return null;
     }

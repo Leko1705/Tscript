@@ -75,6 +75,9 @@ public class BaseInterpreter implements Interpreter {
         TypeArea typeArea = module.getTypeArea();
         int index = Conversion.from2Bytes(b1, b2);
         Type type = typeArea.loadType(thread, index);
+        if (thread.frameStack.isEmpty())
+            // exception in static block occurred
+            return;
         thread.push(type);
     }
 
