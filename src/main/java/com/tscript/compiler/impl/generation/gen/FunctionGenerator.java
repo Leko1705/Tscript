@@ -239,7 +239,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
             listItr.previous().accept(this, null);
         }
         func.getInstructions().add(new MakeArray(node.getContents().size()));
-        stackShrinks(-node.getContents().size() + 1);
+        stackShrinks(node.getContents().size() - 1);
         return null;
     }
 
@@ -254,7 +254,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         }
 
         func.getInstructions().add(new MakeArray(node.getKeys().size()));
-        stackShrinks(node.getKeys().size() * -2 + 1);
+        stackShrinks(node.getKeys().size() * 2 - 1);
 
         return null;
     }
@@ -334,9 +334,10 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     @Override
     public Void visitExpressionStatement(TCExpressionStatementTree node, Void unused) {
         scan(node.expression, null);
-        if (!(node.expression instanceof NoPopOnStandaloneTree))
+        if (!(node.expression instanceof NoPopOnStandaloneTree)) {
             func.getInstructions().add(new Pop());
-        stackShrinks();
+            stackShrinks();
+        }
         return null;
     }
 

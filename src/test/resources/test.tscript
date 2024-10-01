@@ -1,17 +1,10 @@
 
-abstract class X {
-    public:
-    constructor(){
-        bar();
+function bubble(arr){
+
+    for var i in 0:arr.size() do{
+
     }
-    abstract function bar;
+
 }
 
-class Y: X {
-    public:
-    function bar(){
-        print(1);
-    }
-}
-
-Y();
+bubble([1, 2, 3]);
