@@ -18,8 +18,8 @@ public class CompFile implements CompiledFile {
     public String moduleName;
     public int entryPoint;
     public final Pool pool = new Pool();
-    public final Set<CompiledFunction> functions = new HashSet<>();
-    public final Set<CompiledClass> classes = new HashSet<>();
+    public final Set<CompFunc> functions = new HashSet<>();
+    public final Set<CompClass> classes = new HashSet<>();
 
     @Override
     public String getModuleName() {

@@ -2,7 +2,7 @@ package com.tscript.compiler.tools;
 
 import com.tscript.compiler.impl.analyze.*;
 import com.tscript.compiler.impl.generation.compiled.CompiledFile;
-import com.tscript.compiler.impl.generation.gen.Generator;
+import com.tscript.compiler.impl.generation.Generator;
 import com.tscript.compiler.impl.generation.target.ReadableTscriptBytecode;
 import com.tscript.compiler.impl.generation.target.Target;
 import com.tscript.compiler.impl.parse.TscriptParser;

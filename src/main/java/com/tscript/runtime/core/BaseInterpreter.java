@@ -499,7 +499,11 @@ public class BaseInterpreter implements Interpreter {
         assert superType != null; // should have been checked by the compiler earlier
         List<TObject> args = new ArrayList<>(); // avg. param amount
         for (int i = 0; i < argCount; i++) args.add(thread.pop());
-        superType.call(thread, args);
+        VirtualType vtype = (VirtualType) superType;
+        Function constructor = vtype.getConstructor();
+        constructor = constructor.dup();
+        constructor.setOwner(owner);
+        constructor.call(thread, args);
     }
 
     @Override

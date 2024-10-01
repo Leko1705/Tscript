@@ -4,7 +4,6 @@ public class Context {
 
     private final CompFile file;
     private int nextFunctionIndex = 0;
-    private int nextClassIndex = 0;
     private int nextLambdaIndex = 0;
 
     public Context(CompFile file) {
@@ -13,10 +12,6 @@ public class Context {
 
     public int getNextFunctionIndex() {
         return nextFunctionIndex++;
-    }
-
-    public int getNextClassIndex() {
-        return nextClassIndex++;
     }
 
     public int getNextLambdaIndex() {

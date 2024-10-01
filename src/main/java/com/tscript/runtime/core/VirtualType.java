@@ -110,6 +110,10 @@ public class VirtualType implements Type {
         return Arrays.asList(staticMembers);
     }
 
+    public Function getConstructor() {
+        return constructor;
+    }
+
     @Override
     public Member loadMember(int index) {
         return staticMembers[index];

@@ -110,9 +110,12 @@ public abstract class Symbol {
 
         public final Scope.ClassScope subScope;
 
-        public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
+        public final int classIndex;
+
+        public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, int classIndex, Location location) {
             super(Kind.CLASS, name, modifiers, owner, addr, location);
             this.subScope = new Scope.ClassScope(owner, this);
+            this.classIndex = classIndex;
         }
 
         public boolean isAbstract(){

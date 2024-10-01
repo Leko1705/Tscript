@@ -1,5 +1,7 @@
 
-class X {}
+class X {
+    public:
+}
 
 class Y: X {
     public:

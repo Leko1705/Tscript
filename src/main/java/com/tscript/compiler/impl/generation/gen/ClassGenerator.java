@@ -28,7 +28,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
     public ClassGenerator(Context context, TCClassTree generated) {
         this.context = context;
         this.handled = generated;
-        clazz = new CompClass(generated.name, context.getNextClassIndex(), generated.sym.isAbstract());
+        clazz = new CompClass(generated.name, generated.sym.classIndex, generated.sym.isAbstract());
     }
 
 
@@ -37,8 +37,8 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         clazz.staticIndex = -1;
         clazz.superIndex = -1;
 
-        if (handled.superName != null && !handled.superName.isEmpty()) {
-            // TODO compile super class first
+        if (handled.superName != null && !handled.superName.isEmpty() && handled.sym.superClass != null) {
+            clazz.superIndex = handled.sym.superClass.classIndex;
         }
 
         for (TCTree member : handled.members)
@@ -55,7 +55,9 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
                     .genParams();
 
             if (handled.superName != null && !handled.superName.isEmpty()){
-                constructorGenerator.addInstructions(List.of(new CallSuper(0)));
+                constructorGenerator.addInstructions(List.of(new CallSuper(0), new Pop()));
+                constructorGenerator.stackGrows();
+                constructorGenerator.stackShrinks();
             }
 
             for (Runnable r : constructorGens)
@@ -103,7 +105,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
         constructorGens.add(0, () -> {
             GenUtils.genArgFetch(context, node.superArgs, constructorGenerator);
-            constructorGenerator.addInstructions(List.of(new CallSuper(node.superArgs.size())));
+            constructorGenerator.addInstructions(List.of(new CallSuper(node.superArgs.size()), new Pop()));
             constructorGenerator.stackShrinks(node.superArgs.size());
         });
 

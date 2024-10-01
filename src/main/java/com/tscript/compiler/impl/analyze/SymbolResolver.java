@@ -19,7 +19,9 @@ public class SymbolResolver {
 
         private Set<Modifier> modifiers;
 
-        public int nextAddress = 0;
+        private int nextAddress = 0;
+
+        private int classIndex = 0;
 
         @Override
         public Void visitRoot(TCRootTree node, Scope unused) {
@@ -71,7 +73,7 @@ public class SymbolResolver {
 
         @Override
         public Void visitClass(TCClassTree node, Scope scope) {
-            node.sym = new ClassSymbol(node.name, node.modifiers.flags, scope, nextAddress++, node.location);
+            node.sym = new ClassSymbol(node.name, node.modifiers.flags, scope, nextAddress++, classIndex++, node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
             nextAddress = 0;
