@@ -1,6 +1,7 @@
 package com.tscript.compiler.impl.utils;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 public abstract class Scope {
@@ -82,7 +83,7 @@ public abstract class Scope {
         }
     }
 
-    public static final class ClassScope extends Scope {
+    public static final class ClassScope extends Scope implements Iterable<Symbol> {
         public Symbol.ClassSymbol sym;
         public ClassScope(Scope enclosing, Symbol.ClassSymbol sym) {
             super(Kind.CLASS, enclosing, null, enclosing.topLevel);
@@ -92,6 +93,34 @@ public abstract class Scope {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitClass(this);
+        }
+
+        @Override
+        public Iterator<Symbol> iterator() {
+            return new Itr();
+        }
+
+        private class Itr implements Iterator<Symbol> {
+
+            Iterator<Symbol> baseItr = symbols.values().iterator();
+            Iterator<Symbol> superItr = null;
+
+            public Itr(){
+                if (sym.superClass != null)
+                    superItr = sym.superClass.subScope.iterator();
+            }
+
+            @Override
+            public boolean hasNext() {
+                return baseItr.hasNext() || (superItr != null && superItr.hasNext());
+            }
+
+            @Override
+            public Symbol next() {
+                if (baseItr.hasNext())
+                    return baseItr.next();
+                return superItr.next();
+            }
         }
     }
 

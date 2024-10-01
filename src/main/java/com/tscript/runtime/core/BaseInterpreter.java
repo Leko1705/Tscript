@@ -250,7 +250,7 @@ public class BaseInterpreter implements Interpreter {
         TObject owner = thread.getFrame().getOwner();
 
         Member member = owner.loadMember(methodName);
-        if (member == null){
+        if (member == null || member.content == Null.INSTANCE){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchAbstractImplementationFound(methodName));
             return;
         }
@@ -503,6 +503,7 @@ public class BaseInterpreter implements Interpreter {
         Function constructor = vtype.getConstructor();
         constructor = constructor.dup();
         constructor.setOwner(owner);
+        checkCall(constructor);
         constructor.call(thread, args);
     }
 

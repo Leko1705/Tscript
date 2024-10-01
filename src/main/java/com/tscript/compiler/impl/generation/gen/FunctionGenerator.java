@@ -566,6 +566,14 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         }
 
         if (node.sym.owner.kind.isContainer()){
+            if (node.sym.kind == Symbol.Kind.FUNCTION){
+                Symbol.FunctionSymbol funcSym = (Symbol.FunctionSymbol) node.sym;
+                if (funcSym.isAbstract()){
+                    func.getInstructions().add(new LoadAbstract(PoolPutter.putUtf8(context, node.name)));
+                    return null;
+                }
+            }
+
             if (node.sym.isStatic() && !handled.modifiers.flags.contains(Modifier.STATIC)){
                 func.getInstructions().add(new LoadStatic(PoolPutter.putUtf8(context, node.name)));
             }
@@ -640,9 +648,4 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         return func.getInstructions().get(func.getInstructions().size()-1) instanceof Return;
     }
 
-    private boolean inGlobalScope(Scope scope){
-        while (scope != null && scope.kind == Scope.Kind.LOCAL)
-            scope = scope.enclosing;
-        return scope != null && scope.kind == Scope.Kind.GLOBAL;
-    }
 }

@@ -1,11 +1,17 @@
 
-class X {
+abstract class X {
     public:
+    constructor(){
+        bar();
+    }
+    abstract function bar;
 }
 
 class Y: X {
     public:
-
+    function bar(){
+        print(1);
+    }
 }
 
 Y();
