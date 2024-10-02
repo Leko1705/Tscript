@@ -8,6 +8,14 @@ namespace math {
             return b;
     }
 
+    function min(a, b){
+        if a < b then
+            return a;
+        else
+            return b;
+    }
+
 }
 
 print(math.max(4, 2));
+print(math.min(4, 2));

@@ -12,8 +12,7 @@ public abstract class Scope {
         LOCAL,
         FUNCTION,
         LAMBDA,
-        CLASS,
-        NAMESPACE;
+        CLASS
     }
 
     public final Kind kind;
