@@ -1,2 +1,4 @@
 
-for x in "hello" do print(x);
+var x = {1: (5: 2)};
+
+print(x);

@@ -752,7 +752,7 @@ public class TscriptParser implements Parser {
 
     @Override
     public TCExpressionTree parseExpression() {
-        return parseExpression(parsePrimaryExpression(), 0, true);
+        return parseExpression(parsePrimaryExpression(true), 0, true);
 
     }
 
@@ -761,7 +761,7 @@ public class TscriptParser implements Parser {
 
         while (isBinaryOperator(lookahead) && precedenceOf(lookahead) >= minPrecedence){
             final Token<TscriptTokenType> op = lexer.consume();
-            TCExpressionTree rhs = unwrap(parsePrimaryExpression(), op);
+            TCExpressionTree rhs = unwrap(parsePrimaryExpression(true), op);
             lookahead = lexer.peek();
 
             while (isBinaryOperator(lookahead)
@@ -785,7 +785,7 @@ public class TscriptParser implements Parser {
         return TscriptPrecedenceCalculator.calculate(token);
     }
 
-    private TCExpressionTree parsePrimaryExpression(){
+    private TCExpressionTree parsePrimaryExpression(boolean allowRange){
         TCExpressionTree expNode = null;
 
         Token<TscriptTokenType> token = lexer.peek();
@@ -866,8 +866,9 @@ public class TscriptParser implements Parser {
                 continue;
             }
 
-            else if (token.hasTag(COLON)) {
+            else if (token.hasTag(COLON) && allowRange) {
                 expNode = F.RangeTree(lexer.consume().getLocation(), expNode, unwrap(parseExpression(), token));
+                continue;
             }
 
             else if (token.hasTag(DOT)){
@@ -999,12 +1000,12 @@ public class TscriptParser implements Parser {
             do {
                 token = lexer.peek();
 
-                TCExpressionTree key = unwrap(parsePrimaryExpression(), token);
+                TCExpressionTree key = unwrap(parsePrimaryExpression(false), token);
                 token = lexer.consume();
                 if (!token.hasTag(COLON))
                     error("missing ':'", token);
 
-                TCExpressionTree value = unwrap(parseExpression(), token);
+                TCExpressionTree value = unwrap(parsePrimaryExpression(false), token);
 
                 keys.add(key);
                 values.add(value);
