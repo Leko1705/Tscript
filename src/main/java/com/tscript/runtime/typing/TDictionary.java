@@ -73,6 +73,24 @@ public class TDictionary extends PrimitiveObject<Map<TObject, TObject>>
         return new JCFIteratorAdapter(ITR_TYPE, copy.iterator());
     }
 
+    @Override
+    public String getDisplayName() {
+        StringBuilder builder = new StringBuilder("{");
+        Iterator<Map.Entry<TObject, TObject>> itr = getValue().entrySet().iterator();
+        if (itr.hasNext()) {
+            Map.Entry<TObject, TObject> entry = itr.next();
+            builder.append(entry.getKey()).append(": ").append(entry.getValue());
+            while (itr.hasNext()) {
+                entry = itr.next();
+                builder.append(", ")
+                        .append(entry.getKey())
+                        .append(": ")
+                        .append(entry.getValue());
+            }
+        }
+        return builder.append("}").toString();
+    }
+
     private class SizeMethod extends NativeFunction {
         public String getName() {
             return "size";

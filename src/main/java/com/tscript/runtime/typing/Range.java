@@ -61,6 +61,11 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
         return new TRangeIterator();
     }
 
+    @Override
+    public String getDisplayName() {
+        return getFrom() + ":" + getTo();
+    }
+
     private class TRangeIterator implements IteratorObject {
 
         private static final Type type = new Type.Builder("RangeIterator")
