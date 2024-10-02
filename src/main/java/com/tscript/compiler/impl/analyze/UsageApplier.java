@@ -102,8 +102,7 @@ public class UsageApplier {
         public Void visitVariable(TCTree.TCVariableTree node, Scope scope) {
             Symbol sym = scope.accept(new SimpleSymbolResolver(node.getName()));
             if (sym == null && hasSuperClass(scope)){
-                Scope.ClassScope clsScope = (Scope.ClassScope) scope.owner;
-                sym = clsScope.sym.superClass.subScope.accept(new SuperSymbolResolver(node.getName()));
+                sym = scope.owner.sym.superClass.subScope.accept(new SuperSymbolResolver(node.getName()));
                 if (sym != null){
                     if (sym.modifiers.contains(Modifier.PRIVATE))
                         throw Errors.memberIsNotVisible(node.location, Modifier.PRIVATE, node.name);
@@ -112,22 +111,21 @@ public class UsageApplier {
                 }
             }
 
-            if (sym != null){
-                node.sym = sym;
-                if (sym.owner == scope.enclosing){
-                    // in current class
-                    if (inSuperConstructorParams)
-                        throw Errors.canNotUseBeforeConstructorCalled(node.location, node.name);
-                }
-                if (inStaticContext
-                        && sym.owner.kind == Scope.Kind.CLASS
-                        && !sym.modifiers.contains(Modifier.STATIC)){
-                    throw Errors.canNotAccessFromStaticContext(node.location);
-                }
-            }
-            else {
+            if (sym == null)
                 throw Errors.canNotFindSymbol(node.getName(), node.location);
+            node.sym = sym;
+
+            if (sym.owner == scope.enclosing){
+                // in current class
+                if (inSuperConstructorParams)
+                    throw Errors.canNotUseBeforeConstructorCalled(node.location, node.name);
             }
+            if (inStaticContext
+                    && sym.owner.kind == Scope.Kind.CLASS
+                    && !sym.modifiers.contains(Modifier.STATIC)){
+                throw Errors.canNotAccessFromStaticContext(node.location);
+            }
+
             return null;
         }
 
@@ -221,12 +219,6 @@ public class UsageApplier {
                 return scope.enclosing.accept(this);
         }
 
-        @Override
-        public Symbol visitNamespace(Scope.NamespaceScope scope) {
-            Symbol sym = scope.symbols.get(name);
-            if (sym != null) return sym;
-            return scope.enclosing.accept(this);
-        }
     }
 
 
@@ -262,10 +254,6 @@ public class UsageApplier {
             return scope.sym.superClass.subScope.accept(this);
         }
 
-        @Override
-        public Symbol visitNamespace(Scope.NamespaceScope scope) {
-            return null;
-        }
     }
 
 }

@@ -177,8 +177,6 @@ public class SymbolResolver {
         @Override
         public Void visitVarDefs(TCVarDefsTree node, Scope scope) {
             modifiers = node.modifiers.flags;
-            if (scope.kind == Scope.Kind.NAMESPACE)
-                modifiers.add(Modifier.STATIC);
             return super.visitVarDefs(node, scope);
         }
 
@@ -237,10 +235,7 @@ public class SymbolResolver {
             return scope.symbols.get(name);
         }
 
-        @Override
-        public Symbol visitNamespace(NamespaceScope scope) {
-            return scope.symbols.get(name);
-        }
+
     }
 
     private static Set<Modifier> getModifiers(TCDefinitionTree defTree, Scope currScope){

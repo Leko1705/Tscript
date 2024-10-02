@@ -14,24 +14,20 @@ public abstract class Scope {
         LAMBDA,
         CLASS,
         NAMESPACE;
-
-        public boolean isContainer(){
-            return this == CLASS || this == NAMESPACE;
-        }
     }
 
     public final Kind kind;
 
     public Scope enclosing;
 
-    public Scope owner;
+    public ClassScope owner;
 
     public GlobalScope topLevel;
 
     public final Map<String, Symbol> symbols = new HashMap<>();
 
 
-    public Scope(Kind kind, Scope enclosing, Scope owner, GlobalScope topLevel) {
+    public Scope(Kind kind, Scope enclosing, ClassScope owner, GlobalScope topLevel) {
         this.kind = kind;
         this.enclosing = enclosing;
         this.owner = owner;
@@ -124,17 +120,6 @@ public abstract class Scope {
         }
     }
 
-    public static final class NamespaceScope extends Scope {
-        public NamespaceScope(Scope enclosing) {
-            super(Kind.NAMESPACE, enclosing, null, enclosing.topLevel);
-            owner = this;
-        }
-        @Override
-        public <R> R accept(Visitor<R> visitor) {
-            return visitor.visitNamespace(this);
-        }
-    }
-
 
     public interface Visitor<R> {
         R visitGlobal(GlobalScope scope);
@@ -142,7 +127,6 @@ public abstract class Scope {
         R visitFunction(FunctionScope scope);
         R visitLambda(LambdaScope scope);
         R visitClass(ClassScope scope);
-        R visitNamespace(NamespaceScope scope);
     }
 
 

@@ -561,12 +561,14 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
         int addr = node.sym.address;
 
-        if (node.sym.owner.kind == Scope.Kind.GLOBAL){
+        if (node.sym.owner == null || node.sym.owner.kind == Scope.Kind.GLOBAL){
             func.getInstructions().add(new LoadGlobal(addr));
             return null;
         }
 
-        if (node.sym.owner.kind.isContainer()){
+        if (node.sym.owner.kind == Scope.Kind.CLASS){
+            Scope.ClassScope clsScope = (Scope.ClassScope) node.sym.owner;
+
             if (node.sym.kind == Symbol.Kind.FUNCTION){
                 Symbol.FunctionSymbol funcSym = (Symbol.FunctionSymbol) node.sym;
                 if (funcSym.isAbstract()){
@@ -575,12 +577,14 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
                 }
             }
 
-            if (node.sym.isStatic() && !handled.modifiers.flags.contains(Modifier.STATIC)){
+            if (node.sym.isStatic()
+                    && !handled.modifiers.flags.contains(Modifier.STATIC) &&
+                    !clsScope.sym.isNamespace){
                 func.getInstructions().add(new LoadStatic(PoolPutter.putUtf8(context, node.name)));
+                return null;
             }
-            else {
-                func.getInstructions().add(new LoadInternal(PoolPutter.putUtf8(context, node.name)));
-            }
+
+            func.getInstructions().add(new LoadInternal(PoolPutter.putUtf8(context, node.name)));
             return null;
         }
 

@@ -38,7 +38,7 @@ public class AssignGenerator extends TCTreeScanner<Void, Void> {
             return null;
         }
 
-        if (node.sym.owner.kind.isContainer()){
+        if (node.sym.owner.kind == Scope.Kind.CLASS){
             dupIfRequireReload();
 
             if (node.sym.isStatic()){

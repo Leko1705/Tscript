@@ -1,10 +1,12 @@
 
 namespace X {
 
+    function bar(){}
+
     function foo(){
-        print(this);
+        print(bar);
     }
 
 }
 
-X.foo();
+print(X);

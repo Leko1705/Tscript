@@ -30,7 +30,7 @@ public abstract class Symbol {
     public int address;
 
 
-    Symbol(Kind kind, String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
+    Symbol(Kind kind, String name, Set<Modifier> modifiers, Scope.ClassScope owner, int addr, Location location) {
         this.kind = kind;
         this.name = name;
         this.owner = owner;
@@ -65,7 +65,7 @@ public abstract class Symbol {
     public static final class VarSymbol extends Symbol {
 
         public VarSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
-            super(Kind.VARIABLE, name, modifiers, owner, addr, location);
+            super(Kind.VARIABLE, name, modifiers, owner.owner, addr, location);
         }
 
         @Override
@@ -80,7 +80,7 @@ public abstract class Symbol {
         public final Scope.FunctionScope subScope;
 
         public FunctionSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
-            super(Kind.FUNCTION, name, modifiers, owner, addr, location);
+            super(Kind.FUNCTION, name, modifiers, owner.owner, addr, location);
             this.subScope = new Scope.FunctionScope(owner);
         }
 
@@ -114,7 +114,7 @@ public abstract class Symbol {
         public final boolean isNamespace;
 
         public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, int classIndex, boolean isNamespace, Location location) {
-            super(Kind.CLASS, name, modifiers, owner, addr, location);
+            super(Kind.CLASS, name, modifiers, owner.owner, addr, location);
             this.subScope = new Scope.ClassScope(owner, this);
             this.classIndex = classIndex;
             this.isNamespace = isNamespace;
