@@ -52,8 +52,8 @@ public class VirtualFunction extends Function {
     public  TObject eval(TThread thread, List<TObject> params) {
         Frame frame = new Frame(getOwner(), name, instructions, stackSize, locals, module);
         thread.frameStack.push(frame);
-        for (TObject param : params) {
-            frame.push(param);
+        for (int i = params.size() - 1; i >= 0; i--) {
+            frame.push(params.get(i));
         }
         return null;
     }

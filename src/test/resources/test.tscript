@@ -1,2 +1,6 @@
 
-print(1:2);
+setEventHandler("timer", function(){
+    print("tick...");
+});
+
+enterEventMode();

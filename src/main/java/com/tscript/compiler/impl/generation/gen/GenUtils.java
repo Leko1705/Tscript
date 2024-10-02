@@ -24,9 +24,7 @@ public class GenUtils {
             gen.stackShrinks(-args.size() + 1);
         }
         else {
-            for (TCTree.TCArgumentTree arg : args){
-                gen.scan(arg.expression, null);
-            }
+            genInplaceArgs(args, gen);
             genCalled.run();
             gen.func.getInstructions().add(new CallInplace(args.size()));
             gen.stackShrinks(-args.size() + 1);
@@ -45,9 +43,7 @@ public class GenUtils {
             instructions = genMappedArgs(context, args, gen);
         }
         else {
-            for (TCTree.TCArgumentTree arg : args){
-                gen.scan(arg.expression, null);
-            }
+            genInplaceArgs(args, gen);
         }
 
         return instructions;
@@ -59,7 +55,8 @@ public class GenUtils {
 
         List<Instruction> instructions = new ArrayList<>();
 
-        for (TCTree.TCArgumentTree arg : args) {
+        for (int i = args.size() - 1; i >= 0; i--) {
+            TCTree.TCArgumentTree arg = args.get(i);
             gen.scan(arg.expression, null);
             if (arg.getName() != null) {
                 instructions.add(new ToMapArg(PoolPutter.putUtf8(context, arg.getName())));
@@ -70,6 +67,13 @@ public class GenUtils {
         }
 
         return instructions;
+    }
+
+    private static void genInplaceArgs(List<? extends TCTree.TCArgumentTree> args,
+                                FunctionGenerator gen){
+        for (int i = args.size() - 1; i >= 0; i--) {
+            gen.scan(args.get(i).expression, null);
+        }
     }
 
     private static boolean isMappedCall(List<? extends TCTree.TCArgumentTree> args){

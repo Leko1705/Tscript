@@ -14,7 +14,7 @@ public class Parameters {
 
     private final Map<String, TObject> defaultValues = new LinkedHashMap<>();
 
-    private int lastNonDefinedParameter = 0;
+    private int lastNonDefinedParameter = -1;
 
     private Parameters() {
     }

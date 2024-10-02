@@ -36,6 +36,10 @@ public class TThread extends Thread implements Environment {
         begin();
     }
 
+    public boolean isRunning() {
+        return running;
+    }
+
     protected void begin() {
         try {
             invokeFromUnknownContext(baseFunction, arguments);
@@ -188,6 +192,7 @@ public class TThread extends Thread implements Environment {
 
         if (frameStack.isEmpty()){
             System.err.println(errorLog);
+            running = false;
             return;
         }
 
@@ -208,6 +213,10 @@ public class TThread extends Thread implements Environment {
 
     public TscriptVM getVM() {
         return vm;
+    }
+
+    public boolean isMainThread(){
+        return Thread.currentThread().getName().equals("main");
     }
 
 }
