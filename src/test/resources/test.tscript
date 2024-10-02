@@ -1,10 +1,2 @@
 
-function bubble(arr){
-
-    for var i in 0:arr.size() do{
-
-    }
-
-}
-
-bubble([1, 2, 3]);
+for x in "hello" do print(x);

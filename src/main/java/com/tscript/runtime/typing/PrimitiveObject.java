@@ -30,11 +30,6 @@ public abstract class PrimitiveObject<V> implements TObject {
     }
 
     @Override
-    public Member loadMember(int index) {
-        return null;
-    }
-
-    @Override
     public Member loadMember(String name) {
         return null;
     }

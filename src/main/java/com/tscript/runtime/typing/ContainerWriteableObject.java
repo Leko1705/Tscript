@@ -4,6 +4,6 @@ import com.tscript.runtime.core.TThread;
 
 public interface ContainerWriteableObject {
 
-    void writeToContainer(TThread thread, TObject key, TObject value);
+    boolean writeToContainer(TThread thread, TObject key, TObject value);
 
 }

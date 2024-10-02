@@ -201,7 +201,10 @@ public class TypeChecker {
             else if (container.getName().equals("Dictionary")){
                 return UnknownType.INSTANCE;
             }
-            throw new AssertionError();
+            else if (container == UnknownType.INSTANCE) {
+                return UnknownType.INSTANCE;
+            }
+            throw new AssertionError(container.getName());
         }
 
         @Override

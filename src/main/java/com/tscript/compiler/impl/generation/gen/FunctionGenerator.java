@@ -253,7 +253,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
             valueItr.previous().accept(this, null);
         }
 
-        func.getInstructions().add(new MakeArray(node.getKeys().size()));
+        func.getInstructions().add(new MakeDict(node.getKeys().size()));
         stackShrinks(node.getKeys().size() * 2 - 1);
 
         return null;

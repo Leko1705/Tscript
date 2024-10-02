@@ -14,7 +14,7 @@ public interface TObject {
             if (index == 0) return member;
             index--;
         }
-        throw new IndexOutOfBoundsException();
+        return null;
     }
 
     
