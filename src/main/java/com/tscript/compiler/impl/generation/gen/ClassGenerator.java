@@ -219,7 +219,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         if (sym.isPublic()) return Visibility.PUBLIC;
         if (sym.isProtected()) return Visibility.PROTECTED;
         if (sym.isPrivate()) return Visibility.PRIVATE;
-        throw new AssertionError();
+        return Visibility.PUBLIC;
     }
 
 }

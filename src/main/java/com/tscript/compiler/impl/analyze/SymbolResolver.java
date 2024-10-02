@@ -6,6 +6,7 @@ import com.tscript.compiler.impl.utils.Scope.*;
 import com.tscript.compiler.impl.utils.Symbol.*;
 import com.tscript.compiler.source.tree.Modifier;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class SymbolResolver {
@@ -41,7 +42,7 @@ public class SymbolResolver {
 
         @Override
         public Void visitFunction(TCFunctionTree node, Scope scope) {
-            node.sym = new FunctionSymbol(node.name, node.modifiers.flags, scope, nextAddress++, node.location);
+            node.sym = new FunctionSymbol(node.name, getModifiers(node, scope), scope, nextAddress++, node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
             nextAddress = 0;
@@ -53,7 +54,7 @@ public class SymbolResolver {
         @Override
         public Void visitParameter(TCParameterTree node, Scope scope) {
             scan(node.defaultValue, scope);
-            node.sym = new VarSymbol(node.name, node.modifiers.flags, scope, nextAddress++, node.location);
+            node.sym = new VarSymbol(node.name, getModifiers(node, scope), scope, nextAddress++, node.location);
             putIfAbsent(node, scope, node.sym);
             return null;
         }
@@ -62,7 +63,7 @@ public class SymbolResolver {
         public Void visitNamespace(TCNamespaceTree node, Scope scope) {
             // since namespaces are compiled
             // as classes we give it an address
-            node.sym = new NamespaceSymbol(node.name, node.modifiers.flags, scope, nextAddress++, node.location);
+            node.sym = new ClassSymbol(node.name, getModifiers(node, scope), scope, nextAddress++, classIndex++, true, node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
             nextAddress = 0;
@@ -73,7 +74,7 @@ public class SymbolResolver {
 
         @Override
         public Void visitClass(TCClassTree node, Scope scope) {
-            node.sym = new ClassSymbol(node.name, node.modifiers.flags, scope, nextAddress++, classIndex++, node.location);
+            node.sym = new ClassSymbol(node.name, getModifiers(node, scope), scope, nextAddress++, classIndex++, false, node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
             nextAddress = 0;
@@ -176,6 +177,8 @@ public class SymbolResolver {
         @Override
         public Void visitVarDefs(TCVarDefsTree node, Scope scope) {
             modifiers = node.modifiers.flags;
+            if (scope.kind == Scope.Kind.NAMESPACE)
+                modifiers.add(Modifier.STATIC);
             return super.visitVarDefs(node, scope);
         }
 
@@ -238,6 +241,30 @@ public class SymbolResolver {
         public Symbol visitNamespace(NamespaceScope scope) {
             return scope.symbols.get(name);
         }
+    }
+
+    private static Set<Modifier> getModifiers(TCDefinitionTree defTree, Scope currScope){
+        Set<Modifier> modifiers = new HashSet<>(defTree.modifiers.flags);
+
+        if (currScope.owner != null && currScope.owner.kind == Scope.Kind.CLASS) {
+            ClassScope classScope = (ClassScope) currScope;
+            if (classScope.sym.isNamespace) {
+
+                boolean hasVisibility = false;
+                for (Modifier modifier : modifiers) {
+                    if (modifier.isVisibility()) {
+                        hasVisibility = true;
+                        break;
+                    }
+                }
+                if (!hasVisibility)
+                    modifiers.add(Modifier.PUBLIC);
+                modifiers.add(Modifier.STATIC);
+
+            }
+        }
+
+        return modifiers;
     }
 
 }

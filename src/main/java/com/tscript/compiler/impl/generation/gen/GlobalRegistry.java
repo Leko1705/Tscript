@@ -22,6 +22,12 @@ public class GlobalRegistry extends SimpleTreeVisitor<List<GlobalVariable>, Void
     }
 
     @Override
+    public Void visitNamespace(NamespaceTree node, List<GlobalVariable> globalVariables) {
+        globalVariables.add(new GlobalVariable(node.getName(), false));
+        return null;
+    }
+
+    @Override
     public Void visitVarDefs(VarDefsTree node, List<GlobalVariable> globalVariables) {
         for (VarDefTree def : node.getDefinitions())
             def.accept(this, globalVariables);

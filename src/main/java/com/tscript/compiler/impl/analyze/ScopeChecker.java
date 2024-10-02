@@ -23,6 +23,7 @@ public class ScopeChecker {
         private boolean inLoop = false;
         private boolean inLambda = false;
         private boolean inAbstractScope = false;
+        private boolean inNamespace = false;
 
         @Override
         public Void visitClass(ClassTree node, Void unused) {
@@ -33,6 +34,15 @@ public class ScopeChecker {
             super.visitClass(node, unused);
             this.inClass = inClass;
             this.inAbstractScope = inAbstractScope;
+            return null;
+        }
+
+        @Override
+        public Void visitNamespace(NamespaceTree node, Void unused) {
+            boolean inNamespace = this.inNamespace;
+            this.inNamespace = true;
+            super.visitNamespace(node, unused);
+            this.inNamespace = inNamespace;
             return null;
         }
 
@@ -49,15 +59,19 @@ public class ScopeChecker {
             this.inStaticScope = modifiers.contains(Modifier.STATIC);
 
             boolean inClass = this.inClass;
-            if (inFunction)
+            boolean inNamespace = this.inNamespace;
+            if (inFunction) {
                 // anonymous functions do not refer to 'this'
                 this.inClass = false;
+                this.inNamespace = false;
+            }
 
             boolean inFunction = this.inFunction;
             this.inFunction = true;
             super.visitFunction(functionTree, unused);
             this.inFunction = inFunction;
             this.inClass = inClass;
+            this.inNamespace = inNamespace;
             this.inStaticScope = inStaticScope;
             return null;
         }
@@ -106,11 +120,13 @@ public class ScopeChecker {
             boolean inLambda = this.inLambda;
             boolean inConstructor = this.inConstructor;
             boolean inAbstractScope = this.inAbstractScope;
+            boolean inNamespace = this.inNamespace;
             this.inFunction = true;
             this.inClass = false;
             this.inLoop = false;
             this.inLambda = true;
             this.inConstructor = false;
+            this.inAbstractScope = false;
             super.visitLambda(lambdaTree, unused);
             this.inFunction = inFunction;
             this.inClass = inClass;
@@ -118,6 +134,7 @@ public class ScopeChecker {
             this.inLambda = inLambda;
             this.inConstructor = inConstructor;
             this.inAbstractScope = inAbstractScope;
+            this.inNamespace = inNamespace;
             return null;
         }
 
@@ -146,7 +163,7 @@ public class ScopeChecker {
 
         @Override
         public Void visitThis(ThisTree thisTree, Void unused) {
-            if (!inClass && !inLambda && !inFunction)
+            if ((!inClass && !inLambda && !inFunction) || inNamespace)
                 throw Errors.canNotUseThisOutOfClassOrFunction(thisTree.getLocation());
 
             else if (inFunction && inStaticScope)
@@ -157,7 +174,7 @@ public class ScopeChecker {
 
         @Override
         public Void visitSuper(SuperTree superTree, Void unused) {
-            if (!inClass)
+            if (!inClass || inNamespace)
                 throw Errors.canNotUseSuperOutOfClass(superTree.getLocation());
             else if (inFunction && inStaticScope)
                 throw Errors.canNotUseSuperFromStaticContext(superTree.getLocation());

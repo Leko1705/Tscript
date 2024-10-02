@@ -37,7 +37,7 @@ public class Errors {
     }
 
     public static CompileException canNotUseThisOutOfClassOrFunction(Location location){
-        return new CompileException("can not use 'this' out of class or bound-function", location, Phase.CHECKING);
+        return new CompileException("can not use 'this' out of class or unbound-function", location, Phase.CHECKING);
     }
 
     public static CompileException canNotUseSuperOutOfClass(Location location){

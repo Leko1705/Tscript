@@ -786,7 +786,7 @@ public abstract class TCTree implements Tree {
 
         public final List<? extends TCStatementTree> statements;
 
-        public NamespaceSymbol sym;
+        public ClassSymbol sym;
 
         public TCNamespaceTree(Location location, String name, TCModifiersTree modifiers,
                                List<? extends TCDefinitionTree> definitions,

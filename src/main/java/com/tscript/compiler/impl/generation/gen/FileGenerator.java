@@ -1,6 +1,7 @@
 package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
+import com.tscript.compiler.impl.generation.gen.adapter.NamespaceClass;
 import com.tscript.compiler.impl.generation.gen.adapter.ScriptMainFunc;
 import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.impl.utils.TCTreeScanner;
@@ -85,5 +86,10 @@ public class FileGenerator extends TCTreeScanner<Void, Void> {
         preloadInstructions.add(new LoadType(index));
         preloadInstructions.add(new StoreGlobal(node.sym.address));
         return null;
+    }
+
+    @Override
+    public Void visitNamespace(TCTree.TCNamespaceTree node, Void unused) {
+        return visitClass(new NamespaceClass(node), null);
     }
 }

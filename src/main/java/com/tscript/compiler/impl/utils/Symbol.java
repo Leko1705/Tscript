@@ -13,7 +13,6 @@ public abstract class Symbol {
         VARIABLE,
         FUNCTION,
         CLASS,
-        NAMESPACE,
         UNKNOWN
     }
 
@@ -26,7 +25,7 @@ public abstract class Symbol {
 
     public final Scope owner;
 
-    public final Set<Modifier> modifiers;
+    public Set<Modifier> modifiers;
 
     public int address;
 
@@ -112,30 +111,17 @@ public abstract class Symbol {
 
         public final int classIndex;
 
-        public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, int classIndex, Location location) {
+        public final boolean isNamespace;
+
+        public ClassSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, int classIndex, boolean isNamespace, Location location) {
             super(Kind.CLASS, name, modifiers, owner, addr, location);
             this.subScope = new Scope.ClassScope(owner, this);
             this.classIndex = classIndex;
+            this.isNamespace = isNamespace;
         }
 
         public boolean isAbstract(){
             return modifiers.contains(Modifier.ABSTRACT);
-        }
-
-        @Override
-        public void generate(Generator generator) {
-            generator.generate(this);
-        }
-    }
-
-
-    public static final class NamespaceSymbol extends Symbol {
-
-        public final Scope.NamespaceScope subScope;
-
-        public NamespaceSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
-            super(Kind.NAMESPACE, name, modifiers, owner, addr, location);
-            this.subScope = new Scope.NamespaceScope(owner);
         }
 
         @Override
@@ -160,7 +146,6 @@ public abstract class Symbol {
         void generate(VarSymbol symbol);
         void generate(FunctionSymbol symbol);
         void generate(ClassSymbol symbol);
-        void generate(NamespaceSymbol symbol);
         void generate(UnknownSymbol symbol);
     }
 

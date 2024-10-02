@@ -1,6 +1,10 @@
 
-setEventHandler("timer", function(){
-    print("tick...");
-});
+namespace X {
 
-enterEventMode();
+    function foo(){
+        print(this);
+    }
+
+}
+
+X.foo();
