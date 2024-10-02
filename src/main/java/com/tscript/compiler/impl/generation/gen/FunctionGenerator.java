@@ -577,15 +577,15 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
                 }
             }
 
-            if (node.sym.isStatic()
-                    && !handled.modifiers.flags.contains(Modifier.STATIC) &&
-                    !clsScope.sym.isNamespace){
-                func.getInstructions().add(new LoadStatic(PoolPutter.putUtf8(context, node.name)));
+            if (!clsScope.sym.isNamespace) {
+                if (node.sym.isStatic() && !handled.modifiers.flags.contains(Modifier.STATIC)) {
+                    func.getInstructions().add(new LoadStatic(PoolPutter.putUtf8(context, node.name)));
+                    return null;
+                }
+
+                func.getInstructions().add(new LoadInternal(PoolPutter.putUtf8(context, node.name)));
                 return null;
             }
-
-            func.getInstructions().add(new LoadInternal(PoolPutter.putUtf8(context, node.name)));
-            return null;
         }
 
         if (node.sym.kind == Symbol.Kind.UNKNOWN){

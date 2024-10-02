@@ -241,22 +241,18 @@ public class SymbolResolver {
     private static Set<Modifier> getModifiers(TCDefinitionTree defTree, Scope currScope){
         Set<Modifier> modifiers = new HashSet<>(defTree.modifiers.flags);
 
-        if (currScope.owner != null && currScope.owner.kind == Scope.Kind.CLASS) {
-            ClassScope classScope = (ClassScope) currScope;
-            if (classScope.sym.isNamespace) {
-
-                boolean hasVisibility = false;
-                for (Modifier modifier : modifiers) {
-                    if (modifier.isVisibility()) {
-                        hasVisibility = true;
-                        break;
-                    }
+        if (currScope.owner != null && currScope.owner.sym.isNamespace) {
+            boolean hasVisibility = false;
+            for (Modifier modifier : modifiers) {
+                if (modifier.isVisibility()) {
+                    hasVisibility = true;
+                    break;
                 }
-                if (!hasVisibility)
-                    modifiers.add(Modifier.PUBLIC);
-                modifiers.add(Modifier.STATIC);
-
             }
+            if (!hasVisibility)
+                modifiers.add(Modifier.PUBLIC);
+            modifiers.add(Modifier.STATIC);
+
         }
 
         return modifiers;
