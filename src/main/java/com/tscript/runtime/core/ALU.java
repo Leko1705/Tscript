@@ -39,52 +39,66 @@ public class ALU {
     }
 
     private static void init(){
-        addOperation(Opcode.ADD, TInteger.class, TInteger.class, (i1, i2) ->new TInteger(i1.getValue() + i2.getValue()));
-        addOperation(Opcode.SUB, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.getValue() - i2.getValue()));
+        addOperation(Opcode.ADD, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.getValue() + i2.getValue()));
+        addOperation(Opcode.ADD, TInteger.class, TReal.class, (i1, i2) -> new TReal(i1.getValue() + i2.getValue()));
+        addOperation(Opcode.ADD, TReal.class, TInteger.class, (i1, i2) -> new TReal(i1.getValue() + i2.getValue()));
+        addOperation(Opcode.ADD, TReal.class, TReal.class, (i1, i2) -> new TReal(i1.getValue() + i2.getValue()));
+
+        addOperation(Opcode.SUB, TInteger.class, TInteger.class, (i1, i2) ->new TInteger(i1.getValue() - i2.getValue()));
+        addOperation(Opcode.SUB, TInteger.class, TReal.class, (i1, i2) ->new TReal(i1.getValue() - i2.getValue()));
+        addOperation(Opcode.SUB, TReal.class, TInteger.class, (i1, i2) ->new TReal(i1.getValue() - i2.getValue()));
+        addOperation(Opcode.SUB, TReal.class, TReal.class, (i1, i2) ->new TReal(i1.getValue() - i2.getValue()));
+
         addOperation(Opcode.MUL, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.getValue() * i2.getValue()));
+        addOperation(Opcode.MUL, TReal.class, TInteger.class, (i1, i2) -> new TReal(i1.getValue() * i2.getValue()));
+        addOperation(Opcode.MUL, TInteger.class, TReal.class, (i1, i2) -> new TReal(i1.getValue() * i2.getValue()));
+        addOperation(Opcode.MUL, TReal.class, TReal.class, (i1, i2) -> new TReal(i1.getValue() * i2.getValue()));
+
         addOperation(Opcode.DIV, TInteger.class, TInteger.class, (i1, i2) -> new TReal((double) i1.getValue() / i2.getValue()));
+        addOperation(Opcode.DIV, TReal.class, TInteger.class, (i1, i2) -> new TReal((double) i1.getValue() / i2.getValue()));
+        addOperation(Opcode.DIV, TInteger.class, TReal.class, (i1, i2) -> new TReal((double) i1.getValue() / i2.getValue()));
+        addOperation(Opcode.DIV, TReal.class, TReal.class, (i1, i2) -> new TReal((double) i1.getValue() / i2.getValue()));
+
         addOperation(Opcode.IDIV, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.getValue() / i2.getValue()));
         addOperation(Opcode.MOD, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.getValue() % i2.getValue()));
+
         addOperation(Opcode.POW, TInteger.class, TInteger.class, (i1, i2) -> new TInteger((int) Math.pow(i1.getValue(), i2.getValue())));
+        addOperation(Opcode.POW, TReal.class, TInteger.class, (i1, i2) -> new TReal(Math.pow(i1.getValue(), i2.getValue())));
+        addOperation(Opcode.POW, TInteger.class, TReal.class, (i1, i2) -> new TReal(Math.pow(i1.getValue(), i2.getValue())));
+        addOperation(Opcode.POW, TReal.class, TReal.class, (i1, i2) -> new TReal(Math.pow(i1.getValue(), i2.getValue())));
 
         addOperation(Opcode.SLA, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() << i2.getValue()));
         addOperation(Opcode.SRA, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() >> i2.getValue()));
         addOperation(Opcode.SRL, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.getValue() >>> i2.getValue()));
 
         addOperation(Opcode.LT, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() < i2.getValue()));
-        addOperation(Opcode.LEQ, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() <= i2.getValue()));
+        addOperation(Opcode.LT, TInteger.class, TReal.class, (i1, i2) -> TBoolean.of(i1.getValue() < i2.getValue()));
+        addOperation(Opcode.LT, TReal.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() < i2.getValue()));
+        addOperation(Opcode.LT, TReal.class, TReal.class, (i1, i2) -> TBoolean.of(i1.getValue() < i2.getValue()));
+
         addOperation(Opcode.GT, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() > i2.getValue()));
+        addOperation(Opcode.GT, TInteger.class, TReal.class, (i1, i2) -> TBoolean.of(i1.getValue() > i2.getValue()));
+        addOperation(Opcode.GT, TReal.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() > i2.getValue()));
+        addOperation(Opcode.GT, TReal.class, TReal.class, (i1, i2) -> TBoolean.of(i1.getValue() > i2.getValue()));
+
+        addOperation(Opcode.LEQ, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() <= i2.getValue()));
+        addOperation(Opcode.LEQ, TInteger.class, TReal.class, (i1, i2) -> TBoolean.of(i1.getValue() <= i2.getValue()));
+        addOperation(Opcode.LEQ, TReal.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() <= i2.getValue()));
+        addOperation(Opcode.LEQ, TReal.class, TReal.class, (i1, i2) -> TBoolean.of(i1.getValue() <= i2.getValue()));
+
         addOperation(Opcode.GEQ, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() >= i2.getValue()));
+        addOperation(Opcode.GEQ, TInteger.class, TReal.class, (i1, i2) -> TBoolean.of(i1.getValue() >= i2.getValue()));
+        addOperation(Opcode.GEQ, TReal.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() >= i2.getValue()));
+        addOperation(Opcode.GEQ, TReal.class, TReal.class, (i1, i2) -> TBoolean.of(i1.getValue() >= i2.getValue()));
 
         addOperation(Opcode.AND, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() & i2.getValue()));
-        addOperation(Opcode.OR, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() | i2.getValue()));
-        addOperation(Opcode.XOR, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() ^ i2.getValue()));
-
         addOperation(Opcode.AND, TBoolean.class, TBoolean.class, (i1, i2) -> TBoolean.of(i1.getValue() && i2.getValue()));
+
+        addOperation(Opcode.OR, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() | i2.getValue()));
         addOperation(Opcode.OR, TBoolean.class, TBoolean.class, (i1, i2) -> TBoolean.of(i1.getValue() || i2.getValue()));
+
+        addOperation(Opcode.XOR, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() ^ i2.getValue()));
         addOperation(Opcode.XOR, TBoolean.class, TBoolean.class, (i1, i2) -> TBoolean.of(i1.getValue() ^ i2.getValue()));
-
-        addOperation(Opcode.ADD, TInteger.class, TReal.class, (i, r) -> new TReal(i.getValue() + r.getValue()));
-        addOperation(Opcode.ADD, TReal.class, TInteger.class, (r, i) -> new TReal(r.getValue() + i.getValue()));
-
-        addOperation(Opcode.SUB, TInteger.class, TReal.class, (i, r) -> new TReal(i.getValue() - r.getValue()));
-        addOperation(Opcode.SUB, TReal.class, TInteger.class, (r, i) -> new TReal(r.getValue() - i.getValue()));
-
-        addOperation(Opcode.MUL, TInteger.class, TReal.class, (i, r) -> new TReal(i.getValue() * r.getValue()));
-        addOperation(Opcode.MUL, TReal.class, TInteger.class, (r, i) -> new TReal(r.getValue() * i.getValue()));
-
-        addOperation(Opcode.DIV, TInteger.class, TReal.class, (i, r) -> new TReal(i.getValue() / r.getValue()));
-        addOperation(Opcode.DIV, TReal.class, TInteger.class, (r, i) -> new TReal(r.getValue() / i.getValue()));
-
-        addOperation(Opcode.POW, TInteger.class, TReal.class, (i, r) -> new TReal(Math.pow(i.getValue(), r.getValue())));
-        addOperation(Opcode.POW, TReal.class, TInteger.class, (r, i) -> new TReal(Math.pow(r.getValue(), i.getValue())));
-
-        addOperation(Opcode.ADD, TReal.class, TReal.class, (i1, i2) ->new TReal(i1.getValue() + i2.getValue()));
-        addOperation(Opcode.SUB, TReal.class, TReal.class, (i1, i2) -> new TReal(i1.getValue() - i2.getValue()));
-        addOperation(Opcode.MUL, TReal.class, TReal.class, (i1, i2) -> new TReal(i1.getValue() * i2.getValue()));
-        addOperation(Opcode.DIV, TReal.class, TReal.class, (i1, i2) -> new TReal((double) i1.getValue() / i2.getValue()));
-        addOperation(Opcode.MOD, TReal.class, TReal.class, (i1, i2) -> new TReal(i1.getValue() % i2.getValue()));
-        addOperation(Opcode.POW, TReal.class, TReal.class, (i1, i2) -> new TReal(Math.pow(i1.getValue(), i2.getValue())));
     }
 
     public static TObject performBinaryOperation(TObject first, TObject second, Opcode operation){
