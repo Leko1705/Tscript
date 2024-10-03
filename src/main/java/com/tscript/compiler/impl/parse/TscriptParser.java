@@ -105,7 +105,7 @@ public class TscriptParser implements Parser {
         return null;
     }
 
-    private TCNamespaceTree parseNamespace() {
+    private TCNamespaceTree parseNamespace(Modifier... modifiers) {
         Location location = lexer.consume().getLocation();
         Token<TscriptTokenType> token = lexer.consume();
         if (!token.hasTag(IDENTIFIER))
@@ -133,7 +133,7 @@ public class TscriptParser implements Parser {
         if (token.hasTag(EOF) || !token.hasTag(CURVED_CLOSED))
             error("missing '}'", token);
 
-        return F.NamespaceTree(location, F.ModifiersTree(location, Set.of()), name, definitions, new ArrayList<>());
+        return F.NamespaceTree(location, F.ModifiersTree(location, Set.of(modifiers)), name, definitions, new ArrayList<>());
     }
 
     private TCClassTree parseClass(Modifier... modifiers){
@@ -210,6 +210,13 @@ public class TscriptParser implements Parser {
                     if (isOverridden) defTree = parseFunctionDef(visibility, Modifier.OVERRIDDEN);
                     else if (isStatic) defTree = parseFunctionDef(visibility, Modifier.STATIC);
                     else defTree = parseFunctionDef(visibility);
+                }
+                else if (token.hasTag(CLASS)){
+                    if (isStatic) defTree = parseClass(visibility, Modifier.STATIC);
+                    else defTree = parseClass(visibility);
+                }
+                else if (token.hasTag(NAMESPACE)){
+                    defTree = parseNamespace(visibility, Modifier.STATIC);
                 }
                 else if (token.hasTag(NATIVE)){
                     if (isOverridden) defTree = parseDeclaredFunction(visibility, Modifier.NATIVE, Modifier.OVERRIDDEN);

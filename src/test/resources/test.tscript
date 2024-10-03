@@ -2,4 +2,16 @@ module test;
 
 import std;
 
-std.print("hello world");
+class X {
+    public:
+    function foo(){
+        return Y.Z;
+    }
+
+    namespace Y {
+        namespace Z {
+        }
+    }
+}
+
+std.print(X.Y.Z);

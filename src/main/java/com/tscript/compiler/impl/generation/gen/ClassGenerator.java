@@ -2,16 +2,15 @@ package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.generation.compiled.CompiledClass;
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
-import com.tscript.compiler.impl.generation.gen.adapter.ConstructorFunction;
-import com.tscript.compiler.impl.generation.gen.adapter.EmptyConstructorFunction;
-import com.tscript.compiler.impl.generation.gen.adapter.Method;
-import com.tscript.compiler.impl.generation.gen.adapter.StaticBlock;
+import com.tscript.compiler.impl.generation.gen.adapter.*;
 import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.impl.utils.TCTree.*;
 import com.tscript.compiler.source.tree.Tree;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 
 public class ClassGenerator extends TCTreeScanner<Void, Void> {
@@ -29,7 +28,25 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
     public ClassGenerator(Context context, TCClassTree generated) {
         this.context = context;
         this.handled = generated;
-        clazz = new CompClass(generated.name, generated.sym.classIndex, generated.sym.isAbstract());
+        clazz = new CompClass(fullyQualifiedName(handled.sym), generated.sym.classIndex, generated.sym.isAbstract());
+    }
+
+    private String fullyQualifiedName(Symbol.ClassSymbol sym){
+        List<String> lst = new ArrayList<>();
+        while (sym != null){
+            lst.add(sym.name);
+            Scope.ClassScope clsScope = sym.owner.owner;
+            if (clsScope == null) break;
+            sym = sym.owner.owner.sym;
+        }
+
+        StringJoiner joiner = new StringJoiner(".");
+        ListIterator<String> itr = lst.listIterator(lst.size());
+        while (itr.hasPrevious()){
+            joiner.add(itr.previous());
+        }
+
+        return joiner.toString();
     }
 
 
@@ -170,6 +187,34 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
     }
 
     @Override
+    public Void visitClass(TCClassTree node, Void unused) {
+        ClassGenerator generator = new ClassGenerator(context, node);
+        int index = generator.generate();
+        if (node.sym.isStatic()){
+            FunctionGenerator staticBlock = staticBlock(node);
+            staticBlock.addInstructions(List.of(
+                    new LoadType(index),
+                    new StoreInternal(PoolPutter.putUtf8(context, node.name)
+                    )));
+        }
+        else {
+            preSuperCallGens.add(() -> {
+                constructorGenerator.addInstructions(List.of(
+                        new LoadType(index),
+                        new StoreInternal(PoolPutter.putUtf8(context, node.name)
+                        )));
+            });
+
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitNamespace(TCNamespaceTree node, Void unused) {
+        return visitClass(new NamespaceClass(node), null);
+    }
+
+    @Override
     public Void visitVarDef(TCVarDefTree node, Void unused) {
 
         if (node.sym.isStatic()){
@@ -183,14 +228,14 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         return null;
     }
 
-    private void genVarInit(TCVarDefTree node, FunctionGenerator staticBlock) {
-        staticBlock.scan(node.initializer, null);
+    private void genVarInit(TCVarDefTree node, FunctionGenerator generator) {
+        generator.scan(node.initializer, null);
         if (node.initializer == null) {
-            staticBlock.addInstructions(List.of(new PushNull()));
-            staticBlock.stackGrows();
+            generator.addInstructions(List.of(new PushNull()));
+            generator.stackGrows();
         }
-        staticBlock.addInstructions(List.of(new StoreInternal(PoolPutter.putUtf8(context, node.name))));
-        staticBlock.stackShrinks();
+        generator.addInstructions(List.of(new StoreInternal(PoolPutter.putUtf8(context, node.name))));
+        generator.stackShrinks();
     }
 
     private void addMember(Symbol symbol){

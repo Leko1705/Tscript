@@ -79,7 +79,7 @@ public class InternalRuntimeErrorMessages {
     }
 
     public static String invalidAccessVisibility(String name, Visibility actualVisibility){
-        return name + "name has " + actualVisibility.name().toLowerCase() + " access";
+        return name + " has " + actualVisibility.name().toLowerCase() + " access";
     }
 
     public static String invalidMutability(String memberName) {
