@@ -46,10 +46,15 @@ public class TThread extends Thread implements Environment {
         }
         catch (Exception e){
             String s = "An Internal Error occurred";
+            if (!frameStack.isEmpty()){
             if (frameStack.element().line() != -1){
                 s += " near line " + frameStack.element().line();
             }
             s += " in module: " + frameStack.element().getModule().getCanonicalPath();
+            }
+            else {
+                System.out.println(" (frame is empty)");
+            }
             System.err.println(s);
             e.printStackTrace(System.err);
         }

@@ -519,7 +519,9 @@ public class BaseInterpreter implements Interpreter {
             if (!loadedModule.isEvaluated()){
                 loadedModule.setEvaluated();
                 TObject returnValue = thread.call(loadedModule.getEntryPoint(), List.of());
-                if (returnValue == null) return; // error occurred
+                if (returnValue == null || thread.frameStack.isEmpty())
+                    // error occurred
+                    return;
             }
             thread.push(loadedModule);
         }

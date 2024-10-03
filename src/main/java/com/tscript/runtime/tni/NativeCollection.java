@@ -3,6 +3,7 @@ package com.tscript.runtime.tni;
 import com.tscript.runtime.core.ExecutionException;
 import com.tscript.runtime.tni.natfuncs.std.*;
 import com.tscript.runtime.tni.natfuncs.std.view.canvas.*;
+import com.tscript.runtime.tni.natfuncs.std.view.turtle.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -60,6 +61,12 @@ public class NativeCollection {
         registerNativeFunction(new CanvasFillCircle());
         registerNativeFunction(new CanvasFrameCircle());
         registerNativeFunction(new CanvasText());
+
+        registerNativeFunction(new TurtleTurn());
+        registerNativeFunction(new TurtleMove());
+        registerNativeFunction(new TurtlePen());
+        registerNativeFunction(new TurtleColor());
+        registerNativeFunction(new TurtleReset());
 
     }
 

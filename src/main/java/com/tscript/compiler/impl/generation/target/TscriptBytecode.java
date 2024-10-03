@@ -451,7 +451,7 @@ public class TscriptBytecode
 
     @Override
     public void writePushBool(PushBool inst) {
-        write(Opcode.PUSH_INT, (byte) (inst.value ? 1 : 0));
+        write(Opcode.PUSH_BOOL, (byte) (inst.value ? 1 : 0));
     }
 
     @Override

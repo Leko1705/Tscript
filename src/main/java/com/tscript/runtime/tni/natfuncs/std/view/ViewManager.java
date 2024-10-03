@@ -7,9 +7,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 public class ViewManager extends JFrame {
 
@@ -46,6 +44,8 @@ public class ViewManager extends JFrame {
     private Color lineColor = Color.BLACK;
     private Color fillColor = Color.BLACK;
 
+    private final Set<Runnable> disposeListeners = new HashSet<>();
+
     private ViewManager(Environment env, String usecase) {
         canvas = new DynamicPrintPane();
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
@@ -63,8 +63,19 @@ public class ViewManager extends JFrame {
             @Override
             public void windowClosed(WindowEvent e) {
                 dispose(env, usecase);
+                for (Runnable r : disposeListeners) {
+                    r.run();
+                }
             }
         });
+    }
+
+    public void addDisposeListener(Runnable listener) {
+        disposeListeners.add(Objects.requireNonNull(listener));
+    }
+
+    public void removeDisposeListener(Runnable listener) {
+        disposeListeners.remove(listener);
     }
 
 

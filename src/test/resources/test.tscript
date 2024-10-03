@@ -1,8 +1,5 @@
 module test;
-import std.io;
-import std.math;
-import std.canvas;
 
-canvas.text(10, 10, "test");
+import std;
 
-
+std.print("hello world");

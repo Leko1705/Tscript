@@ -1,9 +1,5 @@
 module std;
 
-namespace io {
-    native function print;
-}
-
 namespace math {
 
     function e() {
@@ -49,3 +45,34 @@ namespace canvas {
     native function frameCircle;
     native function text;
 }
+
+namespace turtle {
+    native function move;
+    native function turn;
+    native function color;
+    native function pen;
+    native function reset;
+}
+
+native function alert;
+native function assert;
+native function confirm;
+native function deepcopy;
+native function error;
+native function exit;
+native function localtime;
+native function print;
+native function prompt;
+native function same;
+native function time;
+native function version;
+native function wait;
+
+native function exists;
+
+native function enterEventMode;
+native function quitEventMode;
+native function setEventHandler;
+
+
+
