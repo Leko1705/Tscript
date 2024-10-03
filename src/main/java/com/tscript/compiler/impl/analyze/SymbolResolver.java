@@ -189,6 +189,22 @@ public class SymbolResolver {
         }
 
         @Override
+        public Void visitImport(TCImportTree node, Scope scope) {
+            String name = node.accessChain.get(node.accessChain.size()-1);
+            node.sym = new VarSymbol(name, Set.of(), scope,nextAddress++, node.location);
+            putIfAbsent(node, scope, node.sym);
+            return null;
+        }
+
+        @Override
+        public Void visitFromImport(TCFromImportTree node, Scope scope) {
+            String name = node.importChain.get(node.importChain.size()-1);
+            node.sym = new VarSymbol(name, Set.of(), scope,nextAddress++, node.location);
+            putIfAbsent(node, scope, node.sym);
+            return super.visitFromImport(node, scope);
+        }
+
+        @Override
         public Void visitVariable(TCVariableTree node, Scope scope) {
             // do nothing. symbol type is determined while use-checking.
             return null;

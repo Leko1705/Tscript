@@ -1,4 +1,7 @@
+module test;
+import std.io;
+import std.math;
 
-import std;
+io.print(math.sign(1.0));
 
-circle(0, 0, 300);
+

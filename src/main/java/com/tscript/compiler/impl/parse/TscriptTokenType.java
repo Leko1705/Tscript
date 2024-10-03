@@ -87,6 +87,7 @@ public enum TscriptTokenType {
     COLON(":"),
     PLUS_PLUS("++"),
     MINUS_MINUS("--"),
+    MODULE("module"),
     IMPORT("import"),
     FROM("from"),
     USE("use"),

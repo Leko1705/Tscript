@@ -27,7 +27,9 @@ public class FileGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitRoot(TCTree.TCRootTree node, Void unused) {
-        file.moduleName = "test";
+        file.moduleName = node.moduleName;
+        if (file.moduleName == null)
+            file.moduleName = "";
 
         GlobalRegistry reg = new GlobalRegistry();
         for (DefinitionTree definitionTree : node.getDefinitions()) {

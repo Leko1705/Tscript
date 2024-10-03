@@ -252,7 +252,7 @@ public class TreeScanner<P, R> implements TreeVisitor<P, R> {
 
     @Override
     public R visitSign(SignTree node, P p) {
-        return null;
+        return scan(node.getOperand(), p);
     }
 
     @Override

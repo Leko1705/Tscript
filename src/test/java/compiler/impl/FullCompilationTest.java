@@ -24,7 +24,8 @@ public class FullCompilationTest {
 
     @Test
     public void test(){
-        //runTool(ToolFactory.createDefaultTscriptCompiler(), "src/test/resources/std.tscript", "src/test/resources/out/std.tscriptc");
+        runTool(ToolFactory.createDefaultTscriptCompiler(), "src/test/resources/std.tscript", "src/test/resources/out/std.tscriptc");
+        runTool(ToolFactory.loadTool(SupportedTool.TSCRIPT_BC_INSPECTOR), "src/test/resources/std.tscript", "src/test/resources/out/std.tscripti");
 
         runTool(ToolFactory.createDefaultTscriptCompiler(),
                 IN_FILE,

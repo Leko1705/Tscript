@@ -538,6 +538,8 @@ public abstract class TCTree implements Tree {
 
     public static class TCFromImportTree extends TCStatementTree implements FromImportTree {
 
+        public VarSymbol sym;
+
         public final List<String> fromChain;
 
         public final List<String> importChain;
@@ -663,6 +665,8 @@ public abstract class TCTree implements Tree {
     }
 
     public static class TCImportTree extends TCStatementTree implements ImportTree {
+
+        public VarSymbol sym;
 
         public final List<String> accessChain;
 
@@ -907,17 +911,26 @@ public abstract class TCTree implements Tree {
 
     public static class TCRootTree extends TCTree implements RootTree {
 
+        public final String moduleName;
+
         public final List<? extends TCDefinitionTree> definitions;
 
         public final List<? extends TCStatementTree> statements;
 
         public GlobalScope scope;
 
-        public TCRootTree(Location location, List<? extends TCDefinitionTree> definitions,
+        public TCRootTree(Location location, String moduleName,
+                          List<? extends TCDefinitionTree> definitions,
                           List<? extends TCStatementTree> statements) {
             super(location);
+            this.moduleName = moduleName;
             this.definitions = definitions;
             this.statements = statements;
+        }
+
+        @Override
+        public String getModuleName() {
+            return moduleName;
         }
 
         @Override
@@ -1303,6 +1316,7 @@ public abstract class TCTree implements Tree {
                               TCExpressionTree returned);
 
         TCRootTree RootTree(Location location,
+                          String moduleName,
                           List<? extends TCDefinitionTree> definitions,
                           List<? extends TCStatementTree> statements);
 

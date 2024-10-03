@@ -32,7 +32,7 @@ public class AssignGenerator extends TCTreeScanner<Void, Void> {
         user.stackShrinks();
         Symbol sym = node.sym;
 
-        if (sym.owner.kind == Scope.Kind.GLOBAL){
+        if (sym.owner == null || sym.owner.kind == Scope.Kind.GLOBAL){
             dupIfRequireReload();
             func.getInstructions().add(new StoreGlobal(sym.address));
             return null;

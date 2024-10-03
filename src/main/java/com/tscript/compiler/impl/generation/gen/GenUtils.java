@@ -27,7 +27,7 @@ public class GenUtils {
             genInplaceArgs(args, gen);
             genCalled.run();
             gen.func.getInstructions().add(new CallInplace(args.size()));
-            gen.stackShrinks(-args.size() + 1);
+            gen.stackShrinks(args.size());
         }
 
         return instructions;

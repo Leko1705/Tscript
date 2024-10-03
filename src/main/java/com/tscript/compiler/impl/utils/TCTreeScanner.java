@@ -251,7 +251,7 @@ public class TCTreeScanner<P, R> implements TCTree.Visitor<P, R> {
 
     @Override
     public R visitSign(TCSignTree node, P p) {
-        return null;
+        return scan(node.operand, p);
     }
 
     @Override

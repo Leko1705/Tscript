@@ -9,10 +9,7 @@ import com.tscript.compiler.impl.utils.TCTree.*;
 import com.tscript.compiler.source.tree.*;
 
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static com.tscript.compiler.impl.parse.TscriptTokenType.*;
 
@@ -47,16 +44,21 @@ public class TscriptParser implements Parser {
         List<TCDefinitionTree> definitions = new ArrayList<>();
         List<TCStatementTree> statements = new ArrayList<>();
 
-        for (NativeFunction n : NativeCollection.getNativeFunctions()){
-            definitions.add(F.FunctionTree(
-                    Location.emptyLocation(),
-                    F.ModifiersTree(Location.emptyLocation(), Set.of(Modifier.NATIVE)),
-                    n.getName(),
-                    List.of(),
-                    null));
+        Token<TscriptTokenType> token = lexer.peek();
+        String moduleName = null;
+
+        if (token.hasTag(MODULE)){
+            lexer.consume();
+            List<String> moduleNamePath = parseAccessChain();
+            StringJoiner sb = new StringJoiner(".");
+            for (String name : moduleNamePath){
+                sb.add(name);
+            }
+            moduleName = sb.toString();
+            parseEOS();
+            token = lexer.peek();
         }
 
-        Token<TscriptTokenType> token = lexer.peek();
         while (!token.hasTag(EOF)) {
 
             TCStatementTree stmt = parseStatement();
@@ -71,7 +73,7 @@ public class TscriptParser implements Parser {
             token = lexer.peek();
         }
 
-        return F.RootTree(null, definitions, statements);
+        return F.RootTree(null, moduleName, definitions, statements);
     }
 
     private TCDefinitionTree parseDefinition() {

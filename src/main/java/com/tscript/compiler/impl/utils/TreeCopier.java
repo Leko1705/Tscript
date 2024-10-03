@@ -232,7 +232,11 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
 
     @Override
     public TCRootTree visitRoot(TCRootTree node, Void unused) {
-        return F.RootTree(node.getLocation(), copy(node.definitions), copy(node.statements));
+        return F.RootTree(
+                node.getLocation(),
+                node.moduleName,
+                copy(node.definitions),
+                copy(node.statements));
     }
 
     @Override

@@ -91,6 +91,8 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     }
 
     public int complete(){
+        if (currentStackSize > 0)
+            throw new AssertionError();
         func.stackSize = maxStackSize;
         func.locals = maxLocals;
         context.getFile().functions.add(func);
@@ -200,6 +202,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
             case NOT_EQUALS -> func.getInstructions().add(new NotEquals());
             default -> func.getInstructions().add(new BinaryOperation(node.getOperationType()));
         }
+        stackShrinks();
         return null;
     }
 
@@ -289,7 +292,6 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
         GenUtils.genCall(context, node.arguments, () -> {
             node.called.accept(this, null);
-            stackGrows();
             newLine(node);
         }, this);
 
@@ -509,11 +511,24 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitImport(TCImportTree node, Void unused) {
-        StringJoiner joiner = new StringJoiner(".");
-        for (String acc : node.getAccessChain())
-            joiner.add(acc);
         newLine(node);
-        func.getInstructions().add(new Import(PoolPutter.putUtf8(context, joiner.toString())));
+
+        Iterator<String> itr = node.accessChain.iterator();
+        String name = itr.next();
+
+        func.getInstructions().add(new Import(PoolPutter.putUtf8(context, name)));
+        stackGrows();
+
+        while (itr.hasNext()) {
+            name = itr.next();
+            func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, name)));
+        }
+
+        TCVariableTree var = new TCVariableTree(node.location, name);
+        var.sym = node.sym;
+
+        new AssignGenerator(this, context, func).visitVariable(var, null);
+
         return null;
     }
 
@@ -530,7 +545,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
             func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, acc)));
         }
 
-        return super.visitFromImport(node, null);
+        return null;
     }
 
     @Override

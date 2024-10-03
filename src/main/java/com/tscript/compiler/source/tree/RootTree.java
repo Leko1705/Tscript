@@ -13,6 +13,13 @@ import java.util.List;
 public interface RootTree extends Tree {
 
     /**
+     * Returns the name for this module or {@code null}
+     * if this is not a module source.
+     * @return this module name
+     */
+    String getModuleName();
+
+    /**
      * Returns all definitions for this Namespace.
      * @return the definitions
      */

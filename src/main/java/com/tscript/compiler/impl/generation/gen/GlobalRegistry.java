@@ -42,4 +42,17 @@ public class GlobalRegistry extends SimpleTreeVisitor<List<GlobalVariable>, Void
         return null;
     }
 
+    @Override
+    public Void visitImport(ImportTree node, List<GlobalVariable> globalVariables) {
+        String name = node.getAccessChain().get(node.getAccessChain().size()-1);
+        globalVariables.add(new GlobalVariable(name, false));
+        return null;
+    }
+
+    @Override
+    public Void visitFromImport(FromImportTree node, List<GlobalVariable> globalVariables) {
+        String name = node.getImportAccessChain().get(node.getImportAccessChain().size()-1);
+        globalVariables.add(new GlobalVariable(name, false));
+        return null;
+    }
 }
