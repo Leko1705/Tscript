@@ -1,4 +1,11 @@
 
-function bar(){
-    print("hi");
+namespace canvas {
+    native function height;
+    native function width;
+    native function rect;
+    native function fillRect;
+    native function frameRect;
+    native function circle;
+    native function fillCircle;
+    native function frameCircle;
 }

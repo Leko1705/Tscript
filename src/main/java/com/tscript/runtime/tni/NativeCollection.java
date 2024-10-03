@@ -2,15 +2,16 @@ package com.tscript.runtime.tni;
 
 import com.tscript.runtime.core.ExecutionException;
 import com.tscript.runtime.tni.natfuncs.std.*;
+import com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasCircle;
+import com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasRect;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 public class NativeCollection {
 
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     private static final Map<String, NativeFunction> natives = new HashMap<>();
 
@@ -54,6 +55,9 @@ public class NativeCollection {
             registerNativeFunction(new NativeSetEventHandler());
             registerNativeFunction(new NativeEnterEventMode());
             registerNativeFunction(new NativeQuitEventMode());
+
+            registerNativeFunction(new CanvasRect());
+            registerNativeFunction(new CanvasCircle());
         }
     }
 
