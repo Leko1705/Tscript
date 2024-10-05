@@ -85,7 +85,7 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
     }
 
     private Token<TscriptTokenType> scan(){
-        skipWhitespace();
+        skipWhitespaceAndComments();
 
         if (!reader.hasNext())
             return getEOF();
@@ -117,12 +117,36 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
         return c;
     }
 
-    private void skipWhitespace(){
+    private void skipWhitespaceAndComments(){
         char c = peekChar();
-        while (Character.isWhitespace(c)) {
-            if (c == '\n') line++;
-            consumeChar();
-            c = reader.peek();
+        while (Character.isWhitespace(c) || c == '#') {
+            while (Character.isWhitespace(c)) {
+                consumeChar();
+                c = peekChar();
+            }
+            if (c == '#') {
+                consumeChar();
+                c = consumeChar();
+                if (c == '*'){
+                    c = consumeChar();
+                    while (reader.hasNext()){
+                        if (c == '*'){
+                            c = consumeChar();
+                            if (c == '#'){
+                                c = peekChar();
+                                break;
+                            }
+                        }
+                        c = consumeChar();
+                    }
+                }
+                else {
+                    do {
+                        consumeChar();
+                    }
+                    while (reader.hasNext() && (c = peekChar()) != '\n');
+                }
+            }
         }
         startPos = endPos;
     }

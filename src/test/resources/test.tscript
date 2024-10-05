@@ -1,4 +1,7 @@
 module test;
 
-print(Type());
+#*
+print("test");
+*#
 
+print("hi");
