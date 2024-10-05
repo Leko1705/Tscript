@@ -3,6 +3,7 @@ package com.tscript.compiler.impl.generation.gen;
 import com.tscript.compiler.impl.generation.compiled.CompiledFunction;
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
 import com.tscript.compiler.impl.generation.gen.adapter.LambdaFunction;
+import com.tscript.compiler.impl.generation.gen.adapter.NamespaceClass;
 import com.tscript.compiler.impl.generation.gen.adapter.TransformedWhileLoop;
 import com.tscript.compiler.impl.utils.Scope;
 import com.tscript.compiler.impl.utils.Symbol;
@@ -132,6 +133,22 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         if (node.getDefaultValue() != null) defaultAddr = PoolPutter.put(context, node.getDefaultValue());
         func.parameters.add(CompiledFunction.Parameter.of(node.getName(), defaultAddr));
         return null;
+    }
+
+    @Override
+    public Void visitClass(TCClassTree node, Void unused) {
+        ClassGenerator generator = new ClassGenerator(context, node);
+        int index = generator.generate();
+        func.getInstructions().add(new LoadType(index));
+        func.getInstructions().add(new StoreLocal(asLocalAddress(node.sym.address)));
+        stackGrows();
+        stackShrinks();
+        return null;
+    }
+
+    @Override
+    public Void visitNamespace(TCNamespaceTree node, Void unused) {
+        return visitClass(new NamespaceClass(node), null);
     }
 
     @Override
