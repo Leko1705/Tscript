@@ -88,6 +88,9 @@ public class TscriptParser implements Parser {
         else if (token.hasTag(CLASS)) {
             return parseClass();
         }
+        else if (token.hasTag(ENUM)){
+            return parseEnum();
+        }
         else if (token.hasTag(ABSTRACT)) {
             lexer.consume();
             token = lexer.peek();
@@ -215,6 +218,10 @@ public class TscriptParser implements Parser {
                     if (isStatic) defTree = parseClass(visibility, Modifier.STATIC);
                     else defTree = parseClass(visibility);
                 }
+                else if (token.hasTag(ENUM)){
+                    if (isStatic) defTree = parseEnum(visibility, Modifier.STATIC);
+                    else defTree = parseEnum(visibility);
+                }
                 else if (token.hasTag(NAMESPACE)){
                     defTree = parseNamespace(visibility, Modifier.STATIC);
                 }
@@ -261,6 +268,120 @@ public class TscriptParser implements Parser {
 
         lexer.consume();
         return F.ClassTree(location, F.ModifiersTree(location, classModifiers), className, superName, members);
+    }
+
+    /**
+     * compiles to: <pre>
+     *     {@code
+     *     class EnumName {
+     *         public:
+     *         static const
+     *              ENUM1 = EnumName("ENUM1"),
+     *              ENUM2 = EnumName("ENUM2");
+     *
+ *         private:
+     *         var name;
+     *         constructor(n){
+     *             name = n;
+     *         }
+     *         function __str__(){
+     *             return name;
+     *         }
+     *     }
+     *     }
+     * </pre>
+     * @param modifiers additional modifiers for this enum
+     * @return the class tree for this enum
+     */
+    private TCClassTree parseEnum(Modifier... modifiers){
+        Location location = lexer.consume().getLocation();
+
+        Token<TscriptTokenType> token = lexer.consume();
+        if (!token.hasTag(IDENTIFIER))
+            error("identifier expected", token);
+        String name = token.getLexeme();
+
+        token = lexer.consume();
+        if (!token.hasTag(CURVED_OPEN))
+            error("missing '{'", token);
+
+        List<TCVarDefTree> enums = new ArrayList<>();
+
+        token = lexer.consume();
+        if (!token.hasTag(CURVED_CLOSED, EOF)) {
+            do {
+
+                if (!token.hasTag(IDENTIFIER))
+                    error("identifier expected", token);
+
+                enums.add(F.VarDefTree(
+                        token.getLocation(),
+                        token.getLexeme(),
+                        F.CallTree(
+                                token.getLocation(),
+                                F.ThisTree(token.getLocation()),
+                                List.of(F.ArgumentTree(
+                                        token.getLocation(),
+                                        null,
+                                        F.StringTree(token.getLocation(), token.getLexeme())))
+                        )));
+
+                token = lexer.consume();
+                if (token.hasTag(CURVED_CLOSED, EOF)) {
+                    break;
+                }
+
+                if (!token.hasTag(COMMA))
+                    error("missing '}'", token);
+
+                token = lexer.consume();
+            } while (true);
+        }
+
+        if (!token.hasTag(CURVED_CLOSED))
+            error("missing '}'", token);
+
+        TCVarDefsTree enumList = F.VarDefsTree(
+                location,
+                F.ModifiersTree(location, Set.of(Modifier.PUBLIC, Modifier.STATIC, Modifier.CONSTANT)),
+                enums
+        );
+
+        TCConstructorTree constructor = F.ConstructorTree(
+                location,
+                F.ModifiersTree(location, Set.of(Modifier.PRIVATE)),
+                List.of(F.ParameterTree(location, "n", F.ModifiersTree(location, Set.of()), null)),
+                List.of(),
+                F.BlockTree(location, List.of(
+                        F.ExpressionStatementTree(location,
+                                F.AssignTree(
+                                        location,
+                                        F.VariableTree(location, "name"),
+                                        F.VariableTree(location, "n")))
+                ))
+        );
+
+        TCVarDefsTree nameField = F.VarDefsTree(
+                location,
+                F.ModifiersTree(location, Set.of(Modifier.PRIVATE)),
+                List.of(
+                        F.VarDefTree(location, "name", null)
+                ));
+
+        TCFunctionTree toString = F.FunctionTree(
+                location,
+                F.ModifiersTree(location, Set.of()),
+                "__str__",
+                List.of(),
+                F.BlockTree(location, List.of(
+                        F.ReturnTree(location, F.VariableTree(location, "name"))))
+        );
+
+        return F.ClassTree(location,
+                F.ModifiersTree(location, Set.of(modifiers)),
+                name,
+                null,
+                List.of(nameField, constructor, enumList, toString));
     }
 
     private TCConstructorTree parseConstructor(Modifier... modifiers){

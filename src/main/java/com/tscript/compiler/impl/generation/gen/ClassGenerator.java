@@ -86,10 +86,9 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
             constructorGenerator.genReturn(compFunc -> {
                 compFunc.getInstructions().add(new PushThis());
                 compFunc.getInstructions().add(new Return());
+                constructorGenerator.stackGrows();
+                constructorGenerator.stackShrinks();
             });
-
-            constructorGenerator.stackGrows();
-            constructorGenerator.stackShrinks();
 
         }
         else {
@@ -108,6 +107,8 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
                     .genReturn(compFunc -> {
                         compFunc.getInstructions().add(new PushThis());
                         compFunc.getInstructions().add(new Return());
+                        constructorGenerator.stackGrows();
+                        constructorGenerator.stackShrinks();
                     });
 
         }

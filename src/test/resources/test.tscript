@@ -1,13 +1,9 @@
 module test;
-
 import std;
 
-function foo(){
-    namespace X {
-        native function print;
-    }
-    X.print("hi");
+enum X {
+    HELLO, BYE
 }
 
+std.print(X.HELLO + "");
 
-foo();

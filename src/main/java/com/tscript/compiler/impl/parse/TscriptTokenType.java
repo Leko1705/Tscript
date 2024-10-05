@@ -18,6 +18,7 @@ public enum TscriptTokenType {
     RETURN("return"),
     NATIVE("native"),
     CLASS("class"),
+    ENUM("enum"),
     CONSTRUCTOR("constructor"),
     PUBLIC("public"),
     PRIVATE("private"),
