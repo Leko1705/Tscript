@@ -1,4 +1,4 @@
 module test;
 
-print(Integer);
+print(Type());
 

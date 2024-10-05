@@ -31,7 +31,7 @@ class TypeType implements Type {
 
     @Override
     public  Parameters getParameters(TThread thread) {
-        return null;
+        return Parameters.newInstance();
     }
 
     @Override
