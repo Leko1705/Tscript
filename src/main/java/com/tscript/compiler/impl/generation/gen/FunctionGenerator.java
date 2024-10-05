@@ -593,6 +593,11 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
         int addr = node.sym.address;
 
+        if (node.sym.kind == Symbol.Kind.BUILTIN){
+            func.getInstructions().add(new LoadBuiltin(addr));
+            return null;
+        }
+
         if (node.sym.owner == null || node.sym.owner.kind == Scope.Kind.GLOBAL){
             func.getInstructions().add(new LoadGlobal(addr));
             return null;

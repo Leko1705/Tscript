@@ -70,6 +70,13 @@ public class BaseInterpreter implements Interpreter {
     }
 
     @Override
+    public void loadBuiltin(byte b, byte b1) {
+        int index = Conversion.from2Bytes(b, b1);
+        TObject object = Builtins.load(index);
+        thread.push(object);
+    }
+
+    @Override
     public void loadType(byte b1, byte b2) {
         Module module = thread.getFrame().getModule();
         TypeArea typeArea = module.getTypeArea();

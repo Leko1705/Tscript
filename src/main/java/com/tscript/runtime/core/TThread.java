@@ -100,6 +100,7 @@ public class TThread extends Thread implements Environment {
             case PUSH_THIS -> interpreter.pushThis();
             case LOAD_NATIVE -> interpreter.loadNative(instruction[1], instruction[2]);
             case LOAD_VIRTUAL -> interpreter.loadVirtual(instruction[1], instruction[2]);
+            case LOAD_BUILTIN -> interpreter.loadBuiltin(instruction[1], instruction[2]);
             case SET_OWNER -> interpreter.setOwner();
             case POP -> interpreter.pop();
             case NEW_LINE -> interpreter.newLine(Conversion.fromBytes(instruction[1], instruction[2], instruction[3], instruction[4]));

@@ -2,6 +2,7 @@ package com.tscript.compiler.impl.utils;
 
 import com.tscript.compiler.source.tree.Modifier;
 import com.tscript.compiler.source.utils.Location;
+import com.tscript.runtime.core.Builtins;
 
 import java.util.Set;
 
@@ -13,7 +14,8 @@ public abstract class Symbol {
         VARIABLE,
         FUNCTION,
         CLASS,
-        UNKNOWN
+        UNKNOWN,
+        BUILTIN
     }
 
 
@@ -120,7 +122,12 @@ public abstract class Symbol {
         public UnknownSymbol(String name, Location location) {
             super(Kind.UNKNOWN, name, Set.of(), null, NO_ADDRESS, location);
         }
+    }
 
+    public static final class Builtin extends Symbol {
+        public Builtin(String name, Location location) {
+            super(Kind.BUILTIN, name, Set.of(Modifier.CONSTANT), null, Builtins.indexOf(name), location);
+        }
     }
 
 }

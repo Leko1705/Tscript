@@ -60,6 +60,8 @@ public interface InstructionWriter {
 
     void writeStoreLocal(StoreLocal inst);
 
+    void writeLoadBuiltin(LoadBuiltin inst);
+
     void writeLoadName(LoadName inst);
 
     void writeLoadNative(LoadNative inst);

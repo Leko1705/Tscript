@@ -370,6 +370,11 @@ public class TscriptBytecode
     }
 
     @Override
+    public void writeLoadBuiltin(LoadBuiltin inst) {
+        write(Opcode.LOAD_BUILTIN, Conversion.to2Bytes(inst.address));
+    }
+
+    @Override
     public void writeLoadName(LoadName inst) {
         write(Opcode.LOAD_NAME, Conversion.to2Bytes(inst.address));
     }

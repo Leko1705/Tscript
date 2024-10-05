@@ -3,6 +3,7 @@ package com.tscript.compiler.impl.analyze;
 import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.source.tree.Modifier;
 import com.tscript.compiler.source.tree.ThisTree;
+import com.tscript.runtime.core.Builtins;
 
 public class UsageApplier {
 
@@ -111,8 +112,16 @@ public class UsageApplier {
                 }
             }
 
-            if (sym == null)
-                throw Errors.canNotFindSymbol(node.getName(), node.location);
+            if (sym == null) {
+                if (Builtins.indexOf(node.name) != -1){
+                    node.sym = new Symbol.Builtin(node.name, node.location);
+                    return null;
+                }
+                else {
+                    throw Errors.canNotFindSymbol(node.getName(), node.location);
+                }
+            }
+
             node.sym = sym;
 
             if (sym.owner == scope.enclosing){
@@ -134,7 +143,7 @@ public class UsageApplier {
             if (inSuperConstructorParams)
                 throw Errors.canNotUseBeforeConstructorCalled(node.location, "super");
 
-            Scope.ClassScope currClass = (Scope.ClassScope) scope.owner;
+            Scope.ClassScope currClass = scope.owner;
 
             if (!hasSuperClass(scope)){
                 throw Errors.invalidSuperAccessFound(node.location, currClass.sym.name);
@@ -157,7 +166,7 @@ public class UsageApplier {
         private static boolean hasSuperClass(Scope scope){
             if (scope.owner == null || scope.owner.kind != Scope.Kind.CLASS)
                 return false;
-            Scope.ClassScope clsScope = (Scope.ClassScope) scope.owner;
+            Scope.ClassScope clsScope = scope.owner;
             return clsScope.sym.superClass != null;
         }
 
@@ -165,7 +174,7 @@ public class UsageApplier {
         public Void visitMemberAccess(TCTree.TCMemberAccessTree node, Scope scope) {
             super.visitMemberAccess(node, scope);
             if (node.expression instanceof ThisTree){
-                Scope.ClassScope clsScope = (Scope.ClassScope) scope.owner;
+                Scope.ClassScope clsScope = scope.owner;
                 if (!clsScope.symbols.containsKey(node.memberName))
                     throw Errors.noSuchMemberFound(node.location, clsScope.sym.name, node.memberName);
             }

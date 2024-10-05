@@ -13,6 +13,7 @@ public enum Opcode {
     PUSH_THIS(0),
     LOAD_NATIVE(2),
     LOAD_VIRTUAL(2),
+    LOAD_BUILTIN(2),
     SET_OWNER(0),
 
     POP(0),

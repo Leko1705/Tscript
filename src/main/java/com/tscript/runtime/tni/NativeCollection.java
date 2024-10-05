@@ -28,28 +28,6 @@ public class NativeCollection {
     }
 
     static {
-        registerNativeFunction(new NativePrint());
-        registerNativeFunction(new NativeExit());
-        registerNativeFunction(new NativeAlert());
-        registerNativeFunction(new NativeAssert());
-        registerNativeFunction(new NativeConfirm());
-        registerNativeFunction(new NativeDeepcopy());
-        registerNativeFunction(new NativeError());
-        registerNativeFunction(new NativeExists());
-        registerNativeFunction(new NativeListKeys());
-        //registerNativeFunction(new NativeLoad());
-        registerNativeFunction(new NativeLocalTime());
-        registerNativeFunction(new NativePrompt());
-        registerNativeFunction(new NativeSame());
-        //registerNativeFunction(new NativeSave());
-        registerNativeFunction(new NativeTime());
-        registerNativeFunction(new NativeVersion());
-        registerNativeFunction(new NativeWait());
-
-        registerNativeFunction(new NativeSetEventHandler());
-        registerNativeFunction(new NativeEnterEventMode());
-        registerNativeFunction(new NativeQuitEventMode());
-
         registerNativeFunction(new CanvasHeight());
         registerNativeFunction(new CanvasWidth());
         registerNativeFunction(new CanvasClear());
@@ -67,7 +45,6 @@ public class NativeCollection {
         registerNativeFunction(new TurtlePen());
         registerNativeFunction(new TurtleColor());
         registerNativeFunction(new TurtleReset());
-
     }
 
 }

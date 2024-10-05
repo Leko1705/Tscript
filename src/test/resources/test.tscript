@@ -1,9 +1,4 @@
 module test;
-import std;
 
-enum X {
-    HELLO, BYE
-}
-
-std.print(X.HELLO + "");
+print(Integer);
 

@@ -7,6 +7,7 @@ import com.tscript.compiler.impl.generation.compiled.GlobalVariable;
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
 import com.tscript.compiler.impl.generation.compiled.pool.*;
 import com.tscript.compiler.impl.generation.writers.*;
+import com.tscript.runtime.core.Builtins;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -269,6 +270,11 @@ public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWri
     @Override
     public void writeStoreLocal(StoreLocal inst) {
         writeInst("STORE_LOCAL " + inst.address);
+    }
+
+    @Override
+    public void writeLoadBuiltin(LoadBuiltin inst) {
+        writeInst("LOAD_BUILTIN " + Builtins.load(inst.address).getDisplayName());
     }
 
     @Override

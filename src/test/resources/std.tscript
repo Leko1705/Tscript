@@ -54,25 +54,6 @@ namespace turtle {
     native function reset;
 }
 
-native function alert;
-native function assert;
-native function confirm;
-native function deepcopy;
-native function error;
-native function exit;
-native function localtime;
-native function print;
-native function prompt;
-native function same;
-native function time;
-native function version;
-native function wait;
-
-native function exists;
-
-native function enterEventMode;
-native function quitEventMode;
-native function setEventHandler;
 
 
 
