@@ -267,7 +267,7 @@ public class BaseInterpreter implements Interpreter {
     public void binaryOperation(Opcode opcode) {
         TObject right = thread.pop();
         TObject left = thread.pop();
-        TObject result = ALU.performBinaryOperation(left, right, opcode);
+        TObject result = ALU.performBinaryOperation(left, right, opcode, thread);
         if (result == null){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidBinaryOperation(left, right, opcode));
             return;

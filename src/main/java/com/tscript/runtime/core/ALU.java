@@ -1,6 +1,8 @@
 package com.tscript.runtime.core;
 
 
+import com.tscript.runtime.tni.Environment;
+import com.tscript.runtime.tni.TNIUtils;
 import com.tscript.runtime.typing.*;
 
 import java.util.HashMap;
@@ -101,9 +103,9 @@ public class ALU {
         addOperation(Opcode.XOR, TBoolean.class, TBoolean.class, (i1, i2) -> TBoolean.of(i1.getValue() ^ i2.getValue()));
     }
 
-    public static TObject performBinaryOperation(TObject first, TObject second, Opcode operation){
+    public static TObject performBinaryOperation(TObject first, TObject second, Opcode operation, Environment env){
         if (operation == Opcode.ADD && (first instanceof TString || second instanceof TString))
-            return new TString(first.getDisplayName() + second.getDisplayName());
+            return new TString(TNIUtils.toString(env, first) + TNIUtils.toString(env, second));
         Operation algorithm = getValueOperation(first.getClass(), second.getClass(), operation);
         if (algorithm == null) return null;
         return algorithm.operate(first, second);
