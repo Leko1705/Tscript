@@ -121,7 +121,8 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
         char c = peekChar();
         while (Character.isWhitespace(c) || c == '#') {
             while (Character.isWhitespace(c)) {
-                consumeChar();
+                c = consumeChar();
+                if (c == '\n') line++;
                 c = peekChar();
             }
             if (c == '#') {
@@ -137,6 +138,8 @@ public class TscriptScanner implements Lexer<TscriptTokenType> {
                                 break;
                             }
                         }
+                        else if (c == '\n')
+                            line++;
                         c = consumeChar();
                     }
                 }

@@ -374,6 +374,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         scan(node.thrown, null);
         newLine(node);
         func.getInstructions().add(new Throw());
+        stackShrinks();
         return null;
     }
 

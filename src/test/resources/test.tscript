@@ -1,7 +1,6 @@
 module test;
 
-#*
-print("test");
-*#
+# test
 
 print("hi");
+throw "Hi";
