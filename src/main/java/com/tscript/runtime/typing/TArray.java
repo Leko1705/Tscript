@@ -1,6 +1,7 @@
 package com.tscript.runtime.typing;
 
 
+import com.tscript.runtime.core.ALU;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
@@ -39,6 +40,7 @@ public class TArray extends PrimitiveObject<List<TObject>>
     public static final Type ITR_TYPE =
             new Type.Builder("ArrayIterator")
                     .setAbstract(true)
+                    .addMember(new Member(Visibility.PUBLIC, false, "concat", new ConcatStaticMethod()))
                     .setConstructor((thread, params) -> Null.INSTANCE)
                     .build();
 
@@ -53,7 +55,8 @@ public class TArray extends PrimitiveObject<List<TObject>>
                 "insert", new Member(Visibility.PUBLIC, false, "insert", new InsertMethod()),
                 "remove", new Member(Visibility.PUBLIC, false, "remove", new RemoveMethod()),
                 "keys", new Member(Visibility.PUBLIC, false, "keys", new KeysMethod()),
-                "values", new Member(Visibility.PUBLIC, false, "values", new ValuesMethod())
+                "values", new Member(Visibility.PUBLIC, false, "values", new ValuesMethod()),
+                "sort", new Member(Visibility.PUBLIC, false, "sort", new SortMethod())
         ));
     }
 
@@ -247,6 +250,116 @@ public class TArray extends PrimitiveObject<List<TObject>>
         }
         public TObject evaluate(Environment env, List<TObject> args) {
             return TArray.this;
+        }
+    }
+
+    private class SortMethod extends NativeFunction {
+
+        @Override
+        public String getName() {
+            return "sort";
+        }
+
+        @Override
+        public Parameters doGetParameters(Environment env) {
+            return Parameters.newInstance()
+                    .add("comparator", Null.INSTANCE);
+        }
+
+        private static class Stop extends RuntimeException {}
+
+        @Override
+        public TObject evaluate(Environment env, List<TObject> arguments) {
+
+            if (arguments.get(0) == Null.INSTANCE){
+                try {
+                    getValue().sort((o1, o2) -> {
+
+                        if (o1 instanceof TInteger i1){
+                            if (o2 instanceof TInteger i2){
+                                return Integer.compare(i1.getValue(), i2.getValue());
+                            }
+                            if (o2 instanceof TReal i2){
+                                return Double.compare(i1.getValue().doubleValue(), i2.getValue());
+                            }
+                        }
+                        else if (o1 instanceof TReal i1){
+                            if (o2 instanceof TInteger i2){
+                                return Double.compare(i1.getValue(), i2.getValue().doubleValue());
+                            }
+                            if (o2 instanceof TReal i2){
+                                return Double.compare(i1.getValue(), i2.getValue());
+                            }
+                        }
+
+                        env.reportRuntimeError("order-related sorting requires numeric contents only");
+                        throw new Stop();
+                    });
+                }
+                catch (Stop e) {
+                    // error occurred in sort
+                    return null;
+                }
+                return Null.INSTANCE;
+            }
+
+            if (!(arguments.get(0) instanceof Function comparator)) {
+                env.reportRuntimeError("comparator must be type of Function");
+                return null;
+            }
+
+            try {
+                getValue().sort((o1, o2) -> {
+                    TObject result = env.call(comparator, List.of(o1, o2));
+                    if (result == null) throw new Stop();
+                    if (result.getType() != TInteger.TYPE){
+                        env.reportRuntimeError("comparator must return an Integer");
+                        throw new Stop();
+                    }
+                    return ((TInteger)result).getValue();
+                });
+            }
+            catch (Stop e) {
+                // error occurred in sort
+                return null;
+            }
+
+            return Null.INSTANCE;
+        }
+
+    }
+
+
+    public static class ConcatStaticMethod extends NativeFunction {
+
+        @Override
+        public String getName() {
+            return "concat";
+        }
+
+        @Override
+        public Parameters doGetParameters(Environment env) {
+            return Parameters.newInstance()
+                    .add("first", null)
+                    .add("second", null);
+        }
+
+        @Override
+        public TObject evaluate(Environment env, List<TObject> arguments) {
+
+            if (!(arguments.get(0) instanceof TArray first)) {
+                env.reportRuntimeError("Array expected; got " + arguments.get(0).getType());
+                return null;
+            }
+
+            if (!(arguments.get(1) instanceof TArray second)) {
+                env.reportRuntimeError("Array expected; got " + arguments.get(1).getType());
+                return null;
+            }
+
+            List<TObject> concat = new ArrayList<>(first.getValue());
+            concat.addAll(second.getValue());
+            return new TArray(concat);
         }
     }
 

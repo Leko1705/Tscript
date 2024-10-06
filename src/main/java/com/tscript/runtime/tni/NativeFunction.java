@@ -1,6 +1,7 @@
 package com.tscript.runtime.tni;
 
 import com.tscript.runtime.core.ExecutionException;
+import com.tscript.runtime.core.Frame;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.typing.Function;
 import com.tscript.runtime.typing.Member;
@@ -31,7 +32,11 @@ public abstract class NativeFunction extends Function implements Cloneable {
 
     @Override
     public final TObject eval(TThread thread, List<TObject> params) {
-        return evaluate(thread, params);
+        thread.frameStack.push(Frame.createNativeFrame(this));
+        TObject result = evaluate(thread, params);
+        if (result == null) return null;
+        thread.frameStack.pop();
+        return result;
     }
 
     @Override

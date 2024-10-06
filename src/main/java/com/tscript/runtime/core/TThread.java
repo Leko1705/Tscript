@@ -15,7 +15,7 @@ public class TThread extends Thread implements Environment {
     private final Callable baseFunction;
     private final List<TObject> arguments;
 
-    protected final ArrayDeque<Frame> frameStack = new ArrayDeque<>();
+    public final ArrayDeque<Frame> frameStack = new ArrayDeque<>();
     private volatile Interpreter interpreter;
 
     protected volatile boolean running = true;
@@ -187,12 +187,16 @@ public class TThread extends Thread implements Environment {
         errorLog.append(msg).append('\n');
         do {
             frame = frameStack.pop();
-            errorLog.append("in ").append(frame.getName()).append(" (");
+            errorLog.append("in ").append(frame.getName());
             int line = frame.line();
-            if (line != -1)
+            if (line != -1) {
+                errorLog.append(" (");
                 errorLog.append("line: ").append(frame.line()).append("; ");
-            errorLog.append("module: ").append(frame.getModule().getCanonicalPath()).append(")");
-
+                errorLog.append("module: ").append(frame.getModule().getCanonicalPath()).append(")");
+            }
+            else {
+                errorLog.append(" (native)");
+            }
             errorLog.append('\n');
         }while (!frameStack.isEmpty() && !frameStack.element().inSafeSpot());
 

@@ -1,9 +1,13 @@
 package com.tscript.runtime.typing;
 
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.tni.Environment;
+import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.utils.Tuple;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements ContainerAccessibleObject, IterableObject {
@@ -44,12 +48,19 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
                         return new Range(fromVal, toVal);
                     }).build();
 
+    private final Map<String, Member> methods;
+
     public Range(int start, int end) {
         this(new TInteger(start), new TInteger(end));
     }
 
     public Range(TInteger from, TInteger to) {
         super(new Tuple<>(from, to));
+        methods = new HashMap<>(Map.of(
+                "begin", new Member(Visibility.PUBLIC, false, "begin", new BeginMethod()),
+                "end", new Member(Visibility.PUBLIC, false, "end", new EndMethod()),
+                "size", new Member(Visibility.PUBLIC, false, "size", new SizeMethod())
+        ));
     }
 
     public int getFrom(){
@@ -63,6 +74,16 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
     @Override
     public  Type getType() {
         return TYPE;
+    }
+
+    @Override
+    public Iterable<Member> getMembers() {
+        return methods.values();
+    }
+
+    @Override
+    public Member loadMember(String name) {
+        return methods.get(name);
     }
 
     @Override
@@ -128,5 +149,59 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
             return List.of();
         }
 
+    }
+
+    private class BeginMethod extends NativeFunction {
+
+        @Override
+        public String getName() {
+            return "begin";
+        }
+
+        @Override
+        public Parameters doGetParameters(Environment env) {
+            return Parameters.newInstance();
+        }
+
+        @Override
+        public TObject evaluate(Environment env, List<TObject> arguments) {
+            return getValue().getFirst();
+        }
+    }
+
+    private class EndMethod extends NativeFunction {
+
+        @Override
+        public String getName() {
+            return "end";
+        }
+
+        @Override
+        public Parameters doGetParameters(Environment env) {
+            return Parameters.newInstance();
+        }
+
+        @Override
+        public TObject evaluate(Environment env, List<TObject> arguments) {
+            return getValue().getSecond();
+        }
+    }
+
+    private class SizeMethod extends NativeFunction {
+
+        @Override
+        public String getName() {
+            return "size";
+        }
+
+        @Override
+        public Parameters doGetParameters(Environment env) {
+            return Parameters.newInstance();
+        }
+
+        @Override
+        public TObject evaluate(Environment env, List<TObject> arguments) {
+            return new TReal((double)getTo() - (double)getFrom());
+        }
     }
 }
