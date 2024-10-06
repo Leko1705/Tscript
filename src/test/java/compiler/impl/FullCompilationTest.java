@@ -1,7 +1,6 @@
 package compiler.impl;
 
 import com.tscript.compiler.tools.*;
-import com.tscript.compiler.tools.Compiler;
 import com.tscript.compiler.source.utils.CompileException;
 import com.tscript.runtime.core.TscriptVM;
 import org.junit.jupiter.api.Assertions;
@@ -11,32 +10,46 @@ import java.io.*;
 
 public class FullCompilationTest {
 
-    private static final String IN_FILE = "src/test/resources/test.tscript";
-    private static final String OUT_FILE_C = "src/test/resources/out/test.tscriptc";
-    private static final String OUT_FILE_I = "src/test/resources/out/test.tscripti";
-
-    private static final String ROOT_PATH = "src/test/resources/out/";
-    private static final String BOOT_MODULE = "test";
-
     public static void main(String[] args) {
         new FullCompilationTest().test();
     }
 
     @Test
     public void test(){
-        runTool(ToolFactory.createDefaultTscriptCompiler(), "src/test/resources/std.tscript", "src/test/resources/out/std.tscriptc");
-        runTool(ToolFactory.loadTool(SupportedTool.TSCRIPT_BC_INSPECTOR), "src/test/resources/std.tscript", "src/test/resources/out/std.tscripti");
+        compileAndRunAllInDir(
+                "src/test/resources",
+                "src/test/resources/out",
+                "test");
+    }
 
-        runTool(ToolFactory.createDefaultTscriptCompiler(),
-                IN_FILE,
-                OUT_FILE_C);
+    private void compileAndRunAllInDir(String inPath, String outPath, String bootModule){
+        Tool compiler = ToolFactory.createDefaultTscriptCompiler();
+        Tool inspector = ToolFactory.loadTool(SupportedTool.TSCRIPT_BC_INSPECTOR);
 
-        runTool(new TscriptBytecodeInspector(), IN_FILE, OUT_FILE_I);
+        removeDir(new File(outPath));
 
+        File[] files = new File(inPath).listFiles();
+        if (files == null)
+            throw new AssertionError();
+        for (File file : files){
+            if (!file.getName().endsWith(".tscript")) continue;
+            runTool(compiler, file.getAbsolutePath(), outPath + File.separator + file.getName() + "c");
+            runTool(inspector, file.getAbsolutePath(), outPath + File.separator + file.getName() + "i");
+        }
 
-        TscriptVM vm = TscriptVM.runnableInstance(new File(ROOT_PATH), System.out, System.err);
-        int exitCode = vm.execute(BOOT_MODULE);
+        TscriptVM vm = TscriptVM.runnableInstance(new File(outPath), System.out, System.err);
+        int exitCode = vm.execute(bootModule);
         Assertions.assertEquals(0, exitCode);
+    }
+
+    private void removeDir(File dir){
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File file: files) {
+            if (file.isDirectory())
+                removeDir(file);
+            file.delete();
+        }
     }
 
     private void runTool(Tool tool, String inPath, String outPath, String... args){
@@ -55,24 +68,6 @@ public class FullCompilationTest {
             Assertions.fail(e);
         }
 
-    }
-
-    private void testInvalidCode(String inPath,  String outPath){
-        try {
-            InputStream in = new FileInputStream(inPath);
-            OutputStream out = new FileOutputStream(outPath);
-
-            Compiler compiler = ToolFactory.createDefaultTscriptCompiler();
-            try {
-                compiler.run(in, out, null);
-            }
-            catch (CompileException e) {
-                Assertions.fail(e);
-            }
-        }
-        catch (Exception e){
-            Assertions.fail(e);
-        }
     }
 
 }

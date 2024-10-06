@@ -1,15 +1,24 @@
 package com.tscript.runtime.core;
 
 import com.tscript.runtime.tni.Environment;
+import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.tni.TNIUtils;
 import com.tscript.runtime.typing.*;
 import com.tscript.runtime.utils.Conversion;
 
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-public class TThread extends Thread implements Environment {
+public class TThread extends Thread implements Environment, TObject {
 
+    public static final Type TYPE = new Type.Builder("Thread")
+            .setAbstract(true)
+            .setConstructor(((thread, params) -> {
+                throw new AbstractMethodError();
+            }))
+            .build();
 
     private final TscriptVM vm;
     private final Callable baseFunction;
@@ -23,12 +32,27 @@ public class TThread extends Thread implements Environment {
     protected TObject returnValue;
     protected int frameStackExitThreshold = 0;
 
+    private final Map<String, Member> members = new HashMap<>(Map.of(
+            "name", new Member(Visibility.PUBLIC, false, "name", new NameMethod()),
+            "id", new Member(Visibility.PUBLIC, false, "id", new IdMethod()),
+            "start", new Member(Visibility.PUBLIC, false, "start", new StartMethod()),
+            "stop", new Member(Visibility.PUBLIC, false, "stop", new StopMethod())
+    ));
+
     public TThread(TscriptVM vm, Callable callable, List<TObject> args) {
         this.vm = vm;
         this.baseFunction = callable;
         this.arguments = args;
 
         interpreter = new BaseInterpreter(this);
+    }
+
+    @Override
+    public String getDisplayName() {
+        String threadName = Thread.currentThread().getName();
+        if (threadName.equals("main"))
+            threadName = "Main-Thread";
+        return threadName;
     }
 
     @Override
@@ -229,4 +253,94 @@ public class TThread extends Thread implements Environment {
         return Thread.currentThread().getName().equals("main");
     }
 
+    @Override
+    public Type getType() {
+        return TYPE;
+    }
+
+    @Override
+    public Iterable<Member> getMembers() {
+        return members.values();
+    }
+
+    @Override
+    public Member loadMember(String name) {
+        return members.get(name);
+    }
+
+
+    private class NameMethod extends NativeFunction {
+
+        @Override
+        public String getName() {
+            return "name";
+        }
+
+        @Override
+        public Parameters doGetParameters(Environment env) {
+            return Parameters.newInstance();
+        }
+
+        @Override
+        public TObject evaluate(Environment env, List<TObject> arguments) {
+            return new TString(TThread.this.getName());
+        }
+    }
+
+    private class IdMethod extends NativeFunction {
+
+        @Override
+        public String getName() {
+            return "id";
+        }
+
+        @Override
+        public Parameters doGetParameters(Environment env) {
+            return Parameters.newInstance();
+        }
+
+        @Override
+        public TObject evaluate(Environment env, List<TObject> arguments) {
+            return new TReal((double)TThread.this.getId());
+        }
+    }
+
+    private class StartMethod extends NativeFunction {
+
+        @Override
+        public String getName() {
+            return "start";
+        }
+
+        @Override
+        public Parameters doGetParameters(Environment env) {
+            return Parameters.newInstance();
+        }
+
+        @Override
+        public TObject evaluate(Environment env, List<TObject> arguments) {
+            TThread.this.start();
+            return Null.INSTANCE;
+        }
+    }
+
+
+    private class StopMethod extends NativeFunction {
+
+        @Override
+        public String getName() {
+            return "stop";
+        }
+
+        @Override
+        public Parameters doGetParameters(Environment env) {
+            return Parameters.newInstance();
+        }
+
+        @Override
+        public TObject evaluate(Environment env, List<TObject> arguments) {
+            TThread.this.running = false;
+            return Null.INSTANCE;
+        }
+    }
 }

@@ -1,0 +1,44 @@
+module threading;
+
+
+class Thread {
+
+    private:
+    var runnable;
+    var nativeThread;
+
+    public:
+    constructor(runnable, daemon=false){
+        if Type(runnable) != Function then
+            throw "IllegalTypeError for runnable: Function expected; got " + (typeof runnable);
+        if Type(daemon) != Boolean then
+            throw "IllegalTypeError for daemon: Boolean expected; got " + (typeof daemon);
+        this.runnable = runnable;
+        nativeThread = Thread_spawn_native(runnable, daemon);
+    }
+
+    function name(){
+        return nativeThread.name();
+    }
+
+    function id(){
+        return nativeThread.id();
+    }
+
+    function start(){
+        nativeThread.start();
+    }
+
+    function stop(){
+        nativeThread.stop();
+    }
+
+    function __str__(){
+        return name();
+    }
+
+    static native function currentThread;
+
+    private:
+    static native function Thread_spawn_native;
+}

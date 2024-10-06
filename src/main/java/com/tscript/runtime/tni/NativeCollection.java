@@ -2,6 +2,8 @@ package com.tscript.runtime.tni;
 
 import com.tscript.runtime.core.ExecutionException;
 import com.tscript.runtime.tni.natfuncs.std.*;
+import com.tscript.runtime.tni.natfuncs.std.threading.NativeCurrentThread;
+import com.tscript.runtime.tni.natfuncs.std.threading.ThreadSpawnNative;
 import com.tscript.runtime.tni.natfuncs.std.view.canvas.*;
 import com.tscript.runtime.tni.natfuncs.std.view.turtle.*;
 
@@ -45,6 +47,9 @@ public class NativeCollection {
         registerNativeFunction(new TurtlePen());
         registerNativeFunction(new TurtleColor());
         registerNativeFunction(new TurtleReset());
+
+        registerNativeFunction(new ThreadSpawnNative());
+        registerNativeFunction(new NativeCurrentThread());
     }
 
 }

@@ -1,3 +1,9 @@
 module test;
 
-print("Hello World!".replace("e", "a").replace("World", "Welt"));
+import std.threading.Thread;
+
+var t = Thread(function(){
+    print("Hello Thread " + Thread.currentThread() + "!");
+});
+
+t.start();

@@ -1,5 +1,7 @@
 module std;
 
+import threading;
+
 namespace math {
 
     function e() {

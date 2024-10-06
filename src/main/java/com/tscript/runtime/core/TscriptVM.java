@@ -10,6 +10,7 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TscriptVM {
 
@@ -39,7 +40,7 @@ public class TscriptVM {
         this.out = out;
         this.err = err;
         this.sharedModuleLoader = new ModuleLoaderImpl(new BruteForcePathResolver(new DirectoryPathResolver(new FileHierarchyPathResolver())));
-        this.runningThreads = new HashMap<>();
+        this.runningThreads = new ConcurrentHashMap<>();
     }
 
     public int execute(String moduleName){
@@ -67,13 +68,13 @@ public class TscriptVM {
         // wait for daemon threads
         while (!runningThreads.isEmpty()){
             TThread toWaitForThread = runningThreads.values().iterator().next();
-            synchronized(runningThreads){
-                try {
-                    toWaitForThread.join();
-                }
-                catch (InterruptedException ex){
-                    throw new RuntimeException(ex);
-                }
+
+            try {
+                toWaitForThread.join();
+                runningThreads.remove(toWaitForThread.getId());
+            }
+            catch (InterruptedException ex){
+                throw new RuntimeException(ex);
             }
         }
 
@@ -91,14 +92,12 @@ public class TscriptVM {
     }
 
     public void exit(int status){
-        synchronized(runningThreads){
-            if (!runningThreads.isEmpty())
-                exitCode = status;
-            for(TThread thread : runningThreads.values()){
-                thread.running = false;
-            }
-            runningThreads.clear();
+        if (!runningThreads.isEmpty())
+            exitCode = status;
+        for(TThread thread : runningThreads.values()){
+            thread.running = false;
         }
+        runningThreads.clear();
     }
 
     public PrintStream getOut() {
@@ -119,17 +118,12 @@ public class TscriptVM {
 
     public TThread spawnThread(Callable callable, List<TObject> arguments){
         TThread thread = new TThread(this, callable, arguments);
-        synchronized (runningThreads){
-            runningThreads.put(thread.getId(), thread);
-        }
+        runningThreads.put(thread.getId(), thread);
         return thread;
     }
 
     protected void removeThread(Long id){
-        synchronized(runningThreads){
-            TThread thread = runningThreads.remove(id);
-            thread.running = false;
-        }
+        runningThreads.remove(id);
     }
 
     public File[] getRootPaths() {
