@@ -8,10 +8,10 @@ import org.junit.jupiter.api.Test;
 
 import java.io.*;
 
-public class FullCompilationTest {
+public class CompileAndExecutionTest {
 
     public static void main(String[] args) {
-        new FullCompilationTest().test();
+        new CompileAndExecutionTest().test();
     }
 
     @Test
