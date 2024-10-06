@@ -12,7 +12,24 @@ public class TDictionary extends PrimitiveObject<Map<TObject, TObject>>
         implements ContainerAccessibleObject, ContainerWriteableObject, IterableObject{
 
     public static final Type TYPE =
-            new Type.Builder("Dictionary").setConstructor((thread, params) -> Null.INSTANCE).build();
+            new Type
+                    .Builder("Dictionary")
+                    .setParameters(Parameters.newInstance()
+                            .add("other", Null.INSTANCE))
+                    .setConstructor((thread, params) -> {
+                        TObject value = params.get(0);
+
+                        if (value == Null.INSTANCE)
+                            return new TDictionary();
+
+                        if (value instanceof TDictionary dict){
+                            return new TDictionary(dict.getValue());
+                        }
+
+                        thread.reportRuntimeError("can not convert " + value.getType() + " to Dictionary");
+                        return null;
+                    })
+                    .build();
 
     public static final Type ITR_TYPE =
             new Type.Builder("DictionaryIterator")

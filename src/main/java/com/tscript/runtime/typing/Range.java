@@ -9,7 +9,40 @@ import java.util.List;
 public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements ContainerAccessibleObject, IterableObject {
 
     public static final Type TYPE =
-            new Type.Builder("Range").setConstructor((thread, params) -> Null.INSTANCE).build();
+            new Type.Builder("Range")
+                    .setParameters(Parameters.newInstance()
+                            .add("begin", null)
+                            .add("end", null))
+                    .setConstructor((thread, params) -> {
+                        TObject from = params.get(0);
+                        TObject to = params.get(1);
+
+                        int fromVal, toVal;
+
+                        if (from instanceof TInteger integer) {
+                            fromVal = integer.getValue();
+                        }
+                        else if (from instanceof TReal real){
+                            fromVal = real.getValue().intValue();
+                        }
+                        else {
+                            thread.reportRuntimeError("Integer expected; got: " + from.getType());
+                            return null;
+                        }
+
+                        if (to instanceof TInteger integer) {
+                            toVal = integer.getValue();
+                        }
+                        else if (to instanceof TReal real){
+                            toVal = real.getValue().intValue();
+                        }
+                        else {
+                            thread.reportRuntimeError("Integer expected, got; " + from.getType());
+                            return null;
+                        }
+
+                        return new Range(fromVal, toVal);
+                    }).build();
 
     public Range(int start, int end) {
         this(new TInteger(start), new TInteger(end));

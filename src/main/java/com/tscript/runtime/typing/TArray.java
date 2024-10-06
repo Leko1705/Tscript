@@ -6,16 +6,35 @@ import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.utils.Tuple;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class TArray extends PrimitiveObject<List<TObject>>
         implements ContainerWriteableObject, ContainerAccessibleObject, IterableObject {
 
     public static final Type TYPE =
-            new Type.Builder("Array").setConstructor((thread, params) -> Null.INSTANCE).build();
+            new Type.Builder("Array")
+                    .setParameters(Parameters.newInstance()
+                            .add("size_or_other", new TInteger(0))
+                            .add("value", Null.INSTANCE))
+                    .setConstructor((thread, params) -> {
+                        TObject size_or_other = params.get(0);
+
+                        if (size_or_other instanceof TInteger integer) {
+                            int count = integer.getValue();
+                            TObject other = params.get(1);
+                            ArrayList<TObject> list = new ArrayList<>(count);
+                            for (int i = 0; i < count; i++) list.add(other);
+                            return new TArray(list);
+                        }
+
+                        else if (size_or_other instanceof TArray arr){
+                            return new TArray(arr.getValue());
+                        }
+
+                        thread.reportRuntimeError("can not convert " + size_or_other.getType() + " to Array");
+                        return null;
+                    })
+                    .build();
 
     public static final Type ITR_TYPE =
             new Type.Builder("ArrayIterator")

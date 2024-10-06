@@ -31,7 +31,8 @@ class TypeType implements Type {
 
     @Override
     public  Parameters getParameters(TThread thread) {
-        return Parameters.newInstance();
+        return Parameters.newInstance()
+                .add("value", null);
     }
 
     @Override
@@ -41,7 +42,7 @@ class TypeType implements Type {
 
     @Override
     public  TObject eval(TThread thread, List<TObject> params) {
-        return this;
+        return params.get(0).getType();
     }
 
     @Override

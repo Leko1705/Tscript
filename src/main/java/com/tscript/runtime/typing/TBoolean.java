@@ -1,11 +1,14 @@
 package com.tscript.runtime.typing;
 
 
+import com.tscript.runtime.tni.TNIUtils;
 
 public class TBoolean extends PrimitiveObject<Boolean> {
 
     public static final Type TYPE =
-            new Type.Builder("Boolean").setConstructor((thread, params) -> Null.INSTANCE).build();
+            new Type.Builder("Boolean")
+                    .setParameters(Parameters.newInstance().add("value", null))
+                    .setConstructor((thread, params) -> TBoolean.of(TNIUtils.isTrue(params.get(0)))).build();
 
     public static final TBoolean TRUE = new TBoolean(true);
     public static final TBoolean FALSE = new TBoolean(false);
@@ -21,7 +24,7 @@ public class TBoolean extends PrimitiveObject<Boolean> {
     }
 
     @Override
-    public  Type getType() {
+    public Type getType() {
         return TYPE;
     }
 

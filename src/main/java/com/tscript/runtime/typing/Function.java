@@ -4,7 +4,17 @@ package com.tscript.runtime.typing;
 
 public abstract class Function implements Callable {
 
-    public static final Type TYPE = new Type.Builder("Function").setConstructor((thread, params) -> Null.INSTANCE).build();
+    public static final Type TYPE = new Type.Builder("Function")
+            .setConstructor((thread, params) -> {
+
+                TObject value = params.get(0);
+                if (value instanceof Function) {
+                    return value;
+                }
+
+                thread.reportRuntimeError("can not convert " + value.getType() + " to Function");
+                return null;
+            }).build();
 
 
     private TObject owner;
