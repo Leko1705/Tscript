@@ -40,6 +40,10 @@ public interface Interpreter {
 
     void storeInternal(byte b1, byte b2);
 
+    void loadSuper(byte b1, byte b2);
+
+    void storeSuper(byte b1, byte b2);
+
     void loadStatic(byte b1, byte b2);
 
     void storeStatic(byte b1, byte b2);

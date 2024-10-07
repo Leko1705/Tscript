@@ -8,6 +8,8 @@ import java.util.Arrays;
 
 public class VirtualObject implements TObject {
 
+    protected TObject superObject = null;
+    protected VirtualObject subObject = null;
     private final Type type;
     private final Member[] members;
 
@@ -22,14 +24,19 @@ public class VirtualObject implements TObject {
     }
 
     @Override
-    public Member loadMember(int index) {
-        return members[index];
+    public TObject getSuper() {
+        return superObject;
     }
 
     @Override
     public Member loadMember(String name) {
         int index = type.getInstanceFields().getOrDefault(name, -1);
-        if (index == -1) return null;
+        if (index == -1) {
+            if (superObject != null)
+                return superObject.loadMember(name);
+            else
+                return null;
+        }
         return members[index];
     }
 

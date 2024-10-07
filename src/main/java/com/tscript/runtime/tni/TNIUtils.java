@@ -46,4 +46,14 @@ public class TNIUtils {
         return !(object instanceof TArray a) || !a.getValue().isEmpty();
     }
 
+    public static Member searchMember(TObject object, String name) {
+        while (object != null){
+            Member member = object.loadMember(name);
+            if (member != null)
+                return member;
+            object = object.getSuper();
+        }
+        return null;
+    }
+
 }

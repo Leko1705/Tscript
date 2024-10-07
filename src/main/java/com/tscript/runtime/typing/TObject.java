@@ -8,7 +8,7 @@ public interface TObject {
     
     Iterable<Member> getMembers();
 
-    
+
     default Member loadMember(int index){
         for (Member member : getMembers()) {
             if (index == 0) return member;
@@ -26,6 +26,9 @@ public interface TObject {
         return null;
     }
 
+    default TObject getSuper(){
+        return null;
+    }
     
     default String getDisplayName(){
         return "<" + getType().getName() + ">@" + hashCode();

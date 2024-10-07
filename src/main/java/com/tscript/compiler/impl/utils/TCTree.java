@@ -738,6 +738,8 @@ public abstract class TCTree implements Tree {
 
     public static class TCMemberAccessTree extends TCExpressionTree implements MemberAccessTree {
 
+        public Symbol sym;
+
         public final String memberName;
 
         public final TCExpressionTree expression;

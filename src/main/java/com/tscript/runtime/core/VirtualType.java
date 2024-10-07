@@ -12,7 +12,7 @@ public class VirtualType implements Type {
     private final String name;
     private Type superType;
     private boolean superTypeInitialized = false;
-    private final boolean isAbstract;
+    protected boolean isAbstract;
     private final Function constructor;
     private final Member[] staticMembers;
 

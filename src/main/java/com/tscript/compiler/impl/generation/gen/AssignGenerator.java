@@ -44,8 +44,11 @@ public class AssignGenerator extends TCTreeScanner<Void, Void> {
             if (node.sym.isStatic()){
                 func.getInstructions().add(new StoreStatic(PoolPutter.putUtf8(context, node.name)));
             }
+            else if (node.sym.inSuperClass) {
+                func.getInstructions().add(new StoreSuper(PoolPutter.putUtf8(context, node.name)));
+            }
             else {
-                func.getInstructions().add(new StoreInternal(PoolPutter.putUtf8(context, node.name)));
+                func.getInstructions().add(new StoreInternal(node.sym.address));
             }
             return null;
         }
@@ -61,7 +64,7 @@ public class AssignGenerator extends TCTreeScanner<Void, Void> {
 
         if (node.expression instanceof ThisTree){
             dupIfRequireReload();
-            func.getInstructions().add(new StoreInternal(PoolPutter.putUtf8(context, node.memberName)));
+            func.getInstructions().add(new StoreInternal(node.sym.address));
             return null;
         }
 
@@ -95,7 +98,7 @@ public class AssignGenerator extends TCTreeScanner<Void, Void> {
     @Override
     public Void visitSuper(TCTree.TCSuperTree node, Void unused) {
         dupIfRequireReload();
-        func.getInstructions().add(new StoreInternal(PoolPutter.putUtf8(context, node.name)));
+        func.getInstructions().add(new StoreSuper(PoolPutter.putUtf8(context, node.name)));
         user.stackShrinks();
         return null;
     }

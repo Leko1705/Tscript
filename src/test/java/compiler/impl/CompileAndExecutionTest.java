@@ -16,10 +16,8 @@ public class CompileAndExecutionTest {
 
     @Test
     public void test(){
-        compileAndRunAllInDir(
-                "src/test/resources",
-                "src/test/resources/out",
-                "test");
+        //compileAndRunOnlyOne("src/test/resources/test.tscript", "src/test/resources/out/test.tscriptc", "test");
+        compileAndRunAllInDir("src/test/resources", "src/test/resources/out", "test");
     }
 
     private void compileAndRunAllInDir(String inPath, String outPath, String bootModule){
@@ -68,6 +66,18 @@ public class CompileAndExecutionTest {
             Assertions.fail(e);
         }
 
+    }
+
+    private void compileAndRunOnlyOne(String in, String out, String bootModule){
+        Tool compiler = ToolFactory.createDefaultTscriptCompiler();
+        Tool inspector = ToolFactory.loadTool(SupportedTool.TSCRIPT_BC_INSPECTOR);
+
+        runTool(compiler, in, out);
+        runTool(inspector, in, out.substring(0, out.length()-1) + "i");
+
+        TscriptVM vm = TscriptVM.runnableInstance(new File(out), System.out, System.err);
+        int exitCode = vm.execute(bootModule);
+        Assertions.assertEquals(0, exitCode);
     }
 
 }

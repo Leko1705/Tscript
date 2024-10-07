@@ -273,6 +273,16 @@ public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWri
     }
 
     @Override
+    public void writeLoadSuper(LoadSuper inst) {
+        writeInst("LOAD_SUPER " + inst.address);
+    }
+
+    @Override
+    public void writeStoreSuper(StoreSuper inst) {
+        writeInst("STORE_SUPER " + inst.address);
+    }
+
+    @Override
     public void writeLoadBuiltin(LoadBuiltin inst) {
         writeInst("LOAD_BUILTIN " + Builtins.load(inst.address).getDisplayName());
     }

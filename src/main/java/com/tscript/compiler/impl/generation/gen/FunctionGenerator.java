@@ -621,7 +621,12 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
                     return null;
                 }
 
-                func.getInstructions().add(new LoadInternal(PoolPutter.putUtf8(context, node.name)));
+                if (node.sym.inSuperClass){
+                    func.getInstructions().add(new LoadSuper(PoolPutter.putUtf8(context, node.name)));
+                }
+                else {
+                    func.getInstructions().add(new LoadInternal(node.sym.address));
+                }
                 return null;
             }
         }
@@ -637,7 +642,8 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitSuper(TCSuperTree node, Void unused) {
-        func.getInstructions().add(new LoadInternal(PoolPutter.putUtf8(context, node.name)));
+        func.getInstructions().add(new LoadSuper(PoolPutter.putUtf8(context, node.name)));
+        stackGrows();
         return null;
     }
 

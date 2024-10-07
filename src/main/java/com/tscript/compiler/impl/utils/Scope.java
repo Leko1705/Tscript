@@ -92,31 +92,9 @@ public abstract class Scope {
 
         @Override
         public Iterator<Symbol> iterator() {
-            return new Itr();
+            return symbols.values().iterator();
         }
 
-        private class Itr implements Iterator<Symbol> {
-
-            Iterator<Symbol> baseItr = symbols.values().iterator();
-            Iterator<Symbol> superItr = null;
-
-            public Itr(){
-                if (sym.superClass != null)
-                    superItr = sym.superClass.subScope.iterator();
-            }
-
-            @Override
-            public boolean hasNext() {
-                return baseItr.hasNext() || (superItr != null && superItr.hasNext());
-            }
-
-            @Override
-            public Symbol next() {
-                if (baseItr.hasNext())
-                    return baseItr.next();
-                return superItr.next();
-            }
-        }
     }
 
 

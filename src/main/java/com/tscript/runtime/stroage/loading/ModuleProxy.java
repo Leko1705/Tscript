@@ -20,6 +20,11 @@ public class ModuleProxy implements Module {
     }
 
     @Override
+    public Member loadMember(int index) {
+        return module.loadMember(index);
+    }
+
+    @Override
     public String getPath() {
         return module.getPath();
     }

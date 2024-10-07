@@ -25,16 +25,18 @@ public interface CompiledClass extends CompiledUnit {
 
     class Member {
 
-        public static Member of(String name, Visibility visibility, boolean isMutable){
-            return new Member(name, visibility, isMutable);
+        public static Member of(int index, String name, Visibility visibility, boolean isMutable){
+            return new Member(index, name, visibility, isMutable);
         }
 
 
+        public final int index;
         public final String name;
         public final Visibility visibility;
         public final boolean isMutable;
 
-        private Member(String name, Visibility visibility, boolean isMutable) {
+        private Member(int index, String name, Visibility visibility, boolean isMutable) {
+            this.index = index;
             this.name = name;
             this.visibility = visibility;
             this.isMutable = isMutable;

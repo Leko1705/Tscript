@@ -109,6 +109,8 @@ public class UsageApplier {
                         throw Errors.memberIsNotVisible(node.location, Modifier.PRIVATE, node.name);
                     if (inSuperConstructorParams)
                         throw Errors.canNotUseBeforeConstructorCalled(node.location, node.name);
+                    sym = sym.clone();
+                    sym.inSuperClass = true;
                 }
             }
 
@@ -155,6 +157,8 @@ public class UsageApplier {
                 if (sym.modifiers.contains(Modifier.PRIVATE)){
                     throw Errors.memberIsNotVisible(node.location, Modifier.PRIVATE, node.name);
                 }
+                sym = sym.clone();
+                sym.inSuperClass = true;
             }
             else {
                 throw Errors.noSuchMemberFound(node.location, currClass.sym.superClass.name, node.name);
@@ -175,7 +179,8 @@ public class UsageApplier {
             super.visitMemberAccess(node, scope);
             if (node.expression instanceof ThisTree){
                 Scope.ClassScope clsScope = scope.owner;
-                if (!clsScope.symbols.containsKey(node.memberName))
+                node.sym = clsScope.symbols.get(node.memberName);
+                if (node.sym == null)
                     throw Errors.noSuchMemberFound(node.location, clsScope.sym.name, node.memberName);
             }
             return null;

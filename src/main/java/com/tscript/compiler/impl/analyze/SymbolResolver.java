@@ -4,6 +4,7 @@ import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.impl.utils.TCTree.*;
 import com.tscript.compiler.impl.utils.Scope.*;
 import com.tscript.compiler.impl.utils.Symbol.*;
+import com.tscript.compiler.source.tree.DefinitionTree;
 import com.tscript.compiler.source.tree.Modifier;
 
 import java.util.HashSet;
@@ -21,6 +22,8 @@ public class SymbolResolver {
         private Set<Modifier> modifiers;
 
         private int nextAddress = 0;
+
+        private int staticAddress = 0;
 
         private int classIndex = 0;
 
@@ -42,7 +45,8 @@ public class SymbolResolver {
 
         @Override
         public Void visitFunction(TCFunctionTree node, Scope scope) {
-            node.sym = new FunctionSymbol(node.name, getModifiers(node, scope), scope, nextAddress++, node.location);
+            Set<Modifier> modifiers = getModifiers(node, scope);
+            node.sym = new FunctionSymbol(node.name, modifiers, scope, index(modifiers), node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
             nextAddress = 0;
@@ -63,23 +67,31 @@ public class SymbolResolver {
         public Void visitNamespace(TCNamespaceTree node, Scope scope) {
             // since namespaces are compiled
             // as classes we give it an address
-            node.sym = new ClassSymbol(node.name, getModifiers(node, scope), scope, nextAddress++, classIndex++, true, node.location);
+            Set<Modifier> modifiers = getModifiers(node, scope);
+            node.sym = new ClassSymbol(node.name, modifiers, scope, index(modifiers), classIndex++, true, node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
+            int prevStaticAddress = staticAddress;
             nextAddress = 0;
+            staticAddress = 0;
             super.visitNamespace(node, node.sym.subScope);
             nextAddress = prevNextAddress;
+            staticAddress = prevStaticAddress;
             return null;
         }
 
         @Override
         public Void visitClass(TCClassTree node, Scope scope) {
-            node.sym = new ClassSymbol(node.name, getModifiers(node, scope), scope, nextAddress++, classIndex++, false, node.location);
+            Set<Modifier> modifiers = getModifiers(node, scope);
+            node.sym = new ClassSymbol(node.name, modifiers, scope, index(modifiers), classIndex++, false, node.location);
             putIfAbsent(node, scope, node.sym);
             int prevNextAddress = nextAddress;
+            int prevStaticAddress = staticAddress;
             nextAddress = 0;
+            staticAddress = 0;
             super.visitClass(node, node.sym.subScope);
             nextAddress = prevNextAddress;
+            staticAddress = prevStaticAddress;
             return null;
         }
 
@@ -183,7 +195,7 @@ public class SymbolResolver {
         @Override
         public Void visitVarDef(TCVarDefTree node, Scope scope) {
             scan(node.initializer, scope);
-            node.sym = new VarSymbol(node.name, modifiers, scope, nextAddress++, node.location);
+            node.sym = new VarSymbol(node.name, modifiers, scope, index(modifiers), node.location);
             putIfAbsent(node, scope, node.sym);
             return null;
         }
@@ -208,6 +220,14 @@ public class SymbolResolver {
         public Void visitVariable(TCVariableTree node, Scope scope) {
             // do nothing. symbol type is determined while use-checking.
             return null;
+        }
+
+
+        private int index(Set<Modifier> modifiers){
+            if (modifiers.contains(Modifier.STATIC))
+                return staticAddress++;
+            else
+                return nextAddress++;
         }
 
     }

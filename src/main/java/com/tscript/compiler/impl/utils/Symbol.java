@@ -6,7 +6,7 @@ import com.tscript.runtime.core.Builtins;
 
 import java.util.Set;
 
-public abstract class Symbol {
+public abstract class Symbol implements Cloneable {
 
     public static final int NO_ADDRESS = -1;
 
@@ -30,6 +30,8 @@ public abstract class Symbol {
     public Set<Modifier> modifiers;
 
     public int address;
+
+    public boolean inSuperClass;
 
 
     Symbol(Kind kind, String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
@@ -59,6 +61,16 @@ public abstract class Symbol {
 
     public boolean isPublic() {
         return modifiers.contains(Modifier.PUBLIC);
+    }
+
+
+    @Override
+    public Symbol clone() {
+        try {
+            return (Symbol) super.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new AssertionError();
+        }
     }
 
 

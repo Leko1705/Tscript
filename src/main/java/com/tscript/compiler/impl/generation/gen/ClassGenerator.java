@@ -7,10 +7,7 @@ import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.impl.utils.TCTree.*;
 import com.tscript.compiler.source.tree.Tree;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.function.BiConsumer;
 
 public class ClassGenerator extends TCTreeScanner<Void, Void> {
@@ -76,7 +73,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
                 r.run();
 
             if (handled.superName != null && !handled.superName.isEmpty()){
-                constructorGenerator.addInstructions(List.of(new CallSuper(0), new Pop()));
+                constructorGenerator.addInstructions(List.of(new CallSuper(0)));
                 constructorGenerator.stackGrows();
                 constructorGenerator.stackShrinks();
                 for (Runnable r : constructorGens)
@@ -127,6 +124,9 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
             addMember(sym);
         }
 
+        clazz.instanceMembers.sort(Comparator.comparingInt(m -> m.index));
+        clazz.staticMembers.sort(Comparator.comparingInt(m -> m.index));
+
         context.getFile().classes.add(clazz);
         return clazz.getIndex();
     }
@@ -139,7 +139,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
         constructorGens.add(0, () -> {
             GenUtils.genArgFetch(context, node.superArgs, constructorGenerator);
-            constructorGenerator.addInstructions(List.of(new CallSuper(node.superArgs.size()), new Pop()));
+            constructorGenerator.addInstructions(List.of(new CallSuper(node.superArgs.size())));
             constructorGenerator.stackShrinks(node.superArgs.size());
         });
 
@@ -181,7 +181,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
         instructionAdder.accept(new SetOwner(), -1);
 
-        Instruction storeInstr = new StoreInternal(PoolPutter.putUtf8(context, node.name));
+        Instruction storeInstr = new StoreInternal(node.sym.address);
         instructionAdder.accept(storeInstr, -1);
 
         return null;
@@ -195,15 +195,13 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
             FunctionGenerator staticBlock = staticBlock(node);
             staticBlock.addInstructions(List.of(
                     new LoadType(index),
-                    new StoreInternal(PoolPutter.putUtf8(context, node.name)
-                    )));
+                    new StoreInternal(node.sym.address)));
         }
         else {
             preSuperCallGens.add(() -> {
                 constructorGenerator.addInstructions(List.of(
                         new LoadType(index),
-                        new StoreInternal(PoolPutter.putUtf8(context, node.name)
-                        )));
+                        new StoreInternal(node.sym.address)));
             });
 
         }
@@ -235,13 +233,14 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
             generator.addInstructions(List.of(new PushNull()));
             generator.stackGrows();
         }
-        generator.addInstructions(List.of(new StoreInternal(PoolPutter.putUtf8(context, node.name))));
+        generator.addInstructions(List.of(new StoreInternal(node.sym.address)));
         generator.stackShrinks();
     }
 
     private void addMember(Symbol symbol){
         CompiledClass.Member member =
                 CompiledClass.Member.of(
+                        symbol.address,
                         symbol.name,
                         visibility(symbol),
                         !symbol.isConstant());

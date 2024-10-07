@@ -31,6 +31,9 @@ public enum Opcode {
     LOAD_INTERNAL(2),
     STORE_INTERNAL(2),
 
+    LOAD_SUPER(2),
+    STORE_SUPER(2),
+
     LOAD_STATIC(2),
     STORE_STATIC(2),
 

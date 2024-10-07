@@ -47,9 +47,7 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void loadNative(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
-        Pool pool = module.getPool();
-        String name = pool.loadName(b1, b2);
+        String name = getUtf8Constant(b1, b2);
         NativeFunction func = NativeCollection.getNativeFunction(name);
 
         if (func == null){
@@ -129,14 +127,16 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void loadExternal(byte b1, byte b2) {
-        Member member = loadMemberOf(thread.pop(), b1, b2);
+        TObject lookedUp = thread.pop();
+        Member member = loadMemberFromExternal(lookedUp, b1, b2);
         if (member == null) return;
         thread.push(member.content);
     }
 
     @Override
     public void storeExternal(byte b1, byte b2) {
-        Member member = loadMemberOf(thread.pop(), b1, b2);
+        TObject lookedUp = thread.pop();
+        Member member = loadMemberFromExternal(lookedUp, b1, b2);
         if (member == null) return;
 
         if (!member.mutable){
@@ -147,47 +147,41 @@ public class BaseInterpreter implements Interpreter {
         member.content = thread.pop();
     }
 
-
-    private Member loadMemberOf(TObject accessed, byte b1, byte b2){
-        Module module = thread.getFrame().getModule();
-        Pool pool = module.getPool();
-        String memberName = pool.loadName(b1, b2);
-        Member member = accessed.loadMember(memberName);
-
-        if (member == null) {
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchMember(accessed, memberName));
-            return null;
-        }
-
-        if (member.visibility != Visibility.PUBLIC) {
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidAccessVisibility(memberName, member.visibility));
-            return null;
-        }
-
-        return member;
-    }
-
     @Override
     public void loadInternal(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
-        Pool pool = module.getPool();
-        String name = pool.loadName(b1, b2);
-
         TObject owner = thread.getFrame().getOwner();
-        Member member = owner.loadMember(name);
+        Member member = owner.loadMember(Conversion.from2Bytes(b1, b2));
         thread.push(member.content);
     }
 
     @Override
     public void storeInternal(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
-        Pool pool = module.getPool();
-        String name = pool.loadName(b1, b2);
-
         TObject owner = thread.getFrame().getOwner();
         TObject value = thread.pop();
-        Member member = owner.loadMember(name);
+        Member member = owner.loadMember(Conversion.from2Bytes(b1, b2));
         member.content = value;
+    }
+
+    @Override
+    public void loadSuper(byte b1, byte b2) {
+        TObject owner = thread.getFrame().getOwner();
+        Member member = loadMemberFromSuper(owner, b1, b2);
+        if (member == null) return;
+        thread.push(member.content);
+    }
+
+    @Override
+    public void storeSuper(byte b1, byte b2) {
+        TObject owner = thread.getFrame().getOwner();
+        Member member = loadMemberFromSuper(owner, b1, b2);
+        if (member == null) return;
+
+        if (!member.mutable){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidMutability(member.name));
+            return;
+        }
+
+        member.content = thread.pop();
     }
 
     @Override
@@ -205,9 +199,7 @@ public class BaseInterpreter implements Interpreter {
     }
 
     private Member loadStaticMember(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
-        Pool pool = module.getPool();
-        String name = pool.loadName(b1, b2);
+        String name = getUtf8Constant(b1, b2);
         TObject owner = thread.getFrame().getOwner();
 
         Type type = owner.getType();
@@ -250,13 +242,21 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void loadAbstract(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
-        Pool pool = module.getPool();
-
-        String methodName = pool.loadName(b1, b2);
+        String methodName = getUtf8Constant(b1, b2);
         TObject owner = thread.getFrame().getOwner();
 
-        Member member = owner.loadMember(methodName);
+        if (!(owner instanceof VirtualObject vo)){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchAbstractImplementationFound(methodName));
+            return;
+        }
+
+        Member member = null;
+        while (vo != null){
+            member = vo.loadMember(methodName);
+            if (member != null) break;
+            vo = vo.subObject;
+        }
+
         if (member == null || member.content == Null.INSTANCE){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchAbstractImplementationFound(methodName));
             return;
@@ -462,9 +462,7 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void toMappedArgument(byte b1, byte b2) {
         TObject value = thread.pop();
-        Module module = thread.getFrame().getModule();
-        Pool pool = module.getPool();
-        String name = pool.loadName(b1, b2);
+        String name = getUtf8Constant(b1, b2);
         Argument arg = new Argument(name, value);
         thread.push(arg);
     }
@@ -501,24 +499,31 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void callSuper(byte argCount) {
         TObject owner = thread.getFrame().getOwner();
+        if (!(owner instanceof VirtualObject vobj)){
+            thread.reportRuntimeError("can not bind to builtin or native type");
+            return;
+        }
+        if (vobj.superObject != null){
+            thread.reportRuntimeError("super has already been called");
+            return;
+        }
         Type type = owner.getType();
         Type superType = type.getSuperType();
         assert superType != null; // should have been checked by the compiler earlier
         List<TObject> args = new ArrayList<>(); // avg. param amount
         for (int i = 0; i < argCount; i++) args.add(thread.pop());
-        VirtualType vtype = (VirtualType) superType;
-        Function constructor = vtype.getConstructor();
-        constructor = constructor.dup();
-        constructor.setOwner(owner);
-        checkCall(constructor);
-        constructor.call(thread, args);
+        boolean isAbstract = superType.isAbstract();
+        if (superType instanceof VirtualType vt) vt.isAbstract = false;
+        TObject superObj = thread.call(superType, args);
+        if (superType instanceof VirtualType vt) vt.isAbstract = isAbstract;
+        if (superObj == null) return;
+        vobj.superObject = superObj;
+        if (superObj instanceof VirtualObject vo) vo.subObject = vobj;
     }
 
     @Override
     public void importModule(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
-        Pool pool = module.getPool();
-        String[] modulePath = pool.loadName(b1, b2).split("[.]");
+        String[] modulePath = getUtf8Constant(b1, b2).split("[.]");
         File[] rootPaths = thread.getVM().getRootPaths();
         ModuleLoader loader = thread.getVM().getSharedModuleLoader();
                 try {
@@ -552,9 +557,7 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void loadName(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
-        Pool pool = module.getPool();
-        String name = pool.loadName(b1, b2);
+        String name = getUtf8Constant(b1, b2);
         TObject value = thread.getFrame().loadName(name);
         if (value == null){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.canNotFind(name));
@@ -581,6 +584,45 @@ public class BaseInterpreter implements Interpreter {
         TObject top = thread.pop();
         thread.push(top);
         thread.push(top);
+    }
+
+
+
+    private Member loadMemberFromExternal(TObject lookedUp, byte b1, byte b2) {
+        String memberName = getUtf8Constant(b1, b2);
+        Member member = TNIUtils.searchMember(lookedUp, memberName);
+        return requireMember(lookedUp, memberName, member, Visibility.PUBLIC);
+    }
+
+
+    private Member loadMemberFromSuper(TObject subObject, byte b1, byte b2){
+        TObject superObj = subObject.getSuper();
+        String memberName = getUtf8Constant(b1, b2);
+        Member member = TNIUtils.searchMember(superObj, memberName);
+        return requireMember(superObj, memberName, member, Visibility.PROTECTED);
+    }
+
+
+    private Member requireMember(TObject accessed, String name, Member member, Visibility minimumVisibility){
+
+        if (member == null) {
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchMember(accessed, name));
+            return null;
+        }
+
+        if (member.visibility.ordinal() > minimumVisibility.ordinal()) {
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidAccessVisibility(name, member.visibility));
+            return null;
+        }
+
+        return member;
+    }
+
+
+    private String getUtf8Constant(byte b1, byte b2){
+        Module module = thread.getFrame().getModule();
+        Pool pool = module.getPool();
+        return pool.loadName(b1, b2);
     }
 
 }

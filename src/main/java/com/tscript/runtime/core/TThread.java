@@ -136,6 +136,8 @@ public class TThread extends Thread implements Environment, TObject {
             case STORE_EXTERNAL -> interpreter.storeExternal(instruction[1], instruction[2]);
             case LOAD_INTERNAL -> interpreter.loadInternal(instruction[1], instruction[2]);
             case STORE_INTERNAL -> interpreter.storeInternal(instruction[1], instruction[2]);
+            case LOAD_SUPER -> interpreter.loadSuper(instruction[1], instruction[2]);
+            case STORE_SUPER -> interpreter.storeSuper(instruction[1], instruction[2]);
             case LOAD_STATIC -> interpreter.loadStatic(instruction[1], instruction[2]);
             case STORE_STATIC -> interpreter.storeStatic(instruction[1], instruction[2]);
             case CONTAINER_READ -> interpreter.containerRead();
@@ -249,6 +251,7 @@ public class TThread extends Thread implements Environment, TObject {
         return vm;
     }
 
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isMainThread(){
         return Thread.currentThread().getName().equals("main");
     }
