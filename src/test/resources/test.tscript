@@ -1,6 +1,9 @@
 module test;
 
-import std.threading.Thread;
+import std;
+from std.threading import Thread;
+
+print(std);
 
 Thread(function(){
     print("hi");

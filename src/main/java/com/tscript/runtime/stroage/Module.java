@@ -9,6 +9,11 @@ public interface Module extends TObject {
 
     String getCanonicalPath();
 
+    @Override
+    default String getDisplayName() {
+        return "Module<" + getCanonicalPath() + ">";
+    }
+
     int getMinorVersion();
 
     int getMajorVersion();

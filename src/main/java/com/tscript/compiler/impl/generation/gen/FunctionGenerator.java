@@ -552,19 +552,34 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitFromImport(TCFromImportTree node, Void unused) {
-        StringJoiner joiner = new StringJoiner(".");
-        for (String acc : node.getFromAccessChain())
-            joiner.add(acc);
-        String from = joiner.toString();
-
         newLine(node);
-        func.getInstructions().add(new Import(PoolPutter.putUtf8(context, from)));
-        for (String acc : node.getImportAccessChain()){
-            func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, acc)));
+
+        Iterator<String> itr = node.fromChain.iterator();
+        String name = itr.next();
+
+        func.getInstructions().add(new Import(PoolPutter.putUtf8(context, name)));
+        stackGrows();
+
+        while (itr.hasNext()) {
+            name = itr.next();
+            func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, name)));
         }
 
+        itr = node.importChain.iterator();
+        while (itr.hasNext()) {
+            name = itr.next();
+            func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, name)));
+        }
+
+        TCVariableTree var = new TCVariableTree(node.location, name);
+        var.sym = node.sym;
+
+        new AssignGenerator(this, context, func).visitVariable(var, null);
+
         return null;
+
     }
+
 
     @Override
     public Void visitVarDefs(TCVarDefsTree node, Void unused) {
