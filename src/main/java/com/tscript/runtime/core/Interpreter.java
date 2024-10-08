@@ -18,6 +18,8 @@ public interface Interpreter {
 
     void loadType(byte b1, byte b2);
 
+    void buildType(byte b1, byte b2);
+
     void pushThis();
 
     void pop();
@@ -109,4 +111,5 @@ public interface Interpreter {
     void setOwner();
 
     void dup();
+
 }

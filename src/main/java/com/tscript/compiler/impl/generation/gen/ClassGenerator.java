@@ -52,8 +52,10 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         clazz.staticIndex = -1;
         clazz.superIndex = -1;
 
-        if (handled.superName != null && !handled.superName.isEmpty() && handled.sym.superClass != null) {
-            clazz.superIndex = handled.sym.superClass.classIndex;
+        if (handled.superName != null
+                && !handled.superName.isEmpty() && handled.sym.superClass != null
+                && handled.sym.superClass instanceof Symbol.ClassSymbol superSym) {
+            clazz.superIndex = superSym.classIndex;
         }
 
         for (TCTree member : handled.members)
@@ -193,15 +195,13 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         int index = generator.generate();
         if (node.sym.isStatic()){
             FunctionGenerator staticBlock = staticBlock(node);
-            staticBlock.addInstructions(List.of(
-                    new LoadType(index),
-                    new StoreInternal(node.sym.address)));
+            staticBlock.addInstructions(GenUtils.genTypeLoading(context, node, index));
+            staticBlock.addInstructions(List.of(new StoreInternal(node.sym.address)));
         }
         else {
             preSuperCallGens.add(() -> {
-                constructorGenerator.addInstructions(List.of(
-                        new LoadType(index),
-                        new StoreInternal(node.sym.address)));
+                constructorGenerator.addInstructions(GenUtils.genTypeLoading(context, node, index));
+                constructorGenerator.addInstructions(List.of(new StoreInternal(node.sym.address)));
             });
 
         }

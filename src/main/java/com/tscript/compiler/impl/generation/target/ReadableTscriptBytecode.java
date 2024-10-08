@@ -313,6 +313,11 @@ public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWri
     }
 
     @Override
+    public void writeBuildType(BuildType inst) {
+        writeInst("BUILD_TYPE " + inst.address);
+    }
+
+    @Override
     public void writeLoadVirtual(LoadVirtual inst) {
         writeInst("LOAD_VIRTUAL " + inst.address);
     }

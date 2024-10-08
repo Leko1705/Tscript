@@ -120,12 +120,13 @@ public class TThread extends Thread implements Environment, TObject {
             case PUSH_INT -> interpreter.pushInt(instruction[1]);
             case PUSH_BOOL -> interpreter.pushBool(instruction[1]);
             case LOAD_CONST -> interpreter.loadConst(instruction[1], instruction[2]);
-            case LOAD_TYPE -> interpreter.loadType(instruction[1], instruction[2]);
             case PUSH_THIS -> interpreter.pushThis();
             case LOAD_NATIVE -> interpreter.loadNative(instruction[1], instruction[2]);
             case LOAD_VIRTUAL -> interpreter.loadVirtual(instruction[1], instruction[2]);
             case LOAD_BUILTIN -> interpreter.loadBuiltin(instruction[1], instruction[2]);
             case SET_OWNER -> interpreter.setOwner();
+            case LOAD_TYPE -> interpreter.loadType(instruction[1], instruction[2]);
+            case BUILD_TYPE -> interpreter.buildType(instruction[1], instruction[2]);
             case POP -> interpreter.pop();
             case NEW_LINE -> interpreter.newLine(Conversion.fromBytes(instruction[1], instruction[2], instruction[3], instruction[4]));
             case LOAD_GLOBAL -> interpreter.loadGlobal(instruction[1]);

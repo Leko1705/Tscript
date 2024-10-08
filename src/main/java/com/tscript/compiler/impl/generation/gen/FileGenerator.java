@@ -85,7 +85,7 @@ public class FileGenerator extends TCTreeScanner<Void, Void> {
     public Void visitClass(TCTree.TCClassTree node, Void unused) {
         ClassGenerator generator = new ClassGenerator(context, node);
         int index = generator.generate();
-        preloadInstructions.add(new LoadType(index));
+        preloadInstructions.addAll(GenUtils.genTypeLoading(context, node, index));
         preloadInstructions.add(new StoreGlobal(node.sym.address));
         return null;
     }

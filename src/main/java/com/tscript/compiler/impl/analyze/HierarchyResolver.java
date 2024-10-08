@@ -23,8 +23,7 @@ public class HierarchyResolver {
             Symbol sym = task.owner.resolve(task.superName.iterator());
             if (sym != null){
                 if (sym.kind == Symbol.Kind.CLASS){
-
-                    task.tree.sym.superClass = (Symbol.ClassSymbol) sym;
+                    task.tree.sym.superClass = sym;
                 }
                 else {
                     throwSuperClassNotFound(task, fmt);
@@ -33,16 +32,12 @@ public class HierarchyResolver {
             else {
                 // is the super class in the global scope?
                 sym = globalHierarchy.resolve(task.superName.iterator());
-                if (sym != null){
-                    if (sym.kind == Symbol.Kind.CLASS){
-                        task.tree.sym.superClass = (Symbol.ClassSymbol) sym;
-                    }
-                    else {
-                        throwSuperClassNotFound(task, fmt);
-                    }
+
+                if (sym != null && sym.kind == Symbol.Kind.CLASS){
+                    task.tree.sym.superClass = sym;
                 }
                 else {
-                    throwSuperClassNotFound(task, fmt);
+                    task.tree.sym.superClass = new Symbol.UnknownSymbol(task.superName.get(0), task.tree.location);
                 }
             }
         }
@@ -67,9 +62,10 @@ public class HierarchyResolver {
         done.add(curr);
         visited.add(curr);
 
-        Symbol.ClassSymbol superClass = curr.superClass;
-        if (superClass == null) return;
-        traverseInheritancePath(superClass, done, visited);
+        if (curr.superClass == null || curr.superClass.kind != Symbol.Kind.CLASS)
+            return;
+
+        traverseInheritancePath((Symbol.ClassSymbol) curr.superClass, done, visited);
     }
 
     private static void throwSuperClassNotFound(CheckTask task, ClassNameFormatter fmt){

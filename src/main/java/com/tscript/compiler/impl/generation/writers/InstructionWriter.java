@@ -76,6 +76,8 @@ public interface InstructionWriter {
 
     void writeLoadType(LoadType inst);
 
+    void writeBuildType(BuildType inst);
+
     void writeLoadVirtual(LoadVirtual inst);
 
     void writeMakeArray(MakeArray inst);

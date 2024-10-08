@@ -109,7 +109,7 @@ public abstract class Symbol implements Cloneable {
 
     public static final class ClassSymbol extends Symbol {
 
-        public ClassSymbol superClass;
+        public Symbol superClass;
 
         public final Scope.ClassScope subScope;
 

@@ -9,12 +9,14 @@ public enum Opcode {
     PUSH_INT(1),
     PUSH_BOOL(1),
     LOAD_CONST(2),
-    LOAD_TYPE(2),
     PUSH_THIS(0),
     LOAD_NATIVE(2),
     LOAD_VIRTUAL(2),
     LOAD_BUILTIN(2),
     SET_OWNER(0),
+
+    LOAD_TYPE(2),
+    BUILD_TYPE(2),
 
     POP(0),
     NEW_LINE(4),

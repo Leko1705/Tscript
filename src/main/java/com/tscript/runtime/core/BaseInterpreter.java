@@ -87,6 +87,28 @@ public class BaseInterpreter implements Interpreter {
     }
 
     @Override
+    public void buildType(byte b1, byte b2) {
+        Module module = thread.getFrame().getModule();
+        TypeArea typeArea = module.getTypeArea();
+        int index = Conversion.from2Bytes(b1, b2);
+        VirtualType type = typeArea.loadType(thread, index);
+
+        if (thread.frameStack.isEmpty())
+            // exception in static block occurred
+            return;
+
+        TObject superType = thread.pop();
+        if (type.superType == null){
+            if (!(superType instanceof Type st)){
+                thread.reportRuntimeError("can not bind super type because " + superType + " is not a type");
+                return;
+            }
+            type.superType = st;
+        }
+        thread.push(type);
+    }
+
+    @Override
     public void pushThis() {
         thread.push(thread.getFrame().getOwner());
     }
@@ -558,12 +580,24 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void loadName(byte b1, byte b2) {
         String name = getUtf8Constant(b1, b2);
+
         TObject value = thread.getFrame().loadName(name);
-        if (value == null){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.canNotFind(name));
+        if (value != null){
+            thread.push(value);
             return;
         }
-        thread.push(value);
+
+        if (thread.getFrame().getOwner() != null){
+
+        }
+
+        Member member = thread.getFrame().getModule().loadMember(name);
+        if (member != null){
+            thread.push(member.content);
+            return;
+        }
+
+        thread.reportRuntimeError(InternalRuntimeErrorMessages.canNotFind(name));
     }
 
     @Override

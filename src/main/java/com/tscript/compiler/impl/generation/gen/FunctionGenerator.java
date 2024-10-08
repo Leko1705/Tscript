@@ -139,7 +139,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     public Void visitClass(TCClassTree node, Void unused) {
         ClassGenerator generator = new ClassGenerator(context, node);
         int index = generator.generate();
-        func.getInstructions().add(new LoadType(index));
+        func.getInstructions().addAll(GenUtils.genTypeLoading(context, node, index));
         func.getInstructions().add(new StoreLocal(asLocalAddress(node.sym.address)));
         stackGrows();
         stackShrinks();

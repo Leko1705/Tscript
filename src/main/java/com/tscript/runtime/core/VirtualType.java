@@ -10,7 +10,7 @@ import java.util.Map;
 public class VirtualType implements Type {
 
     private final String name;
-    private Type superType;
+    protected Type superType;
     private boolean superTypeInitialized = false;
     protected boolean isAbstract;
     private final Function constructor;

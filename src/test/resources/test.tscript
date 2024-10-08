@@ -1,10 +1,6 @@
 module test;
 
-import std;
-from std.threading import Thread;
+import testII.X;
 
-print(std);
-
-Thread(function(){
-    print("hi");
-}).start();
+class Y: X {
+}

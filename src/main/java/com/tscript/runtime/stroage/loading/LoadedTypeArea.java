@@ -19,7 +19,7 @@ class LoadedTypeArea implements TypeArea {
     }
 
     @Override
-    public synchronized Type loadType(TThread thread, int index) {
+    public synchronized VirtualType loadType(TThread thread, int index) {
         VirtualType type = virtualTypes[index];
 
         if (unloadedStaticBlocks[index] != null) {

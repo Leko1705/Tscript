@@ -1,10 +1,14 @@
 package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
+import com.tscript.compiler.impl.utils.Scope;
+import com.tscript.compiler.impl.utils.Symbol;
 import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.source.tree.ArgumentTree;
+import com.tscript.compiler.source.tree.Modifier;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class GenUtils {
@@ -49,6 +53,27 @@ public class GenUtils {
         return instructions;
     }
 
+    public static List<Instruction> genTypeLoading(Context context, TCTree.TCClassTree node, int index) {
+        if (node.superName == null
+                || node.superName.isEmpty()
+                || node.sym.superClass.kind == Symbol.Kind.CLASS){
+            return List.of(new LoadType(index));
+        }
+
+        List<Instruction> instructions = new ArrayList<>();
+        Iterator<String> itr = node.superName.iterator();
+        String superName = itr.next();
+
+        instructions.add(new LoadName(PoolPutter.putUtf8(context, superName)));
+        while (itr.hasNext()){
+            superName = itr.next();
+            instructions.add(new LoadExternal(PoolPutter.putUtf8(context, superName)));
+        }
+
+        instructions.add(new BuildType(index));
+        return instructions;
+    }
+
     private static List<Instruction> genMappedArgs(Context context,
                                 List<? extends TCTree.TCArgumentTree> args,
                                 FunctionGenerator gen) {
@@ -70,7 +95,7 @@ public class GenUtils {
     }
 
     private static void genInplaceArgs(List<? extends TCTree.TCArgumentTree> args,
-                                FunctionGenerator gen){
+                                       FunctionGenerator gen){
         for (int i = args.size() - 1; i >= 0; i--) {
             gen.scan(args.get(i).expression, null);
         }

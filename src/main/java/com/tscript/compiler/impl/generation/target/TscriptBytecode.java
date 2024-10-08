@@ -410,6 +410,11 @@ public class TscriptBytecode
     }
 
     @Override
+    public void writeBuildType(BuildType inst) {
+        write(Opcode.BUILD_TYPE, Conversion.to2Bytes(inst.address));
+    }
+
+    @Override
     public void writeLoadVirtual(LoadVirtual inst) {
         write(Opcode.LOAD_VIRTUAL, Conversion.to2Bytes(inst.address));
     }

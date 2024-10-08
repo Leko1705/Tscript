@@ -3,6 +3,7 @@ package com.tscript.compiler.impl.analyze;
 import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.source.tree.Modifier;
 import com.tscript.compiler.source.tree.ThisTree;
+import com.tscript.compiler.source.utils.Location;
 import com.tscript.runtime.core.Builtins;
 
 public class UsageApplier {
@@ -22,7 +23,7 @@ public class UsageApplier {
         }
 
         @Override
-        public Void visitClass(TCTree.TCClassTree node, Scope unused) {
+        public Void visitClass(TCTree.TCClassTree node, Scope scope) {
             return super.visitClass(node, node.sym.subScope);
         }
 
@@ -103,15 +104,22 @@ public class UsageApplier {
         public Void visitVariable(TCTree.TCVariableTree node, Scope scope) {
             Symbol sym = scope.accept(new SimpleSymbolResolver(node.getName()));
             if (sym == null && hasSuperClass(scope)){
-                sym = scope.owner.sym.superClass.subScope.accept(new SuperSymbolResolver(node.getName()));
-                if (sym != null){
-                    if (sym.modifiers.contains(Modifier.PRIVATE))
-                        throw Errors.memberIsNotVisible(node.location, Modifier.PRIVATE, node.name);
-                    if (inSuperConstructorParams)
-                        throw Errors.canNotUseBeforeConstructorCalled(node.location, node.name);
-                    sym = sym.clone();
-                    sym.inSuperClass = true;
+                if (scope.owner.sym.superClass.kind == Symbol.Kind.CLASS){
+                    Symbol.ClassSymbol superSym = (Symbol.ClassSymbol) scope.owner.sym.superClass;
+                    sym = superSym.subScope.accept(new SuperSymbolResolver(node.getName()));
+                    if (sym != null){
+                        if (sym.modifiers.contains(Modifier.PRIVATE))
+                            throw Errors.memberIsNotVisible(node.location, Modifier.PRIVATE, node.name);
+                        if (inSuperConstructorParams)
+                            throw Errors.canNotUseBeforeConstructorCalled(node.location, node.name);
+                        sym = sym.clone();
+                        sym.inSuperClass = true;
+                    }
                 }
+                else {
+                    sym = new Symbol.UnknownSymbol(node.name, node.location);
+                }
+
             }
 
             if (sym == null) {
@@ -152,7 +160,15 @@ public class UsageApplier {
             }
 
             // has at least a super class
-            Symbol sym = currClass.sym.superClass.subScope.accept(new SuperSymbolResolver(node.getName()));
+            Symbol sym = null;
+            if (currClass.sym.superClass.kind == Symbol.Kind.CLASS){
+                Symbol.ClassSymbol superSym = (Symbol.ClassSymbol) currClass.sym.superClass;
+                sym = superSym.subScope.accept(new SuperSymbolResolver(node.getName()));
+            }
+            else {
+                sym = new Symbol.UnknownSymbol(node.name, node.location);
+            }
+
             if (sym != null){
                 if (sym.modifiers.contains(Modifier.PRIVATE)){
                     throw Errors.memberIsNotVisible(node.location, Modifier.PRIVATE, node.name);
@@ -265,7 +281,15 @@ public class UsageApplier {
             Symbol sym = scope.symbols.get(name);
             if (sym != null) return sym;
             if (scope.sym.superClass == null) return null;
-            return scope.sym.superClass.subScope.accept(this);
+            if (scope.sym.superClass.kind == Symbol.Kind.CLASS){
+                return ((Symbol.ClassSymbol)scope.sym.superClass).subScope.accept(this);
+            }
+            else if (scope.sym.superClass.kind == Symbol.Kind.UNKNOWN){
+                return new Symbol.UnknownSymbol(name, Location.emptyLocation());
+            }
+            else {
+                return null;
+            }
         }
 
     }
