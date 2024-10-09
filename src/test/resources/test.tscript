@@ -1,18 +1,15 @@
 module test;
 
-import testII.X;
+class Y {}
 
-# TODO fix super access along multi-inheritance-chain
-
-class Z: X {
+class X: Y {
 
     public:
-    function foo(){
-        print(x);
-    }
+    var x = 3;
 
+    constructor(2){}
 }
 
-Z().foo();
+print(X().x);
 
 

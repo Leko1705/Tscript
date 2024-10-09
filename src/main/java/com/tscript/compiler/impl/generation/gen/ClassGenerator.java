@@ -68,8 +68,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         if (constructorGenerator == null){
             constructorGenerator = new FunctionGenerator(context, new EmptyConstructorFunction(handled.location, handled.sym.name));
 
-            constructorGenerator
-                    .genParams();
+            constructorGenerator.genParams();
 
             for (Runnable r : preSuperCallGens)
                 r.run();
@@ -78,9 +77,10 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
                 constructorGenerator.addInstructions(List.of(new CallSuper(0)));
                 constructorGenerator.stackGrows();
                 constructorGenerator.stackShrinks();
-                for (Runnable r : constructorGens)
-                    r.run();
             }
+
+            for (Runnable r : constructorGens)
+                r.run();
 
             constructorGenerator.genReturn(compFunc -> {
                 compFunc.getInstructions().add(new PushThis());
@@ -91,16 +91,13 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
         }
         else {
-            constructorGenerator
-                    .genParams();
+            constructorGenerator.genParams();
 
             for (Runnable r : preSuperCallGens)
                 r.run();
 
-            if (handled.superName != null && !handled.superName.isEmpty()) {
-                for (Runnable r : constructorGens)
-                    r.run();
-            }
+            for (Runnable r : constructorGens)
+                r.run();
 
             constructorGenerator.genBody()
                     .genReturn(compFunc -> {
@@ -140,7 +137,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         constructorGenerator = new FunctionGenerator(context, transformed);
 
         constructorGens.add(0, () -> {
-            GenUtils.genArgFetch(context, node.superArgs, constructorGenerator);
+            constructorGenerator.addInstructions(GenUtils.genArgFetch(context, node.superArgs, constructorGenerator));
             constructorGenerator.addInstructions(List.of(new CallSuper(node.superArgs.size())));
             constructorGenerator.stackShrinks(node.superArgs.size());
         });
