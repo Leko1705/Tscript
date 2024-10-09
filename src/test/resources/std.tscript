@@ -57,5 +57,197 @@ namespace turtle {
 }
 
 
+namespace bits {
+
+    class BitStream{
+
+    	private:
+    		var x;
+
+    	public: constructor(value=0){
+    		if Type(value) == Integer then x = value;
+    		else if Type(value) == BitStream then x = value.getValue();
+    		else throw "Integer, BitStream expected; got " + Type(value);
+    	}
+
+    	public: static function allSet(){
+    		return BitStream(not 0);
+    	}
+
+    	public: function getValue(){
+    		return x;
+    	}
+
+    	# returns an unsigned Integer as a Real number
+    	public: function getUnsigned(){
+    		return Real(toDecimalString(toString()));
+    	}
+
+    	public: function toString(){
+    		var s = "";
+    		for var k in 0:32 do{
+    			if (x and 2^k) != 0 then s = "1" + s;
+    			else s = "0" + s;
+    		}
+    		return s;
+    	}
+
+    	public: function equals(value){
+    		if Type(value) == Integer then return x == value;
+    		return toString() == value.toString();
+    	}
+
+    	public: function clear(){
+    		return BitStream(x xor x);
+    	}
+
+    	public: function shiftLeft(times=1){
+    		return BitStream(x * 2^times);
+    	}
+
+    	public: function shiftRight(times=1){
+    		var d = BitStream(x);
+    		d = d.removeBit(0);
+    		d = d.removeBit(31);
+    		var hasLsb = false;
+    		if lsb() == 1 then{
+    			hasLsb = true;
+    		}
+    		d = BitStream(d.getValue() // 2^times);
+    		if hasLsb then d = d.setBit(31-times);
+    		return d;
+    	}
+
+    	public: function add(factor){
+    		return BitStream(x + factor);
+    	}
+
+    	public: function sub(factor){
+    		return BitStream(x - factor);
+    	}
+
+    	public: function NOT(){
+    		return BitStream(not x);
+    	}
+
+    	public: function AND(value){
+    		if Type(value) == BitStream then value = value.getValue();
+    		return BitStream(x and value);
+    	}
+
+    	public: function OR(value){
+    		if Type(value) == BitStream then value = value.getValue();
+    		return BitStream(x or value);
+    	}
+
+    	public: function XOR(value){
+    		if Type(value) == BitStream then value = value.getValue();
+    		return BitStream(x xor value);
+    	}
+
+    	public: function lsb(){
+    		return Integer(x < 0);
+    	}
+
+    	public: function lsbFlip(){
+    		return flipBit(31);
+    	}
+
+    	public: function getBit(index){
+    		if (x and 2^index) != 0 then return 1;
+    		else return 0;
+    	}
+
+    	public: function setBit(index){
+    		return BitStream(x or 2^index);
+    	}
+
+    	public: function setBits(range){
+    		return BitStream((2^(range.end()-range.begin())-1) * 2^range.begin());
+    	}
+
+    	public: function removeBit(index){
+    		return BitStream(x and not 2^index);
+    	}
+
+    	public: function flipBit(index){
+    		return BitStream(x xor 2^index);
+    	}
+
+    	public: function bitSet(index){
+    		return (x and 2^index) != 0;
+    	}
+
+    	public: function lastBitIndex(){
+    		var s = toString().split("");
+    		for var i in 0:s.size() do{
+    			if s[i] == "1" then return s.size()-i;
+    		}
+    		return 0;
+    	}
+
+    	public: static function parseInt(binaryStream){
+    		if not parsable(binaryStream) then
+    			throw "input must be a string of 1s and 0s";
+    		return Integer(toDecimalString(binaryStream));
+    	}
+
+    	private: static function parsable(binaryStream){
+    		for var bit in binaryStream.split("") do{
+    			if not bit == "1" and not bit == "0" then return false;
+    		}
+    		return true;
+    	}
+
+    	private: static function toDecimalString(binaryStream){
+    		var s = "0";
+    		binaryStream = binaryStream.split("");
+
+    		for var i in 0:binaryStream.size() do{
+    			var bit = Integer(binaryStream[binaryStream.size()-1-i]);
+    			var temp = String(2^i * bit);
+    			if temp[0:1] == "-" then temp = String(2147483648.0 * bit);
+    			s = sum(s, temp);
+    		}
+
+    		return s;
+
+    	}
+
+    	private: static function sum(one, two){
+    		if one.size() != two.size() then{
+    			if one.size() > two.size() then while one.size() > two.size() do two = "0"+two;
+    			else while one.size() < two.size() do one = "0"+one;
+    		}
+
+    		one = one.split("");
+    		two = two.split("");
+    		var transfer = 0;
+    		var result = "";
+
+    		for var i in 0:one.size() do{
+    			var index = one.size()-1-i;
+
+    			var digitSum = String(Integer(one[index]) + Integer(two[index]) + Integer(transfer)).split("");
+
+    			if digitSum.size() > 1 then{
+    				result = digitSum[1] + result;
+    				transfer = digitSum[0];
+    			}
+    			else{
+    				result = digitSum[0] + result;
+    				transfer = 0;
+    			}
+    		}
+
+    		if transfer != 0 then result = transfer + result;
+
+    		return result;
+    	}
+
+    }
+}
+
+
 
 

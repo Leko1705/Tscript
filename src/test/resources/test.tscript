@@ -1,15 +1,3 @@
 module test;
 
-class Y {}
-
-class X: Y {
-
-    public:
-    var x = 3;
-
-    constructor(2){}
-}
-
-print(X().x);
-
-
+import std.BitStream;

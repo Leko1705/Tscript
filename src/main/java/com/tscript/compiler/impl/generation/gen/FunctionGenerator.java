@@ -93,7 +93,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     public int complete(){
         if (currentStackSize > 0)
-            throw new AssertionError();
+            throw new AssertionError("current stack is not empty (size=" + currentStackSize + "); for function '" + handled.name + "'");
         func.stackSize = maxStackSize;
         func.locals = maxLocals;
         context.getFile().functions.add(func);
@@ -461,7 +461,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
         scan(node.iterable, null);
         func.getInstructions().add(new GetItr());
-        stackGrows();
+        // get itr from top of stack -> no growth or shrink
 
         int jumpBackAddr = func.getInstructions().size();
         AddressedInstruction branchItr = new BranchItr(0);
@@ -473,6 +473,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
             stackGrows();
             int addr = ((TCTree.TCVarDefTree)node.getVariable()).sym.address;
             func.getInstructions().add(new StoreLocal(asLocalAddress(addr)));
+            stackShrinks();
         }
         else {
             func.getInstructions().add(new ItrNext());

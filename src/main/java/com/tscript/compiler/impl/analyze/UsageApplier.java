@@ -127,6 +127,11 @@ public class UsageApplier {
                 return null;
             }
 
+            if (scope.owner.sym.name.equals(node.name)){
+                node.sym = scope.owner.sym;
+                return null;
+            }
+
             if (sym == null) {
                 if (Builtins.indexOf(node.name) != -1){
                     node.sym = new Symbol.Builtin(node.name, node.location);
