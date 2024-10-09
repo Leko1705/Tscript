@@ -14,8 +14,9 @@ public abstract class Symbol implements Cloneable {
         VARIABLE,
         FUNCTION,
         CLASS,
-        UNKNOWN,
-        BUILTIN
+        IMPORTED,
+        BUILTIN,
+        UNKNOWN
     }
 
 
@@ -130,15 +131,21 @@ public abstract class Symbol implements Cloneable {
 
     }
 
-    public static final class UnknownSymbol extends Symbol {
-        public UnknownSymbol(String name, Location location) {
-            super(Kind.UNKNOWN, name, Set.of(), null, NO_ADDRESS, location);
-        }
-    }
-
     public static final class Builtin extends Symbol {
         public Builtin(String name, Location location) {
             super(Kind.BUILTIN, name, Set.of(Modifier.CONSTANT), null, Builtins.indexOf(name), location);
+        }
+    }
+
+    public static final class ImportedSymbol extends Symbol {
+        public ImportedSymbol(String name, int addr, Location location) {
+            super(Kind.IMPORTED, name, Set.of(), null, addr, location);
+        }
+    }
+
+    public static final class UnknownSymbol extends Symbol {
+        public UnknownSymbol(String name, Location location) {
+            super(Kind.UNKNOWN, name, Set.of(), null, 0, location);
         }
     }
 

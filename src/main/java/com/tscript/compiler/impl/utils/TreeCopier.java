@@ -235,6 +235,7 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
         return F.RootTree(
                 node.getLocation(),
                 node.moduleName,
+                node.imports,
                 copy(node.definitions),
                 copy(node.statements));
     }

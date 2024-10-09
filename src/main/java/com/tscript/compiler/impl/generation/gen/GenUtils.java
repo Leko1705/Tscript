@@ -56,17 +56,22 @@ public class GenUtils {
     public static List<Instruction> genTypeLoading(Context context, TCTree.TCClassTree node, int index) {
         if (node.superName == null
                 || node.superName.isEmpty()
+                || node.sym.superClass == null
                 || node.sym.superClass.kind == Symbol.Kind.CLASS){
             return List.of(new LoadType(index));
         }
 
+        if (node.sym.superClass.kind != Symbol.Kind.IMPORTED)
+            throw new AssertionError(
+                    "super type must be either a known class or an import");
+
         List<Instruction> instructions = new ArrayList<>();
         Iterator<String> itr = node.superName.iterator();
-        String superName = itr.next();
+        itr.next();
 
-        instructions.add(new LoadName(PoolPutter.putUtf8(context, superName)));
+        instructions.add(new LoadGlobal(node.sym.superClass.address));
         while (itr.hasNext()){
-            superName = itr.next();
+            String superName = itr.next();
             instructions.add(new LoadExternal(PoolPutter.putUtf8(context, superName)));
         }
 

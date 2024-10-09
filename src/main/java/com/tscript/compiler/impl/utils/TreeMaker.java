@@ -230,9 +230,10 @@ public class TreeMaker implements TCTree.Factory {
     @Override
     public TCRootTree RootTree(Location location,
                              String moduleName,
+                             List<? extends TCTree> imports,
                              List<? extends TCDefinitionTree> definitions,
                              List<? extends TCStatementTree> statements) {
-        return new TCRootTree(location, moduleName, definitions, statements);
+        return new TCRootTree(location, moduleName, imports, definitions, statements);
     }
 
     @Override

@@ -536,9 +536,9 @@ public abstract class TCTree implements Tree {
         }
     }
 
-    public static class TCFromImportTree extends TCStatementTree implements FromImportTree {
+    public static class TCFromImportTree extends TCTree implements FromImportTree {
 
-        public VarSymbol sym;
+        public ImportedSymbol sym;
 
         public final List<String> fromChain;
 
@@ -664,9 +664,9 @@ public abstract class TCTree implements Tree {
         }
     }
 
-    public static class TCImportTree extends TCStatementTree implements ImportTree {
+    public static class TCImportTree extends TCTree implements ImportTree {
 
-        public VarSymbol sym;
+        public ImportedSymbol sym;
 
         public final List<String> accessChain;
 
@@ -915,6 +915,8 @@ public abstract class TCTree implements Tree {
 
         public final String moduleName;
 
+        public final List<? extends TCTree> imports;
+
         public final List<? extends TCDefinitionTree> definitions;
 
         public final List<? extends TCStatementTree> statements;
@@ -922,10 +924,12 @@ public abstract class TCTree implements Tree {
         public GlobalScope scope;
 
         public TCRootTree(Location location, String moduleName,
+                          List<? extends TCTree> imports,
                           List<? extends TCDefinitionTree> definitions,
                           List<? extends TCStatementTree> statements) {
             super(location);
             this.moduleName = moduleName;
+            this.imports = imports;
             this.definitions = definitions;
             this.statements = statements;
         }
@@ -933,6 +937,11 @@ public abstract class TCTree implements Tree {
         @Override
         public String getModuleName() {
             return moduleName;
+        }
+
+        @Override
+        public List<? extends Tree> getImports() {
+            return imports;
         }
 
         @Override
@@ -1319,6 +1328,7 @@ public abstract class TCTree implements Tree {
 
         TCRootTree RootTree(Location location,
                           String moduleName,
+                          List<? extends TCTree> imports,
                           List<? extends TCDefinitionTree> definitions,
                           List<? extends TCStatementTree> statements);
 

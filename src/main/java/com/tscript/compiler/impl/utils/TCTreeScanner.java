@@ -244,7 +244,8 @@ public class TCTreeScanner<P, R> implements TCTree.Visitor<P, R> {
 
     @Override
     public R visitRoot(TCRootTree node, P p) {
-        R r = scan(node.definitions, p);
+        R r = scan(node.imports, p);
+        r = scanSelective(node.definitions, p, r);
         r = scanSelective(node.statements, p, r);
         return r;
     }

@@ -20,6 +20,13 @@ public interface RootTree extends Tree {
     String getModuleName();
 
     /**
+     * Returns all imports for this module. All Trees are either typeof
+     * {@link ImportTree} or {@link FromImportTree}.
+     * @return all imports
+     */
+    List<? extends Tree> getImports();
+
+    /**
      * Returns all definitions for this Namespace.
      * @return the definitions
      */

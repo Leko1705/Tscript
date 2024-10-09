@@ -1,5 +1,6 @@
 package com.tscript.compiler.impl.generation.gen;
 
+import com.tscript.compiler.impl.generation.compiled.GlobalVariable;
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
 import com.tscript.compiler.impl.generation.gen.adapter.NamespaceClass;
 import com.tscript.compiler.impl.generation.gen.adapter.ScriptMainFunc;
@@ -8,8 +9,10 @@ import com.tscript.compiler.impl.utils.TCTreeScanner;
 import com.tscript.compiler.source.tree.DefinitionTree;
 import com.tscript.compiler.source.tree.Modifier;
 import com.tscript.compiler.source.tree.StatementTree;
+import com.tscript.compiler.source.tree.Tree;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class FileGenerator extends TCTreeScanner<Void, Void> {
@@ -31,17 +34,12 @@ public class FileGenerator extends TCTreeScanner<Void, Void> {
         if (file.moduleName == null)
             file.moduleName = "";
 
-        GlobalRegistry reg = new GlobalRegistry();
-        for (DefinitionTree definitionTree : node.getDefinitions()) {
-            definitionTree.accept(reg, file.getGlobalVariables());
-        }
-        for (StatementTree statement : node.getStatements()) {
-            statement.accept(reg, file.getGlobalVariables());
-        }
 
-        for (TCTree.TCDefinitionTree def : node.definitions) {
+        registerGlobalVariables(node, file.getGlobalVariables());
+
+        for (TCTree.TCDefinitionTree def : node.definitions)
             def.accept(this, null);
-        }
+
 
         FunctionGenerator generator;
         if (mainFunction != null) {
@@ -54,10 +52,28 @@ public class FileGenerator extends TCTreeScanner<Void, Void> {
         generator.stackGrows();
         generator.stackShrinks();
 
-        file.entryPoint = generator.addInstructions(preloadInstructions).genBody().genReturn(null).complete();
+        ImportGenerator importGenerator = new ImportGenerator(context);
+        for (TCTree imp : node.imports)
+            importGenerator.scan(imp, generator);
 
+        file.entryPoint = generator.addInstructions(preloadInstructions).genBody().genReturn(null).complete();
         return null;
     }
+
+
+    private void registerGlobalVariables(TCTree.TCRootTree node, List<GlobalVariable> globals){
+        GlobalRegistry reg = new GlobalRegistry();
+
+        for (Tree importTree : node.getImports())
+            importTree.accept(reg, globals);
+
+        for (DefinitionTree definitionTree : node.getDefinitions())
+            definitionTree.accept(reg, globals);
+
+        for (StatementTree statement : node.getStatements())
+            statement.accept(reg, globals);
+    }
+
 
     @Override
     public Void visitFunction(TCTree.TCFunctionTree node, Void unused) {
@@ -94,4 +110,5 @@ public class FileGenerator extends TCTreeScanner<Void, Void> {
     public Void visitNamespace(TCTree.TCNamespaceTree node, Void unused) {
         return visitClass(new NamespaceClass(node), null);
     }
+
 }

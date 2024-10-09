@@ -17,7 +17,7 @@ import java.util.List;
  * @since 1.0
  * @author Lennart Köhler
  */
-public interface ImportTree extends StatementTree {
+public interface ImportTree extends Tree {
 
     /**
      * Returns the access chain for this import.

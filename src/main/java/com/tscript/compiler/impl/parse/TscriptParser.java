@@ -59,6 +59,8 @@ public class TscriptParser implements Parser {
             token = lexer.peek();
         }
 
+        List<? extends TCTree> imports = parseImports();
+
         while (!token.hasTag(EOF)) {
 
             TCStatementTree stmt = parseStatement();
@@ -73,7 +75,24 @@ public class TscriptParser implements Parser {
             token = lexer.peek();
         }
 
-        return F.RootTree(null, moduleName, definitions, statements);
+        return F.RootTree(null, moduleName, imports, definitions, statements);
+    }
+
+    private List<? extends TCTree> parseImports(){
+        List<TCTree> imports = new ArrayList<>();
+
+        Token<TscriptTokenType> token = lexer.peek();
+        while (token.hasTag(IMPORT, FROM)){
+
+            if (token.hasTag(IMPORT))
+                imports.add(parseImport());
+            else
+                imports.add(parseFromImport());
+
+            token = lexer.peek();
+        }
+
+        return imports;
     }
 
     private TCDefinitionTree parseDefinition() {
@@ -613,12 +632,6 @@ public class TscriptParser implements Parser {
         }
         else if (token.hasTag(TRY)){
             return parseTryCatch();
-        }
-        else if (token.hasTag(IMPORT)){
-            return parseImport();
-        }
-        else if (token.hasTag(FROM)){
-            return parseFromImport();
         }
         else {
             TCExpressionTree exp = parseExpression();

@@ -3,4 +3,14 @@ module test;
 import testII.X;
 
 class Y: X {
+
+    public:
+    function foo(){
+        print(x);
+    }
+
 }
+
+Y().foo();
+
+

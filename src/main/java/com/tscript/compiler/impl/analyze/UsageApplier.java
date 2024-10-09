@@ -3,7 +3,6 @@ package com.tscript.compiler.impl.analyze;
 import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.source.tree.Modifier;
 import com.tscript.compiler.source.tree.ThisTree;
-import com.tscript.compiler.source.utils.Location;
 import com.tscript.runtime.core.Builtins;
 
 public class UsageApplier {
@@ -102,6 +101,12 @@ public class UsageApplier {
 
         @Override
         public Void visitVariable(TCTree.TCVariableTree node, Scope scope) {
+
+            if (hasSuperClass(scope) && superClassIsImported(scope)) {
+                node.sym = new Symbol.UnknownSymbol(node.name, node.location);
+                return null;
+            }
+
             Symbol sym = scope.accept(new SimpleSymbolResolver(node.getName()));
             if (sym == null && hasSuperClass(scope)){
                 if (scope.owner.sym.superClass.kind == Symbol.Kind.CLASS){
@@ -115,9 +120,6 @@ public class UsageApplier {
                         sym = sym.clone();
                         sym.inSuperClass = true;
                     }
-                }
-                else {
-                    sym = new Symbol.UnknownSymbol(node.name, node.location);
                 }
 
             }
@@ -159,14 +161,14 @@ public class UsageApplier {
                 throw Errors.invalidSuperAccessFound(node.location, currClass.sym.name);
             }
 
+            if (superClassIsImported(scope))
+                return null;
+
             // has at least a super class
             Symbol sym = null;
             if (currClass.sym.superClass.kind == Symbol.Kind.CLASS){
                 Symbol.ClassSymbol superSym = (Symbol.ClassSymbol) currClass.sym.superClass;
                 sym = superSym.subScope.accept(new SuperSymbolResolver(node.getName()));
-            }
-            else {
-                sym = new Symbol.UnknownSymbol(node.name, node.location);
             }
 
             if (sym != null){
@@ -188,6 +190,10 @@ public class UsageApplier {
                 return false;
             Scope.ClassScope clsScope = scope.owner;
             return clsScope.sym.superClass != null;
+        }
+
+        private static boolean superClassIsImported(Scope scope){
+            return scope.owner.sym.superClass.kind == Symbol.Kind.IMPORTED;
         }
 
         @Override
@@ -284,12 +290,7 @@ public class UsageApplier {
             if (scope.sym.superClass.kind == Symbol.Kind.CLASS){
                 return ((Symbol.ClassSymbol)scope.sym.superClass).subScope.accept(this);
             }
-            else if (scope.sym.superClass.kind == Symbol.Kind.UNKNOWN){
-                return new Symbol.UnknownSymbol(name, Location.emptyLocation());
-            }
-            else {
-                return null;
-            }
+            return null;
         }
 
     }

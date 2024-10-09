@@ -1,4 +1,11 @@
 module testII;
 
 class X {
+    public:
+    var x;
+    constructor(){
+        x = 5;
+    }
 }
+
+function bar(){}

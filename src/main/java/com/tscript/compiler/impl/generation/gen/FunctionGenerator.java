@@ -527,59 +527,6 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         return null;
     }
 
-    @Override
-    public Void visitImport(TCImportTree node, Void unused) {
-        newLine(node);
-
-        Iterator<String> itr = node.accessChain.iterator();
-        String name = itr.next();
-
-        func.getInstructions().add(new Import(PoolPutter.putUtf8(context, name)));
-        stackGrows();
-
-        while (itr.hasNext()) {
-            name = itr.next();
-            func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, name)));
-        }
-
-        TCVariableTree var = new TCVariableTree(node.location, name);
-        var.sym = node.sym;
-
-        new AssignGenerator(this, context, func).visitVariable(var, null);
-
-        return null;
-    }
-
-    @Override
-    public Void visitFromImport(TCFromImportTree node, Void unused) {
-        newLine(node);
-
-        Iterator<String> itr = node.fromChain.iterator();
-        String name = itr.next();
-
-        func.getInstructions().add(new Import(PoolPutter.putUtf8(context, name)));
-        stackGrows();
-
-        while (itr.hasNext()) {
-            name = itr.next();
-            func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, name)));
-        }
-
-        itr = node.importChain.iterator();
-        while (itr.hasNext()) {
-            name = itr.next();
-            func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, name)));
-        }
-
-        TCVariableTree var = new TCVariableTree(node.location, name);
-        var.sym = node.sym;
-
-        new AssignGenerator(this, context, func).visitVariable(var, null);
-
-        return null;
-
-    }
-
 
     @Override
     public Void visitVarDefs(TCVarDefsTree node, Void unused) {
@@ -614,7 +561,14 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
             return null;
         }
 
-        if (node.sym.owner == null || node.sym.owner.kind == Scope.Kind.GLOBAL){
+        if (node.sym.kind == Symbol.Kind.UNKNOWN){
+            func.getInstructions().add(new LoadName(PoolPutter.putUtf8(context, node.name)));
+            return null;
+        }
+
+        if (node.sym.owner == null
+                || node.sym.owner.kind == Scope.Kind.GLOBAL
+                || node.sym.kind == Symbol.Kind.IMPORTED){
             func.getInstructions().add(new LoadGlobal(addr));
             return null;
         }
@@ -644,11 +598,6 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
                 }
                 return null;
             }
-        }
-
-        if (node.sym.kind == Symbol.Kind.UNKNOWN){
-            func.getInstructions().add(new LoadName(PoolPutter.putUtf8(context, node.name)));
-            return null;
         }
 
         func.getInstructions().add(new LoadLocal(addr));

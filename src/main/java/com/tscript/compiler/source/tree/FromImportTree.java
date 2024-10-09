@@ -19,7 +19,7 @@ import java.util.List;
  * @since 1.0
  * @author Lennart Köhler
  */
-public interface FromImportTree extends StatementTree {
+public interface FromImportTree extends Tree {
 
     /**
      * Returns the access chain for the accessed module.

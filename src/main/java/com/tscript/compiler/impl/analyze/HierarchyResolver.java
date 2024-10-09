@@ -19,27 +19,24 @@ public class HierarchyResolver {
         // and check for invalid inheritance, e.g.
         // super class not found or super is not a class
         for (CheckTask task : laterTasks) {
+
             // is the super class in the current defined local scope?
             Symbol sym = task.owner.resolve(task.superName.iterator());
-            if (sym != null){
-                if (sym.kind == Symbol.Kind.CLASS){
-                    task.tree.sym.superClass = sym;
-                }
-                else {
-                    throwSuperClassNotFound(task, fmt);
-                }
-            }
-            else {
+
+            if (sym == null){
                 // is the super class in the global scope?
                 sym = globalHierarchy.resolve(task.superName.iterator());
-
-                if (sym != null && sym.kind == Symbol.Kind.CLASS){
-                    task.tree.sym.superClass = sym;
-                }
-                else {
-                    task.tree.sym.superClass = new Symbol.UnknownSymbol(task.superName.get(0), task.tree.location);
-                }
             }
+
+            if (sym != null
+                    && (sym.kind == Symbol.Kind.CLASS
+                        || sym.kind == Symbol.Kind.IMPORTED)){
+                task.tree.sym.superClass = sym;
+            }
+            else {
+                throwSuperClassNotFound(task, fmt);
+            }
+
         }
 
         // check for infinite inheritance cycle
@@ -105,6 +102,7 @@ public class HierarchyResolver {
 
         @Override
         public Void visitRoot(TCRootTree node, Hierarchy unused) {
+            scan(node.imports, globals);
             return super.visitRoot(node, globals);
         }
 
@@ -125,6 +123,14 @@ public class HierarchyResolver {
             Hierarchy namespaceHierarchy = new Hierarchy(node.sym);
             hierarchy.children.put(node.getName(), namespaceHierarchy);
             return super.visitNamespace(node, namespaceHierarchy);
+        }
+
+        @Override
+        public Void visitImport(TCImportTree node, Hierarchy hierarchy) {
+            String name = node.accessChain.get(node.accessChain.size()-1);
+            Hierarchy unknownImportHierarchy = new Hierarchy(node.sym);
+            hierarchy.children.put(name, unknownImportHierarchy);
+            return null;
         }
 
         @Override

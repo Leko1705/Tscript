@@ -203,7 +203,7 @@ public class SymbolResolver {
         @Override
         public Void visitImport(TCImportTree node, Scope scope) {
             String name = node.accessChain.get(node.accessChain.size()-1);
-            node.sym = new VarSymbol(name, Set.of(), scope,nextAddress++, node.location);
+            node.sym = new ImportedSymbol(name, nextAddress++, node.location);
             putIfAbsent(node, scope, node.sym);
             return null;
         }
@@ -211,7 +211,7 @@ public class SymbolResolver {
         @Override
         public Void visitFromImport(TCFromImportTree node, Scope scope) {
             String name = node.importChain.get(node.importChain.size()-1);
-            node.sym = new VarSymbol(name, Set.of(), scope,nextAddress++, node.location);
+            node.sym = new ImportedSymbol(name, nextAddress++, node.location);
             putIfAbsent(node, scope, node.sym);
             return super.visitFromImport(node, scope);
         }

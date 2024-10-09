@@ -588,12 +588,34 @@ public class BaseInterpreter implements Interpreter {
         }
 
         if (thread.getFrame().getOwner() != null){
-
+            TObject curr = thread.getFrame().getOwner();
+            Member found = curr.loadMember(name);
+            if (found != null){
+                thread.push(curr);
+                return;
+            }
+            while (curr != null){
+                TObject superObj = curr.getSuper();
+                String memberName = getUtf8Constant(b1, b2);
+                Member member = TNIUtils.searchMember(superObj, memberName);
+                if (member != null && member.visibility.ordinal() > Visibility.PROTECTED.ordinal()){
+                    thread.push(member.content);
+                    return;
+                }
+                curr = curr.getSuper();
+            }
         }
 
         Member member = thread.getFrame().getModule().loadMember(name);
         if (member != null){
             thread.push(member.content);
+            return;
+        }
+
+        int builtinIndex = Builtins.indexOf(name);
+        if (builtinIndex != -1){
+            value = Builtins.load(builtinIndex);
+            thread.push(value);
             return;
         }
 
