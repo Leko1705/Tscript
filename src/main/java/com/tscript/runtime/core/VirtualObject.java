@@ -31,12 +31,7 @@ public class VirtualObject implements TObject {
     @Override
     public Member loadMember(String name) {
         int index = type.getInstanceFields().getOrDefault(name, -1);
-        if (index == -1) {
-            if (superObject != null)
-                return superObject.loadMember(name);
-            else
-                return null;
-        }
+        if (index == -1) return null;
         return members[index];
     }
 

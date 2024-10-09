@@ -102,13 +102,11 @@ public class UsageApplier {
         @Override
         public Void visitVariable(TCTree.TCVariableTree node, Scope scope) {
 
-            if (hasSuperClass(scope) && superClassIsImported(scope)) {
-                node.sym = new Symbol.UnknownSymbol(node.name, node.location);
-                return null;
-            }
+            boolean hasSuperClass = hasSuperClass(scope);
+            boolean superClassIsImported = hasSuperClass && superClassIsImported(scope);
 
             Symbol sym = scope.accept(new SimpleSymbolResolver(node.getName()));
-            if (sym == null && hasSuperClass(scope)){
+            if (sym == null && hasSuperClass && !superClassIsImported){
                 if (scope.owner.sym.superClass.kind == Symbol.Kind.CLASS){
                     Symbol.ClassSymbol superSym = (Symbol.ClassSymbol) scope.owner.sym.superClass;
                     sym = superSym.subScope.accept(new SuperSymbolResolver(node.getName()));
@@ -122,6 +120,11 @@ public class UsageApplier {
                     }
                 }
 
+            }
+
+            if (sym == null && hasSuperClass && superClassIsImported) {
+                node.sym = new Symbol.UnknownSymbol(node.name, node.location);
+                return null;
             }
 
             if (sym == null) {

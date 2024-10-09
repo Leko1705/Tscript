@@ -596,9 +596,8 @@ public class BaseInterpreter implements Interpreter {
             }
             while (curr != null){
                 TObject superObj = curr.getSuper();
-                String memberName = getUtf8Constant(b1, b2);
-                Member member = TNIUtils.searchMember(superObj, memberName);
-                if (member != null && member.visibility.ordinal() > Visibility.PROTECTED.ordinal()){
+                Member member = TNIUtils.searchMember(superObj, name);
+                if (member != null && member.visibility.ordinal() <= Visibility.PROTECTED.ordinal()){
                     thread.push(member.content);
                     return;
                 }
