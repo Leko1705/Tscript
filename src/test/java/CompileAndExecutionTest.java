@@ -1,5 +1,3 @@
-package compiler.impl;
-
 import com.tscript.compiler.tools.*;
 import com.tscript.compiler.source.utils.CompileException;
 import com.tscript.runtime.core.TscriptVM;
