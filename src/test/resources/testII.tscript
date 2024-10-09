@@ -2,9 +2,8 @@ module testII;
 
 class X {
     public:
-    var x;
+    const x = 4;
     constructor(){
-        x = 5;
     }
 }
 

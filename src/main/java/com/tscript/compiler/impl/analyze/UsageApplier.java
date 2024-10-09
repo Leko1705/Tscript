@@ -196,7 +196,12 @@ public class UsageApplier {
         }
 
         private static boolean superClassIsImported(Scope scope){
-            return scope.owner.sym.superClass.kind == Symbol.Kind.IMPORTED;
+            while (scope.owner.sym.superClass != null){
+                if (scope.owner.sym.superClass.kind == Symbol.Kind.IMPORTED)
+                    return true;
+                scope = ((Symbol.ClassSymbol)scope.owner.sym.superClass).subScope;
+            }
+            return false;
         }
 
         @Override

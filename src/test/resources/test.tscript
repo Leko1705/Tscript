@@ -2,7 +2,9 @@ module test;
 
 import testII.X;
 
-class Y: X {
+# TODO fix super access along multi-inheritance-chain
+
+class Z: X {
 
     public:
     function foo(){
@@ -11,6 +13,6 @@ class Y: X {
 
 }
 
-Y().foo();
+Z().foo();
 
 
