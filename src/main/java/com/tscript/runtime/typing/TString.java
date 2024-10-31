@@ -12,10 +12,13 @@ import java.util.regex.Pattern;
 public class TString extends PrimitiveObject<String>
         implements ContainerAccessibleObject, IterableObject{
 
+    public static final TString EMPTY = new TString("");
+
     public static final Type TYPE =
             new Type.Builder("String")
                     .addMember(new Member(Visibility.PUBLIC, false, "fromUnicode", new FromUnicodeStaticMethod()))
                     .addMember(new Member(Visibility.PUBLIC, false, "join", new JoinStaticMethod()))
+                    .setParameters(Parameters.newInstance().add("value", EMPTY))
                     .setConstructor((thread, params) -> new TString(TNIUtils.toString(thread, params.get(0))))
                     .build();
 

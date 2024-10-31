@@ -56,11 +56,11 @@ public class TscriptParser implements Parser {
             }
             moduleName = sb.toString();
             parseEOS();
-            token = lexer.peek();
         }
 
         List<? extends TCTree> imports = parseImports();
 
+        token = lexer.peek();
         while (!token.hasTag(EOF)) {
 
             TCStatementTree stmt = parseStatement();

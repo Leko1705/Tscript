@@ -8,9 +8,7 @@ import com.tscript.runtime.typing.*;
 import com.tscript.runtime.utils.Conversion;
 import com.tscript.runtime.utils.Tuple;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -172,7 +170,10 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         byte[][] instructions = new byte[amount][];
 
         for (int i = 0; i < amount; i++) {
-            Opcode opc = Opcode.of(reader.read());
+            byte opcodeByte = reader.read();
+            Opcode opc = Opcode.of(opcodeByte);
+            if (opc == null)
+                throw new UnsupportedOperationException("opcode " + opcodeByte);
             byte[] args = new byte[1 + opc.argc];
 
             args[0] = opc.b;
@@ -262,11 +263,11 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
     }
 
     private static class LazyReader {
-        private final FileReader reader;
+        private final InputStream reader;
 
         private LazyReader(File file) {
             try{
-                reader = new FileReader(file);
+                reader = new FileInputStream(file);
             }
             catch (IOException e) {
                 throw new AssertionError();

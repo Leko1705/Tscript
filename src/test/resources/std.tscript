@@ -59,7 +59,7 @@ namespace turtle {
 
 namespace bits {
 
-    class BitStream{
+    class BitStream {
 
     	private:
     		var x;
@@ -80,10 +80,10 @@ namespace bits {
 
     	# returns an unsigned Integer as a Real number
     	public: function getUnsigned(){
-    		return Real(toDecimalString(toString()));
+    		return Real(toDecimalString(__str__()));
     	}
 
-    	public: function toString(){
+    	public: function __str__(){
     		var s = "";
     		for var k in 0:32 do{
     			if (x and 2^k) != 0 then s = "1" + s;
@@ -94,7 +94,7 @@ namespace bits {
 
     	public: function equals(value){
     		if Type(value) == Integer then return x == value;
-    		return toString() == value.toString();
+    		return __str__() == value.toString();
     	}
 
     	public: function clear(){
@@ -127,7 +127,7 @@ namespace bits {
     	}
 
     	public: function NOT(){
-    		return BitStream(not x);
+    		return BitStream(not this.x);
     	}
 
     	public: function AND(value){
@@ -179,7 +179,7 @@ namespace bits {
     	}
 
     	public: function lastBitIndex(){
-    		var s = toString().split("");
+    		var s = __str__().split("");
     		for var i in 0:s.size() do{
     			if s[i] == "1" then return s.size()-i;
     		}
@@ -246,6 +246,7 @@ namespace bits {
     	}
 
     }
+
 }
 
 

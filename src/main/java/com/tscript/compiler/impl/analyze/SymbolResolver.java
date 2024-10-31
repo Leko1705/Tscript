@@ -224,7 +224,7 @@ public class SymbolResolver {
 
 
         private int index(Set<Modifier> modifiers){
-            if (modifiers.contains(Modifier.STATIC))
+            if (modifiers != null && modifiers.contains(Modifier.STATIC))
                 return staticAddress++;
             else
                 return nextAddress++;

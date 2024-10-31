@@ -1,3 +1,7 @@
 module test;
 
-import std.BitStream;
+from std import bits;
+
+var stream = bits.BitStream(1);
+print(stream);
+print(stream.NOT());

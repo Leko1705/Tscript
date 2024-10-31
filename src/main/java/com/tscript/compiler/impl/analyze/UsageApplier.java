@@ -127,7 +127,7 @@ public class UsageApplier {
                 return null;
             }
 
-            if (scope.owner.sym.name.equals(node.name)){
+            if (scope.owner != null && scope.owner.sym.name.equals(node.name)){
                 node.sym = scope.owner.sym;
                 return null;
             }

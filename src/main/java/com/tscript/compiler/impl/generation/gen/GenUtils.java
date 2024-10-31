@@ -25,7 +25,7 @@ public class GenUtils {
             instructions = genMappedArgs(context, args, gen);
             genCalled.run();
             instructions.add(new CallMapped(args.size()));
-            gen.stackShrinks(-args.size() + 1);
+            gen.stackShrinks(args.size());
         }
         else {
             genInplaceArgs(args, gen);

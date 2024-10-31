@@ -136,11 +136,13 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         TCFunctionTree transformed = new ConstructorFunction(node, handled.name);
         constructorGenerator = new FunctionGenerator(context, transformed);
 
-        constructorGens.add(0, () -> {
-            constructorGenerator.addInstructions(GenUtils.genArgFetch(context, node.superArgs, constructorGenerator));
-            constructorGenerator.addInstructions(List.of(new CallSuper(node.superArgs.size())));
-            constructorGenerator.stackShrinks(node.superArgs.size());
-        });
+        if (handled.superName != null && !handled.superName.isEmpty()) {
+            constructorGens.add(0, () -> {
+                constructorGenerator.addInstructions(GenUtils.genArgFetch(context, node.superArgs, constructorGenerator));
+                constructorGenerator.addInstructions(List.of(new CallSuper(node.superArgs.size())));
+                constructorGenerator.stackShrinks(node.superArgs.size());
+            });
+        }
 
         return null;
     }
