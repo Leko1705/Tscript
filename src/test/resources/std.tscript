@@ -127,7 +127,7 @@ namespace bits {
     	}
 
     	public: function NOT(){
-    		return BitStream(not this.x);
+    		return BitStream(not x);
     	}
 
     	public: function AND(value){

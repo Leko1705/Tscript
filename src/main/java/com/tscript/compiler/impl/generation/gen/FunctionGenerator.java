@@ -344,6 +344,12 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitMemberAccess(TCMemberAccessTree node, Void unused) {
+
+        if (node.expression instanceof ThisTree){
+            func.getInstructions().add(new LoadInternal(node.sym.address));
+            return null;
+        }
+
         scan(node.expression, null);
         newLine(node);
         func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, node.getMemberName())));
