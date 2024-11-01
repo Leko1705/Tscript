@@ -590,12 +590,6 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
                 }
             }
 
-            if (func.name.equals("BitStream.NOT")){
-                int x = 3;
-            }
-
-
-
             Scope.ClassScope clsScope = (Scope.ClassScope) node.sym.owner;
             if (!clsScope.sym.isNamespace) {
                 if (node.sym.isStatic() && !handled.modifiers.flags.contains(Modifier.STATIC)) {
@@ -674,6 +668,8 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     protected void stackShrinks(int size){
         currentStackSize -= size;
+        if (currentStackSize < 0)
+            throw new AssertionError("stack size < 0");
     }
 
 

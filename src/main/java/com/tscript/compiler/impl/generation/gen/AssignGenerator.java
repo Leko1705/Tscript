@@ -65,7 +65,7 @@ public class AssignGenerator extends TCTreeScanner<Void, Void> {
         if (node.expression instanceof ThisTree){
             dupIfRequireReload();
             func.getInstructions().add(new StoreInternal(node.sym.address));
-            user.stackShrinks(2);
+            user.stackShrinks();
             return null;
         }
 
