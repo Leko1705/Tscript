@@ -85,11 +85,11 @@ namespace bits {
 
     	public: function __str__(){
     		var s = "";
-    		for var k in 0:32 do{
+    		for var k in 0:31 do{
     			if (x and 2^k) != 0 then s = "1" + s;
     			else s = "0" + s;
     		}
-    		return s;
+    		return lsb() + s;
     	}
 
     	public: function equals(value){
@@ -98,7 +98,7 @@ namespace bits {
     	}
 
     	public: function clear(){
-    		return BitStream(x xor x);
+    		return BitStream(0);
     	}
 
     	public: function shiftLeft(times=1){
@@ -146,7 +146,10 @@ namespace bits {
     	}
 
     	public: function lsb(){
-    		return Integer(x < 0);
+    	    if x < 0 then
+    	        return 1;
+    	    else
+    	        return 0;
     	}
 
     	public: function lsbFlip(){

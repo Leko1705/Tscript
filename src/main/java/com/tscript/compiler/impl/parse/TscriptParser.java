@@ -135,7 +135,7 @@ public class TscriptParser implements Parser {
 
         String name = token.getLexeme();
 
-        List<TCDefinitionTree> definitions = new ArrayList<>();
+        List<TCTree> definitions = new ArrayList<>();
 
         token = lexer.consume();
         if (!token.hasTag(CURVED_OPEN))
@@ -145,9 +145,20 @@ public class TscriptParser implements Parser {
 
         if (!token.hasTag(CURVED_CLOSED)) {
             do {
-                TCDefinitionTree def = parseDefinition();
-                if (def == null) break;
+                TCTree def = parseDefinition();
+                if (def == null) {
+                    if (token.hasTag(VAR)){
+                        def = parseVarDec(Modifier.STATIC);
+                    }
+                    else if (token.hasTag(CONST)){
+                        def = parseVarDec(Modifier.STATIC, Modifier.CONSTANT);
+                    }
+                    else {
+                        break;
+                    }
+                }
                 definitions.add(def);
+                token = lexer.peek();
             } while (true);
         }
 

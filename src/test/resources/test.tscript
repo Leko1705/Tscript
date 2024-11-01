@@ -1,7 +1,8 @@
 module test;
 
-from std import bits;
+namespace X {
+    const x = 3;
+}
 
-var stream = bits.BitStream(1);
-print(stream);
-print(stream.NOT());
+X.x = 4;
+print(X.x);

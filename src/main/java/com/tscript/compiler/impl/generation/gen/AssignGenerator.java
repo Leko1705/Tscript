@@ -5,6 +5,7 @@ import com.tscript.compiler.impl.utils.Scope;
 import com.tscript.compiler.impl.utils.Symbol;
 import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.impl.utils.TCTreeScanner;
+import com.tscript.compiler.source.tree.MemberAccessTree;
 import com.tscript.compiler.source.tree.ThisTree;
 
 public class AssignGenerator extends TCTreeScanner<Void, Void> {
@@ -60,18 +61,19 @@ public class AssignGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitMemberAccess(TCTree.TCMemberAccessTree node, Void unused) {
-        user.stackShrinks();
 
         if (node.expression instanceof ThisTree){
             dupIfRequireReload();
             func.getInstructions().add(new StoreInternal(node.sym.address));
+            user.stackShrinks(2);
             return null;
         }
 
         user.scan(node.expression, null);
         dupIfRequireReload();
+        user.newLine(node);
         func.getInstructions().add(new StoreExternal(PoolPutter.putUtf8(context, node.memberName)));
-
+        user.stackShrinks(2);
         return null;
     }
 
@@ -80,6 +82,7 @@ public class AssignGenerator extends TCTreeScanner<Void, Void> {
         user.scan(node.key, null);
         user.scan(node.container, null);
         dupIfRequireReload();
+        user.newLine(node);
         func.getInstructions().add(new ContainerWrite());
         user.stackShrinks(3);
         return null;

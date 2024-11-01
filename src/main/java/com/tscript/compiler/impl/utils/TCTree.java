@@ -788,14 +788,14 @@ public abstract class TCTree implements Tree {
 
     public static class TCNamespaceTree extends TCDefinitionTree implements NamespaceTree {
 
-        public final List<? extends TCDefinitionTree> definitions;
+        public final List<? extends TCTree> definitions;
 
         public final List<? extends TCStatementTree> statements;
 
         public ClassSymbol sym;
 
         public TCNamespaceTree(Location location, String name, TCModifiersTree modifiers,
-                               List<? extends TCDefinitionTree> definitions,
+                               List<? extends TCTree> definitions,
                                List<? extends TCStatementTree> statements) {
             super(location, name, modifiers);
             this.definitions = definitions;
@@ -803,7 +803,7 @@ public abstract class TCTree implements Tree {
         }
 
         @Override
-        public List<? extends DefinitionTree> getDefinitions() {
+        public List<? extends Tree> getDefinitions() {
             return definitions;
         }
 
@@ -1306,7 +1306,7 @@ public abstract class TCTree implements Tree {
         TCNamespaceTree NamespaceTree(Location location,
                                     TCModifiersTree modifiers,
                                     String name,
-                                    List<? extends TCDefinitionTree> definitions,
+                                    List<? extends TCTree> definitions,
                                     List<? extends TCStatementTree> statements);
 
         TCNotTree NotTree(Location location,

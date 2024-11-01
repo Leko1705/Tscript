@@ -259,7 +259,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
     }
 
     private boolean isMutable(byte specs){
-        return (specs >> 4) != 1;
+        return (specs >> 3) == 1;
     }
 
     private static class LazyReader {

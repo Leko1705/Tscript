@@ -194,7 +194,7 @@ public class TreeMaker implements TCTree.Factory {
     public TCNamespaceTree NamespaceTree(Location location,
                                          TCModifiersTree modifiers,
                                        String name,
-                                       List<? extends TCDefinitionTree> definitions,
+                                       List<? extends TCTree> definitions,
                                        List<? extends TCStatementTree> statements) {
         return new TCNamespaceTree(location, name, modifiers, definitions, statements);
     }

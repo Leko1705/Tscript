@@ -31,7 +31,7 @@ public interface NamespaceTree extends DefinitionTree {
      * Returns all definitions for this Namespace.
      * @return the definitions
      */
-    List<? extends DefinitionTree> getDefinitions();
+    List<? extends Tree> getDefinitions();
 
     /**
      * Returns all statements being executed inside this namespace.
