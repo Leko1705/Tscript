@@ -581,7 +581,6 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         }
 
         if (node.sym.owner.kind == Scope.Kind.CLASS){
-            Scope.ClassScope clsScope = (Scope.ClassScope) node.sym.owner;
 
             if (node.sym.kind == Symbol.Kind.FUNCTION){
                 Symbol.FunctionSymbol funcSym = (Symbol.FunctionSymbol) node.sym;
@@ -591,6 +590,13 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
                 }
             }
 
+            if (func.name.equals("BitStream.NOT")){
+                int x = 3;
+            }
+
+
+
+            Scope.ClassScope clsScope = (Scope.ClassScope) node.sym.owner;
             if (!clsScope.sym.isNamespace) {
                 if (node.sym.isStatic() && !handled.modifiers.flags.contains(Modifier.STATIC)) {
                     func.getInstructions().add(new LoadStatic(PoolPutter.putUtf8(context, node.name)));
@@ -605,6 +611,14 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
                 }
                 return null;
             }
+
+        }
+
+        if (node.sym.kind == Symbol.Kind.CLASS) {
+            assert node.sym instanceof Symbol.ClassSymbol;
+            Symbol.ClassSymbol classSym = (Symbol.ClassSymbol) node.sym;
+            func.getInstructions().add(new LoadType(classSym.classIndex));
+            return null;
         }
 
         func.getInstructions().add(new LoadLocal(addr));
