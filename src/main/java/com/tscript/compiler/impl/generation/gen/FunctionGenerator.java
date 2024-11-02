@@ -281,6 +281,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitLambda(TCLambdaTree node, Void unused) {
+
         LambdaFunction bridge = new LambdaFunction(node, "Lambda@" + context.getNextLambdaIndex());
         FunctionGenerator generator = new FunctionGenerator(context, bridge);
         generator.genParams().genBody().genReturn(null).complete();
@@ -294,7 +295,20 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         stackShrinks();
         func.getInstructions().add(new SetOwner());
 
+        for (TCClosureTree closure : node.closures) {
+            func.getInstructions().add(new Dup());
+            stackGrows();
+            scan(closure, null);
+            func.getInstructions().add(new Extend(PoolPutter.putUtf8(context, closure.name)));
+            stackShrinks(2);
+        }
+
         return null;
+    }
+
+    @Override
+    public Void visitClosure(TCClosureTree node, Void unused) {
+        return scan(node.initializer, null);
     }
 
     @Override
@@ -568,7 +582,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
             return null;
         }
 
-        if (node.sym.kind == Symbol.Kind.UNKNOWN){
+        if (node.sym.kind == Symbol.Kind.UNKNOWN || node.sym.kind == Symbol.Kind.CLOSURE){
             func.getInstructions().add(new LoadName(PoolPutter.putUtf8(context, node.name)));
             return null;
         }

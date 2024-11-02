@@ -309,7 +309,7 @@ public abstract class TCTree implements Tree {
 
     public static class TCClosureTree extends TCNameInitTree implements ClosureTree {
 
-        public VarSymbol sym;
+        public ClosureSymbol sym;
 
         public TCClosureTree(Location location, String name, TCExpressionTree initializer) {
             super(location, name, initializer);

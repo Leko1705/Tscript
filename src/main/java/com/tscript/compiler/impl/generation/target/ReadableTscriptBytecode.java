@@ -12,6 +12,9 @@ import com.tscript.runtime.core.Builtins;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.StringJoiner;
 
 public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWriter,
@@ -47,7 +50,9 @@ public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWri
             write("\t" + ((variable.isMutable) ? "var " : "const ") + variable.name);
         }
         writePool(file.getConstantPool());
-        for (CompiledFunction function : file.getFunctions()) {
+        List<CompiledFunction> functions = new ArrayList<>(file.getFunctions());
+        functions.sort(Comparator.comparing(CompiledFunction::getIndex));
+        for (CompiledFunction function : functions) {
             writeFunction(function);
             write("");
         }
@@ -235,6 +240,11 @@ public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWri
     @Override
     public void writeLoadExternal(LoadExternal inst) {
         writeInst("LOAD_EXTERNAL " + inst.address);
+    }
+
+    @Override
+    public void writePutClosure(Extend inst) {
+        writeInst("EXTEND " + inst.address);
     }
 
     @Override

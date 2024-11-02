@@ -46,6 +46,8 @@ public interface InstructionWriter {
 
     void writeLoadExternal(LoadExternal inst);
 
+    void writePutClosure(Extend inst);
+
     void writeStoreExternal(StoreExternal inst);
 
     void writeLoadInternal(LoadInternal inst);
@@ -117,4 +119,5 @@ public interface InstructionWriter {
     void writeToMapArg(ToMapArg inst);
 
     void writeUse(Use inst);
+
 }

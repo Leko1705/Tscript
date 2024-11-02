@@ -4,6 +4,7 @@ import com.tscript.compiler.source.tree.*;
 import com.tscript.compiler.impl.utils.Errors;
 import com.tscript.compiler.source.utils.TreeScanner;
 
+import java.io.BufferedReader;
 import java.util.Set;
 
 public class ScopeChecker {
@@ -29,11 +30,14 @@ public class ScopeChecker {
         public Void visitClass(ClassTree node, Void unused) {
             boolean inClass = this.inClass;
             boolean inAbstractScope = this.inAbstractScope;
+            boolean inNamespace = this.inNamespace;
             this.inClass = true;
+            this.inNamespace = false;
             this.inAbstractScope = node.getModifiers().getFlags().contains(Modifier.ABSTRACT);
             super.visitClass(node, unused);
             this.inClass = inClass;
             this.inAbstractScope = inAbstractScope;
+            this.inNamespace = inNamespace;
             return null;
         }
 
@@ -163,7 +167,7 @@ public class ScopeChecker {
 
         @Override
         public Void visitThis(ThisTree thisTree, Void unused) {
-            if ((!inClass && !inLambda && !inFunction) || inNamespace)
+            if ((!inClass && !inLambda && !inFunction && !inConstructor) || inNamespace)
                 throw Errors.canNotUseThisOutOfClassOrFunction(thisTree.getLocation());
 
             else if (inFunction && inStaticScope)

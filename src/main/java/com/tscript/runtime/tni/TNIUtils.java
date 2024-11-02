@@ -1,9 +1,13 @@
 package com.tscript.runtime.tni;
 
+import com.tscript.runtime.core.Frame;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.typing.*;
 
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 public class TNIUtils {
 
@@ -54,6 +58,19 @@ public class TNIUtils {
             object = object.getSuper();
         }
         return null;
+    }
+
+    public static TObject evalNativeContext(
+            TThread thread,
+            Callable callable,
+            Supplier<TObject> callback
+    ) {
+
+        thread.frameStack.push(Frame.createNativeFrame(callable));
+        TObject result = callback.get();
+        if (result == null) return null;
+        thread.frameStack.pop();
+        return result;
     }
 
 }

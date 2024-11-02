@@ -17,7 +17,7 @@ class JavaField implements TObject, Member {
     protected JavaField(Field field, Object instance, TscriptVM vm) {
         this.field = field;
         this.vm = vm;
-        type = new JavaType(field.getType(), vm);
+        type = JavaAPIStateManager.getInstance(vm).getType(field.getType());
         this.instance = instance;
     }
 

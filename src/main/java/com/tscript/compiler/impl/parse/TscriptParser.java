@@ -1063,7 +1063,11 @@ public class TscriptParser implements Parser {
             if (!token.hasTag(BRACKET_CLOSED, EOF)) {
                 do {
                     TCParameterTree param = parseParam();
-                    closures.add(F.ClosureTree(param.getLocation(), param.getName(), param.defaultValue));
+                    TCExpressionTree init = param.defaultValue;
+                    if (init == null){
+                        init = F.VariableTree(param.location, param.name);
+                    }
+                    closures.add(F.ClosureTree(param.getLocation(), param.getName(), init));
 
                     token = lexer.peek();
                     if (token.hasTag(COMMA)) {

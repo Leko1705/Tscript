@@ -2,32 +2,40 @@ package com.tscript.runtime.tni.natfuncs.api4j;
 
 import com.tscript.runtime.typing.TObject;
 
-import java.lang.reflect.Method;
 import java.util.*;
 
-class JavaMethodTree {
+class JavaInvocationTree {
 
 
     private static class Node {
 
-        private Method method;
+        private Invokable invokable;
         private final Map<Class<?>, Node> children = new HashMap<>();
 
-        public void put(Iterator<Class<?>> itr, Method method) {
+        public void put(Iterator<Class<?>> itr, Invokable invokable) {
             if (!itr.hasNext()) {
-                this.method = method;
+                this.invokable = invokable;
                 return;
             }
             Node node = children.computeIfAbsent(itr.next(), k -> new Node());
-            node.put(itr, method);
+            node.put(itr, invokable);
         }
 
-        public Method getMethod(Iterator<TObject> itr) {
-            if (!itr.hasNext()) return method;
+        public Invokable getMethod(Iterator<TObject> itr) {
+            if (!itr.hasNext()) return invokable;
             TObject next = itr.next();
             Class<?> clazz = APIUtils.getClassOf(next);
             Node child = children.get(clazz);
-            if (child == null) return null;
+            if (child == null) {
+                for (Class<?> candidate : children.keySet()) {
+                    if (candidate.isAssignableFrom(clazz)) {
+                        child = children.get(candidate);
+                        break;
+                    }
+                }
+                if (child == null)
+                    return null;
+            }
             return child.getMethod(itr);
         }
 
@@ -37,13 +45,13 @@ class JavaMethodTree {
 
     private final Node root = new Node();
 
-    void add(Method method) {
-        Iterator<Class<?>> itr = List.of(method.getParameterTypes()).iterator();
+    void add(Invokable invokable) {
+        Iterator<Class<?>> itr = List.of(invokable.getParameterTypes()).iterator();
         itr = new ClassPutterItr(itr);
-        root.put(itr, method);
+        root.put(itr, invokable);
     }
 
-    Method getMethod(Iterator<TObject> params) {
+    Invokable getMethod(Iterator<TObject> params) {
         return root.getMethod(params);
     }
 

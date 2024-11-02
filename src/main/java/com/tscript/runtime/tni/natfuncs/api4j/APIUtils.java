@@ -3,8 +3,9 @@ package com.tscript.runtime.tni.natfuncs.api4j;
 import com.tscript.runtime.core.TscriptVM;
 import com.tscript.runtime.typing.*;
 
-import java.lang.reflect.Member;
 import java.lang.reflect.Modifier;
+import java.util.Iterator;
+import java.util.List;
 
 class APIUtils {
 
@@ -58,7 +59,7 @@ class APIUtils {
                     ? ((TString)got).getValue().charAt(0)
                     : null;
         }
-        if (expected == String.class) {
+        if (expected.isAssignableFrom(String.class)) {
             return got.getType() == TString.TYPE
                     ? ((TString)got).getValue()
                     : null;
@@ -66,7 +67,7 @@ class APIUtils {
 
         if (got instanceof JavaInstanceObject) {
             Object candidate = ((JavaInstanceObject)got).instance;
-            return expected == candidate.getClass()
+            return expected.isAssignableFrom(candidate.getClass())
                     ? candidate
                     : null;
         }
@@ -80,9 +81,9 @@ class APIUtils {
         if (obj.getType() == TReal.TYPE) return Double.class;
         if (obj.getType() == TBoolean.TYPE) return Boolean.class;
         if (obj.getType() == TString.TYPE) return String.class;
-        if (obj.getType() instanceof JavaInstanceObject o)
+        if (obj instanceof JavaInstanceObject o)
             return o.instance.getClass();
-        return null;
+        throw new AssertionError(obj.getType().getDisplayName());
     }
 
     protected static TObject toTObject(Object obj, TscriptVM vm) {
@@ -150,6 +151,34 @@ class APIUtils {
 
     protected static String primitiveNotNullableError(Class<?> clazz){
         return "primitive type '" + clazz.getName() + "' is not nullable";
+    }
+
+    protected static Object[] prepareParameters(Invokable invokable, List<TObject> args){
+        Class<?>[] expectedTypes = invokable.getParameterTypes();
+        Object[] prepared = new Object[expectedTypes.length];
+
+        Iterator<TObject> iterator = args.iterator();
+        for (int i = 0; i < expectedTypes.length; i++) {
+            Class<?> expected = expectedTypes[i];
+            TObject got = iterator.next();
+
+            if (expected.isPrimitive() && got == Null.INSTANCE) {
+                throw new RuntimeException(APIUtils.primitiveNotNullableError(expected));
+            }
+
+            Object arg = APIUtils.validate(expected, got);
+            if (arg == null && got != Null.INSTANCE) {
+                throw new RuntimeException(APIUtils.invalidType(expected, got));
+            }
+
+            prepared[i] = arg;
+        }
+
+        return prepared;
+    }
+
+    protected static String requirePositionalArgsMsg(){
+        return "java callable elements require positional arguments";
     }
 
 }

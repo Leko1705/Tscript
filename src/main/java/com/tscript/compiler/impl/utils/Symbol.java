@@ -16,6 +16,7 @@ public abstract class Symbol implements Cloneable {
         CLASS,
         IMPORTED,
         BUILTIN,
+        CLOSURE,
         UNKNOWN
     }
 
@@ -79,6 +80,15 @@ public abstract class Symbol implements Cloneable {
 
         public VarSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
             super(Kind.VARIABLE, name, modifiers, owner, addr, location);
+        }
+
+    }
+
+
+    public static final class ClosureSymbol extends Symbol {
+
+        public ClosureSymbol(String name, Set<Modifier> modifiers, Scope owner, int addr, Location location) {
+            super(Kind.CLOSURE, name, modifiers, owner, addr, location);
         }
 
     }

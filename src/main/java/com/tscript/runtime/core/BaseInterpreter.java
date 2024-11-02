@@ -490,6 +490,7 @@ public class BaseInterpreter implements Interpreter {
     }
 
     private Callable checkCall(TObject candidate){
+
         if (isStackOverflowError())
             return null;
 
@@ -591,7 +592,7 @@ public class BaseInterpreter implements Interpreter {
             TObject curr = thread.getFrame().getOwner();
             Member found = curr.loadMember(name);
             if (found != null){
-                thread.push(curr);
+                thread.push(found.get());
                 return;
             }
             while (curr != null){
@@ -641,7 +642,21 @@ public class BaseInterpreter implements Interpreter {
         thread.push(top);
     }
 
+    @Override
+    public void extend(byte b1, byte b2) {
+        TObject what = thread.pop();
+        TObject top = thread.pop();
 
+        String memberName = getUtf8Constant(b1, b2);
+        Member member = Member.of(Visibility.PRIVATE, true, memberName, what);
+
+        try {
+            top.addMember(member);
+        }
+        catch (UnsupportedOperationException ex){
+            thread.reportRuntimeError("can not extend " + top.getType().getDisplayName());
+        }
+    }
 
     private Member loadMemberFromExternal(TObject lookedUp, byte b1, byte b2) {
         String memberName = getUtf8Constant(b1, b2);

@@ -71,10 +71,15 @@ public class TThread extends Thread implements Environment, TObject {
         catch (Exception e){
             String s = "An Internal Error occurred";
             if (!frameStack.isEmpty()){
-            if (frameStack.element().line() != -1){
-                s += " near line " + frameStack.element().line();
-            }
-            s += " in module: " + frameStack.element().getModule().getCanonicalPath();
+                if (frameStack.element().line() != -1){
+                    s += " near line " + frameStack.element().line();
+                }
+                if (frameStack.element().getModule() == null){
+                    s += "in native context";
+                }
+                else {
+                    s += " in module: " + frameStack.element().getModule().getCanonicalPath();
+                }
             }
             else {
                 System.out.println(" (frame is empty)");
@@ -176,6 +181,7 @@ public class TThread extends Thread implements Environment, TObject {
             case USE -> interpreter.use();
             case LOAD_NAME -> interpreter.loadName(instruction[1], instruction[2]);
             case DUP -> interpreter.dup();
+            case EXTEND -> interpreter.extend(instruction[1], instruction[2]);
             default -> throw new ExecutionException("unsupported opcode: " + opcode);
         }
     }

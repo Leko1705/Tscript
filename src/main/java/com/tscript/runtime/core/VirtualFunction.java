@@ -7,7 +7,7 @@ import com.tscript.runtime.typing.Parameters;
 import com.tscript.runtime.typing.TObject;
 
 
-
+import java.util.ArrayList;
 import java.util.List;
 
 public class VirtualFunction extends Function {
@@ -18,6 +18,7 @@ public class VirtualFunction extends Function {
     private final int stackSize;
     private final int locals;
     private final Module module;
+    private final List<Member> members = new ArrayList<>();
 
     public VirtualFunction(String name,
                            Parameters parameters,
@@ -59,18 +60,13 @@ public class VirtualFunction extends Function {
     }
 
     @Override
-    public Member loadMember(int index) {
-        return null;
-    }
-
-    @Override
-    public Member loadMember(String name) {
-        return null;
-    }
-
-    @Override
     public Iterable<Member> getMembers() {
-        return List.of();
+        return members;
+    }
+
+    @Override
+    public void addMember(Member member) {
+        members.add(member);
     }
 
     @Override

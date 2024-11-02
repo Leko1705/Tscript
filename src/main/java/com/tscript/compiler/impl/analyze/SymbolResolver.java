@@ -108,15 +108,16 @@ public class SymbolResolver {
         @Override
         public Void visitLambda(TCLambdaTree node, Scope scope) {
             node.scope = new LambdaScope(scope);
-            for (TCClosureTree cls : node.closures){
-                scan(cls.initializer, scope);
-                // address is -1 since closures are
-                // compiled to private fields of the lambda
-                cls.sym = new VarSymbol(cls.name, Set.of(), node.scope, Symbol.NO_ADDRESS, node.location);
-                putIfAbsent(node, node.scope, cls.sym);
-            }
+
             int prevNextAddress = nextAddress;
             nextAddress = 0;
+
+            for (TCClosureTree cls : node.closures){
+                scan(cls.initializer, scope);
+                cls.sym = new ClosureSymbol(cls.name, Set.of(), node.scope, nextAddress++, node.location);
+                putIfAbsent(node, node.scope, cls.sym);
+            }
+
             scan(node.parameters, node.scope);
             scan(node.body, node.scope);
             nextAddress = prevNextAddress;

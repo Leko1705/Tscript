@@ -5,29 +5,27 @@ import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.typing.*;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.StringJoiner;
 
 class JavaMethod extends NativeFunction implements Member {
 
     private final String name;
-    private final Object instance;
-    private final JavaMethodTree methodTree;
+    private final JavaInstanceObject instance;
+    private final JavaInvocationTree methodTree;
 
-    protected JavaMethod(String name, JavaInstanceObject object) {
+    protected JavaMethod(String name, JavaInstanceObject instance) {
         this.name = name;
-        this.instance = object.instance;
-        methodTree = new JavaMethodTree();
+        this.instance = instance;
+        methodTree = new JavaInvocationTree();
 
-        setOwner(object);
+        setOwner(instance);
     }
 
     protected void extend(Method method) {
-        methodTree.add(method);
+        methodTree.add(new MethodInvocation(method));
     }
 
     @Override
@@ -67,16 +65,17 @@ class JavaMethod extends NativeFunction implements Member {
 
     @Override
     public TObject call(TThread thread, List<String> names, List<TObject> arguments) {
-        return evaluate(thread, arguments);
+        thread.reportRuntimeError(APIUtils.requirePositionalArgsMsg());
+        return null;
     }
 
     @Override
     public TObject evaluate(Environment env, List<TObject> arguments) {
 
-        Method method = methodTree.getMethod(arguments.iterator());
+        Invokable invokable = methodTree.getMethod(arguments.iterator());
 
-        if (method == null) {
-            String msg = "can not resolve method with signature: " + name;
+        if (invokable == null) {
+            String msg = "can not resolve method with signature: " + instance.instance.getClass().getSimpleName() + "#" + name;
             StringJoiner joiner = new StringJoiner(", ", "(", ")");
             for (TObject argument : arguments) {
                 joiner.add(argument.getType().getName());
@@ -89,10 +88,10 @@ class JavaMethod extends NativeFunction implements Member {
         Object result;
 
         try {
-            Object[] args = prepareParameters(method, arguments);
-            result = method.invoke(instance, args);
+            Object[] args = APIUtils.prepareParameters(invokable, arguments);
+            result = invokable.invoke(instance.instance, args);
         }
-        catch (Exception e){
+        catch (Throwable e){
             env.reportRuntimeError("error while running java method: " + e.getClass().getName() + " -> " + e.getMessage());
             return null;
         }
@@ -100,28 +99,23 @@ class JavaMethod extends NativeFunction implements Member {
         return APIUtils.toTObject(result, env.getCurrentThread().getVM());
     }
 
-    private Object[] prepareParameters(Method method, List<TObject> args){
-        Class<?>[] expectedTypes = method.getParameterTypes();
-        Object[] prepared = new Object[expectedTypes.length];
 
-        Iterator<TObject> iterator = args.iterator();
-        for (int i = 0; i < expectedTypes.length; i++) {
-            Class<?> expected = expectedTypes[i];
-            TObject got = iterator.next();
+    private record MethodInvocation(Method method) implements Invokable {
 
-            if (expected.isPrimitive() && got == Null.INSTANCE) {
-                throw new RuntimeException(APIUtils.primitiveNotNullableError(expected));
+        @Override
+        public Object invoke(Object obj, Object[] args) throws Throwable {
+            try {
+                return method.invoke(obj, args);
             }
-
-            Object arg = APIUtils.validate(expected, got);
-            if (arg == null && got != Null.INSTANCE) {
-                throw new RuntimeException(APIUtils.invalidType(expected, got));
+            catch (InvocationTargetException ex){
+                throw ex.getTargetException();
             }
-
-            prepared[i] = arg;
         }
 
-        return prepared;
+        @Override
+        public Class<?>[] getParameterTypes() {
+            return method.getParameterTypes();
+        }
     }
 
 }

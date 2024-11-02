@@ -26,6 +26,10 @@ public interface TObject {
         return null;
     }
 
+    default void addMember(Member member){
+        throw new UnsupportedOperationException();
+    }
+
     default TObject getSuper(){
         return null;
     }

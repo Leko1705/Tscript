@@ -17,20 +17,6 @@ class JavaInstanceObject implements TObject {
 
     private final List<Member> content = new ArrayList<>();
 
-    protected JavaInstanceObject(JavaType type, TscriptVM vm) {
-        this.type = type;
-
-        Class<?> clazz = type.clazz;
-        try {
-            instance = clazz.getConstructor().newInstance();
-        }
-        catch (Exception e){
-            throw new RuntimeException(e.getMessage());
-        }
-
-        init(vm);
-    }
-
     protected JavaInstanceObject(JavaType type, Object instance, TscriptVM vm) {
         this.type = Objects.requireNonNull(type);
         this.instance = Objects.requireNonNull(instance);

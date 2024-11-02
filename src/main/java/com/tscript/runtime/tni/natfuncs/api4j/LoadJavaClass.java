@@ -42,7 +42,7 @@ public class LoadJavaClass extends NativeFunction {
             return JavaAPIStateManager.getInstance(env.getCurrentThread().getVM()).getType(clazz);
         }
         catch (Exception e){
-            env.reportRuntimeError("error while inflating java type " + e.getMessage());
+            env.reportRuntimeError("error while inflating java type -> " + e.getClass().getName() + ": " + e.getMessage());
             return null;
         }
     }

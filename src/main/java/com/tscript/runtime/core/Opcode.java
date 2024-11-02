@@ -14,6 +14,7 @@ public enum Opcode {
     LOAD_VIRTUAL(2),
     LOAD_BUILTIN(2),
     SET_OWNER(0),
+    EXTEND(2),
 
     LOAD_TYPE(2),
     BUILD_TYPE(2),

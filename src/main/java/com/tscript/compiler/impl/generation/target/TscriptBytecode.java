@@ -335,6 +335,11 @@ public class TscriptBytecode
     }
 
     @Override
+    public void writePutClosure(Extend inst) {
+        write(Opcode.EXTEND, Conversion.to2Bytes(inst.address));
+    }
+
+    @Override
     public void writeStoreExternal(StoreExternal inst) {
         write(Opcode.STORE_EXTERNAL, Conversion.to2Bytes(inst.address));
     }

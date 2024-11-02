@@ -112,4 +112,5 @@ public interface Interpreter {
 
     void dup();
 
+    void extend(byte b1, byte b2);
 }

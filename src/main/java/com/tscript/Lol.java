@@ -4,7 +4,8 @@ public class Lol {
 
     public static int x = 3;
 
-    public void foo(){
+    public static void foo(){
+        x++;
     }
 
 }
