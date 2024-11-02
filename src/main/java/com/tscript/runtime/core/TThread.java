@@ -33,10 +33,10 @@ public class TThread extends Thread implements Environment, TObject {
     protected int frameStackExitThreshold = 0;
 
     private final Map<String, Member> members = new HashMap<>(Map.of(
-            "name", new Member(Visibility.PUBLIC, false, "name", new NameMethod()),
-            "id", new Member(Visibility.PUBLIC, false, "id", new IdMethod()),
-            "start", new Member(Visibility.PUBLIC, false, "start", new StartMethod()),
-            "stop", new Member(Visibility.PUBLIC, false, "stop", new StopMethod())
+            "name", Member.of(Visibility.PUBLIC, false, "name", new NameMethod()),
+            "id", Member.of(Visibility.PUBLIC, false, "id", new IdMethod()),
+            "start", Member.of(Visibility.PUBLIC, false, "start", new StartMethod()),
+            "stop", Member.of(Visibility.PUBLIC, false, "stop", new StopMethod())
     ));
 
     public TThread(TscriptVM vm, Callable callable, List<TObject> args) {

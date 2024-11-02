@@ -57,9 +57,9 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
     public Range(TInteger from, TInteger to) {
         super(new Tuple<>(from, to));
         methods = new HashMap<>(Map.of(
-                "begin", new Member(Visibility.PUBLIC, false, "begin", new BeginMethod()),
-                "end", new Member(Visibility.PUBLIC, false, "end", new EndMethod()),
-                "size", new Member(Visibility.PUBLIC, false, "size", new SizeMethod())
+                "begin", Member.of(Visibility.PUBLIC, false, "begin", new BeginMethod()),
+                "end", Member.of(Visibility.PUBLIC, false, "end", new EndMethod()),
+                "size", Member.of(Visibility.PUBLIC, false, "size", new SizeMethod())
         ));
     }
 

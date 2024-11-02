@@ -12,9 +12,9 @@ import java.util.Map;
 class TypeType implements Type {
 
     private final Map<String, Member> members = new HashMap<>(Map.of(
-            "superclass", new Member(Visibility.PUBLIC, false, "superclass", new SuperClassStaticMethod()),
-            "isOfType", new Member(Visibility.PUBLIC, false, "isOfType", new IsOfTypeStaticMethod()),
-            "isDerivedFrom", new Member(Visibility.PUBLIC, false, "isDerivedFrom", new IsDerivedFromStaticMethod())
+            "superclass", Member.of(Visibility.PUBLIC, false, "superclass", new SuperClassStaticMethod()),
+            "isOfType", Member.of(Visibility.PUBLIC, false, "isOfType", new IsOfTypeStaticMethod()),
+            "isDerivedFrom", Member.of(Visibility.PUBLIC, false, "isDerivedFrom", new IsDerivedFromStaticMethod())
     ));
 
     @Override
@@ -122,7 +122,7 @@ class TypeType implements Type {
                 return null;
             }
 
-            return ((NativeFunction)members.get("isDerivedFrom").content).evaluate(env, List.of(value.getType(), type));
+            return ((NativeFunction)members.get("isDerivedFrom").get()).evaluate(env, List.of(value.getType(), type));
         }
     }
 

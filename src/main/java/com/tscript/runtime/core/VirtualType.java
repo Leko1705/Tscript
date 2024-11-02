@@ -32,7 +32,7 @@ public class VirtualType implements Type {
         this.instanceMembers = instanceMembers;
         for (int i = 0; i < instanceMembers.length; i++) {
             Member member = instanceMembers[i];
-            instanceMemberIndexMap.put(member.name, i);
+            instanceMemberIndexMap.put(member.getName(), i);
         }
     }
 
@@ -88,7 +88,7 @@ public class VirtualType implements Type {
 
         Member[] members = new Member[instanceMembers.length];
         for (int i = 0; i < instanceMembers.length; i++)
-            members[i] = new Member(instanceMembers[i]);
+            members[i] = Member.copy(instanceMembers[i]);
         VirtualObject object = new VirtualObject(this, members);
 
         if (constructor != null) {

@@ -42,11 +42,11 @@ public class TDictionary extends PrimitiveObject<Map<TObject, TObject>>
     public TDictionary(Map<TObject, TObject> value) {
         super(value);
         methods = new HashMap<>(Map.of(
-                "size", new Member(Visibility.PUBLIC, false, "size", new SizeMethod()),
-                "has", new Member(Visibility.PUBLIC, false, "has", new HasMethod()),
-                "remove", new Member(Visibility.PUBLIC, false, "remove", new RemoveMethod()),
-                "keys", new Member(Visibility.PUBLIC, false, "keys", new KeysMethod()),
-                "values", new Member(Visibility.PUBLIC, false, "values", new ValuesMethod())
+                "size", Member.of(Visibility.PUBLIC, false, "size", new SizeMethod()),
+                "has", Member.of(Visibility.PUBLIC, false, "has", new HasMethod()),
+                "remove", Member.of(Visibility.PUBLIC, false, "remove", new RemoveMethod()),
+                "keys", Member.of(Visibility.PUBLIC, false, "keys", new KeysMethod()),
+                "values", Member.of(Visibility.PUBLIC, false, "values", new ValuesMethod())
         ));
     }
 

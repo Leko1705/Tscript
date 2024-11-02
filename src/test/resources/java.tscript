@@ -1,0 +1,3 @@
+module java;
+
+native function loadClass;

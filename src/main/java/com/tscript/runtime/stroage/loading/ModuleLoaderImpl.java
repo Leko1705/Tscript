@@ -86,7 +86,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         for (int i = 0; i < globalAmount; i++) {
             String name = reader.readString();
             byte mutableByte = reader.read();
-            members[i] = new Member(Visibility.PUBLIC, mutableByte == 1, name, Null.INSTANCE);
+            members[i] = Member.of(Visibility.PUBLIC, mutableByte == 1, name, Null.INSTANCE);
         }
         return members;
     }
@@ -246,7 +246,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
             Visibility visibility = getVisibility(specs);
             boolean isMutable = isMutable(specs);
 
-            members[j] = new Member(visibility, isMutable, memberName, Null.INSTANCE);
+            members[j] = Member.of(visibility, isMutable, memberName, Null.INSTANCE);
         }
         return members;
     }

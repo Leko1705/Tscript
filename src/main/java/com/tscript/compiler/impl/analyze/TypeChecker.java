@@ -227,6 +227,10 @@ public class TypeChecker {
             Type left = scan(node.getLeftOperand(), null);
             Type right = scan(node.getRightOperand(), null);
 
+            if (node.getOperationType() == Operation.EQUALS
+                    || node.getOperationType() == Operation.NOT_EQUALS)
+                return types.get("Boolean");
+
             Type result = left.operate(node.getOperationType(), right, types);
             if (result == null){
                 throw Errors.canNotOperate(left.getName(), right.getName(), node.getOperationType(), node.getLocation());

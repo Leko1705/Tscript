@@ -1,6 +1,7 @@
 package com.tscript.runtime.tni;
 
 import com.tscript.runtime.core.ExecutionException;
+import com.tscript.runtime.tni.natfuncs.api4j.LoadJavaClass;
 import com.tscript.runtime.tni.natfuncs.std.*;
 import com.tscript.runtime.tni.natfuncs.std.threading.NativeCurrentThread;
 import com.tscript.runtime.tni.natfuncs.std.threading.ThreadSpawnNative;
@@ -50,6 +51,8 @@ public class NativeCollection {
 
         registerNativeFunction(new ThreadSpawnNative());
         registerNativeFunction(new NativeCurrentThread());
+
+        registerNativeFunction(new LoadJavaClass());
     }
 
 }

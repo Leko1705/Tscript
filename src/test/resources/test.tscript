@@ -1,3 +1,6 @@
 module test;
 
-import std;
+import java;
+
+var Lol = java.loadClass("com.tscript.Lol");
+Lol.foo();

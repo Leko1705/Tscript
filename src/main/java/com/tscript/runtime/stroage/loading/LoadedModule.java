@@ -61,7 +61,7 @@ public class LoadedModule implements Module {
         this.pool = pool;
         this.members = members;
         for (int i = 0; i < members.length; i++) {
-            namedMembers.put(members[i].name, i);
+            namedMembers.put(members[i].getName(), i);
         }
         this.entryPoint = entryPoint;
         this.functionArea = functionArea;

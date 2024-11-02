@@ -20,7 +20,7 @@ public interface TObject {
     
     default Member loadMember(String name){
         for (Member member : getMembers()) {
-            if (member.name.equals(name))
+            if (member.getName().equals(name))
                 return member;
         }
         return null;

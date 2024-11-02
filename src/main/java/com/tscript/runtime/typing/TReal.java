@@ -12,8 +12,8 @@ public class TReal extends PrimitiveObject<Double> {
 
     public static final Type TYPE =
             new Type.Builder("Real")
-                    .addMember(new Member(Visibility.PUBLIC, false, "nan", new GetNanStaticMethod()))
-                    .addMember(new Member(Visibility.PUBLIC, false, "inf", new GetInfiniteStaticMethod()))
+                    .addMember(Member.of(Visibility.PUBLIC, false, "nan", new GetNanStaticMethod()))
+                    .addMember(Member.of(Visibility.PUBLIC, false, "inf", new GetInfiniteStaticMethod()))
                     .setParameters(Parameters.newInstance().add("value", null))
                     .setConstructor((thread, params) -> {
                         TObject value = params.get(0);
@@ -44,9 +44,9 @@ public class TReal extends PrimitiveObject<Double> {
     public TReal(Double value) {
         super(value);
         methods = new HashMap<>(Map.of(
-                "isFinite", new Member(Visibility.PUBLIC, false, "isFinite", new IsFiniteMethod()),
-                "isInfinite", new Member(Visibility.PUBLIC, false, "isInfinite", new IsInfiniteMethod()),
-                "isNan", new Member(Visibility.PUBLIC, false, "isNan", new IsNanMethod())
+                "isFinite", Member.of(Visibility.PUBLIC, false, "isFinite", new IsFiniteMethod()),
+                "isInfinite", Member.of(Visibility.PUBLIC, false, "isInfinite", new IsInfiniteMethod()),
+                "isNan", Member.of(Visibility.PUBLIC, false, "isNan", new IsNanMethod())
         ));
     }
 

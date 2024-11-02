@@ -1,25 +1,55 @@
 package com.tscript.runtime.typing;
 
-public class Member {
+import com.tscript.runtime.tni.Environment;
 
-    public final Visibility visibility;
-    public final boolean mutable;
-    public final String name;
-    public TObject content;
+public interface Member {
 
-    public Member(Visibility visibility, boolean mutable, String name) {
-        this.visibility = visibility;
-        this.mutable = mutable;
-        this.name = name;
+    String getName();
+
+    Visibility getVisibility();
+
+    boolean isMutable();
+
+    TObject get();
+
+    void set(TObject value, Environment env);
+
+
+    static Member of(Visibility visibility, boolean mutable, String name, TObject value) {
+
+        return new Member() {
+
+            private TObject content = value;
+
+            @Override
+            public String getName() {
+                return name;
+            }
+
+            @Override
+            public Visibility getVisibility() {
+                return visibility;
+            }
+
+            @Override
+            public boolean isMutable() {
+                return mutable;
+            }
+
+            @Override
+            public TObject get() {
+                return content;
+            }
+
+            @Override
+            public void set(TObject value, Environment env) {
+                this.content = value;
+            }
+        };
     }
 
-    public Member(Visibility visibility, boolean mutable, String name, TObject content) {
-        this(visibility, mutable, name);
-        this.content = content;
-    }
-
-    public Member(Member member) {
-        this(member.visibility, member.mutable, member.name, member.content);
+    static Member copy(Member member) {
+        return of(member.getVisibility(), member.isMutable(), member.getName(), member.get());
     }
 
 }

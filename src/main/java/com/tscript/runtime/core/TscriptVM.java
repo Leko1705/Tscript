@@ -7,9 +7,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.io.File;
 import java.io.PrintStream;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class TscriptVM {
@@ -33,7 +31,7 @@ public class TscriptVM {
     private volatile ModuleLoader sharedModuleLoader;
     private final Map<Long, TThread> runningThreads;
     private volatile int exitCode = 0;
-
+    private final Set<TerminationListener> terminationListeners = new HashSet<>();
 
     private TscriptVM(File[] rootPath, PrintStream out, PrintStream err){
         this.rootPaths = rootPath;
@@ -78,6 +76,10 @@ public class TscriptVM {
             }
         }
 
+        for (TerminationListener listener : terminationListeners){
+            listener.onTermination(this);
+        }
+
         return exitCode;
     }
 
@@ -89,6 +91,14 @@ public class TscriptVM {
         if (started)
             throw new IllegalStateException("vm already running");
         this.sharedModuleLoader = sharedModuleLoader;
+    }
+
+    public void addTerminationListener(TerminationListener listener){
+        terminationListeners.add(listener);
+    }
+
+    public void removeTerminationListener(TerminationListener listener){
+        terminationListeners.remove(listener);
     }
 
     public void exit(int status){

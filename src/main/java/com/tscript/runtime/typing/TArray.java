@@ -40,7 +40,7 @@ public class TArray extends PrimitiveObject<List<TObject>>
     public static final Type ITR_TYPE =
             new Type.Builder("ArrayIterator")
                     .setAbstract(true)
-                    .addMember(new Member(Visibility.PUBLIC, false, "concat", new ConcatStaticMethod()))
+                    .addMember(Member.of(Visibility.PUBLIC, false, "concat", new ConcatStaticMethod()))
                     .setConstructor((thread, params) -> Null.INSTANCE)
                     .build();
 
@@ -49,14 +49,14 @@ public class TArray extends PrimitiveObject<List<TObject>>
     public TArray(List<TObject> value) {
         super(value);
         methods = new HashMap<>(Map.of(
-                "push", new Member(Visibility.PUBLIC, false, "push", new PushMethod()),
-                "pop", new Member(Visibility.PUBLIC, false, "pop", new PopMethod()),
-                "size", new Member(Visibility.PUBLIC, false, "size", new SizeMethod()),
-                "insert", new Member(Visibility.PUBLIC, false, "insert", new InsertMethod()),
-                "remove", new Member(Visibility.PUBLIC, false, "remove", new RemoveMethod()),
-                "keys", new Member(Visibility.PUBLIC, false, "keys", new KeysMethod()),
-                "values", new Member(Visibility.PUBLIC, false, "values", new ValuesMethod()),
-                "sort", new Member(Visibility.PUBLIC, false, "sort", new SortMethod())
+                "push", Member.of(Visibility.PUBLIC, false, "push", new PushMethod()),
+                "pop", Member.of(Visibility.PUBLIC, false, "pop", new PopMethod()),
+                "size", Member.of(Visibility.PUBLIC, false, "size", new SizeMethod()),
+                "insert", Member.of(Visibility.PUBLIC, false, "insert", new InsertMethod()),
+                "remove", Member.of(Visibility.PUBLIC, false, "remove", new RemoveMethod()),
+                "keys", Member.of(Visibility.PUBLIC, false, "keys", new KeysMethod()),
+                "values", Member.of(Visibility.PUBLIC, false, "values", new ValuesMethod()),
+                "sort", Member.of(Visibility.PUBLIC, false, "sort", new SortMethod())
         ));
     }
 

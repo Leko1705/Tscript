@@ -126,7 +126,7 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void loadGlobal(byte address) {
         Module module = thread.getFrame().getModule();
-        TObject value = module.loadMember(address).content;
+        TObject value = module.loadMember(address).get();
         thread.push(value);
     }
 
@@ -134,7 +134,7 @@ public class BaseInterpreter implements Interpreter {
     public void storeGlobal(byte address) {
         TObject value = thread.pop();
         Module module = thread.getFrame().getModule();
-        module.loadMember(address).content = value;
+        module.loadMember(address).set(value, thread);
     }
 
     @Override
@@ -152,7 +152,7 @@ public class BaseInterpreter implements Interpreter {
         TObject lookedUp = thread.pop();
         Member member = loadMemberFromExternal(lookedUp, b1, b2);
         if (member == null) return;
-        thread.push(member.content);
+        thread.push(member.get());
     }
 
     @Override
@@ -161,19 +161,19 @@ public class BaseInterpreter implements Interpreter {
         Member member = loadMemberFromExternal(lookedUp, b1, b2);
         if (member == null) return;
 
-        if (!member.mutable){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidMutability(member.name));
+        if (!member.isMutable()){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidMutability(member.getName()));
             return;
         }
 
-        member.content = thread.pop();
+        member.set(thread.pop(), thread);
     }
 
     @Override
     public void loadInternal(byte b1, byte b2) {
         TObject owner = thread.getFrame().getOwner();
         Member member = owner.loadMember(Conversion.from2Bytes(b1, b2));
-        thread.push(member.content);
+        thread.push(member.get());
     }
 
     @Override
@@ -181,7 +181,7 @@ public class BaseInterpreter implements Interpreter {
         TObject owner = thread.getFrame().getOwner();
         TObject value = thread.pop();
         Member member = owner.loadMember(Conversion.from2Bytes(b1, b2));
-        member.content = value;
+        member.set(value, thread);
     }
 
     @Override
@@ -189,7 +189,7 @@ public class BaseInterpreter implements Interpreter {
         TObject owner = thread.getFrame().getOwner();
         Member member = loadMemberFromSuper(owner, b1, b2);
         if (member == null) return;
-        thread.push(member.content);
+        thread.push(member.get());
     }
 
     @Override
@@ -198,26 +198,26 @@ public class BaseInterpreter implements Interpreter {
         Member member = loadMemberFromSuper(owner, b1, b2);
         if (member == null) return;
 
-        if (!member.mutable){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidMutability(member.name));
+        if (!member.isMutable()){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidMutability(member.getName()));
             return;
         }
 
-        member.content = thread.pop();
+        member.set(thread.pop(), thread);
     }
 
     @Override
     public void loadStatic(byte b1, byte b2) {
         Member member = loadStaticMember(b1, b2);
         if (member == null) return;
-        thread.push(member.content);
+        thread.push(member.get());
     }
 
     @Override
     public void storeStatic(byte b1, byte b2) {
         Member member = loadStaticMember(b1, b2);
         if (member == null) return;
-        member.content = thread.pop();
+        member.set(thread.pop(), thread);
     }
 
     private Member loadStaticMember(byte b1, byte b2) {
@@ -279,17 +279,17 @@ public class BaseInterpreter implements Interpreter {
             vo = vo.subObject;
         }
 
-        if (member == null || member.content == Null.INSTANCE){
+        if (member == null || member.get() == Null.INSTANCE){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchAbstractImplementationFound(methodName));
             return;
         }
 
-        if (!(member.content instanceof Callable)){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.notCallable(member.content));
+        if (!(member.get() instanceof Callable)){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.notCallable(member.get()));
             return;
         }
 
-        thread.push(member.content);
+        thread.push(member.get());
     }
 
     @Override
@@ -569,9 +569,9 @@ public class BaseInterpreter implements Interpreter {
         TObject used = thread.pop();
         Frame frame = thread.getFrame();
         for (Member member : used.getMembers()){
-            boolean success = frame.storeName(member.name, member.content);
+            boolean success = frame.storeName(member.getName(), member.get());
             if (!success){
-                thread.reportRuntimeError(InternalRuntimeErrorMessages.nameAlreadyExists(member.name));
+                thread.reportRuntimeError(InternalRuntimeErrorMessages.nameAlreadyExists(member.getName()));
                 return;
             }
         }
@@ -597,8 +597,8 @@ public class BaseInterpreter implements Interpreter {
             while (curr != null){
                 TObject superObj = curr.getSuper();
                 Member member = TNIUtils.searchMember(superObj, name);
-                if (member != null && member.visibility.ordinal() <= Visibility.PROTECTED.ordinal()){
-                    thread.push(member.content);
+                if (member != null && member.getVisibility().ordinal() <= Visibility.PROTECTED.ordinal()){
+                    thread.push(member.get());
                     return;
                 }
                 curr = curr.getSuper();
@@ -607,7 +607,7 @@ public class BaseInterpreter implements Interpreter {
 
         Member member = thread.getFrame().getModule().loadMember(name);
         if (member != null){
-            thread.push(member.content);
+            thread.push(member.get());
             return;
         }
 
@@ -665,8 +665,8 @@ public class BaseInterpreter implements Interpreter {
             return null;
         }
 
-        if (member.visibility.ordinal() > minimumVisibility.ordinal()) {
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidAccessVisibility(name, member.visibility));
+        if (member.getVisibility().ordinal() > minimumVisibility.ordinal()) {
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidAccessVisibility(name, member.getVisibility()));
             return null;
         }
 

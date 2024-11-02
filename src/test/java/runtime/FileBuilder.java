@@ -128,24 +128,24 @@ public class FileBuilder {
                 writer.write(Conversion.to2Bytes(cb.staticBlockInitializer));
                 writer.write(Conversion.to2Bytes(cb.staticMembers.size()));
                 for (Member mem : cb.staticMembers){
-                    writer.write(mem.name.getBytes(StandardCharsets.UTF_8));
+                    writer.write(mem.getName().getBytes(StandardCharsets.UTF_8));
                     writer.write('\0');
                     int spec = 0;
-                    if (mem.visibility == Visibility.PUBLIC) spec = 1;
-                    else if (mem.visibility == Visibility.PROTECTED) spec = 2;
-                    else if (mem.visibility == Visibility.PRIVATE) spec = 4;
-                    if (!mem.mutable) spec |= 8;
+                    if (mem.getVisibility() == Visibility.PUBLIC) spec = 1;
+                    else if (mem.getVisibility() == Visibility.PROTECTED) spec = 2;
+                    else if (mem.getVisibility() == Visibility.PRIVATE) spec = 4;
+                    if (!mem.isMutable()) spec |= 8;
                     writer.write(spec);
                 }
                 writer.write(Conversion.to2Bytes(cb.instanceMembers.size()));
                 for (Member mem : cb.instanceMembers){
-                    writer.write(mem.name.getBytes(StandardCharsets.UTF_8));
+                    writer.write(mem.getName().getBytes(StandardCharsets.UTF_8));
                     writer.write('\0');
                     int spec = 0;
-                    if (mem.visibility == Visibility.PUBLIC) spec = 1;
-                    else if (mem.visibility == Visibility.PROTECTED) spec = 2;
-                    else if (mem.visibility == Visibility.PRIVATE) spec = 4;
-                    if (!mem.mutable) spec |= 8;
+                    if (mem.getVisibility() == Visibility.PUBLIC) spec = 1;
+                    else if (mem.getVisibility() == Visibility.PROTECTED) spec = 2;
+                    else if (mem.getVisibility() == Visibility.PRIVATE) spec = 4;
+                    if (!mem.isMutable()) spec |= 8;
                     writer.write(spec);
                 }
             }
@@ -348,12 +348,12 @@ public class FileBuilder {
         }
 
         public ClassBuilder withStaticMember(String name, Visibility visibility, boolean isMutable){
-            staticMembers.add(new Member(visibility, isMutable, name));
+            staticMembers.add(Member.of(visibility, isMutable, name, null));
             return this;
         }
 
         public ClassBuilder withStaticInstance(String name, Visibility visibility, boolean isMutable){
-            instanceMembers.add(new Member(visibility, isMutable, name));
+            instanceMembers.add(Member.of(visibility, isMutable, name, null));
             return this;
         }
 

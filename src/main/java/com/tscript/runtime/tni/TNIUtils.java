@@ -18,7 +18,7 @@ public class TNIUtils {
     private static String getDefinedPrintable(TThread thread,
                                               TObject object,
                                               Member definedFunction){
-        TObject candidate = definedFunction.content;
+        TObject candidate = definedFunction.get();
         if (candidate instanceof Function c && c.getParameters(thread).count() == 0){
             TObject toPrint = thread.call(c, List.of());
             if (toPrint == null) return null;

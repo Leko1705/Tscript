@@ -16,8 +16,8 @@ public class TString extends PrimitiveObject<String>
 
     public static final Type TYPE =
             new Type.Builder("String")
-                    .addMember(new Member(Visibility.PUBLIC, false, "fromUnicode", new FromUnicodeStaticMethod()))
-                    .addMember(new Member(Visibility.PUBLIC, false, "join", new JoinStaticMethod()))
+                    .addMember(Member.of(Visibility.PUBLIC, false, "fromUnicode", new FromUnicodeStaticMethod()))
+                    .addMember(Member.of(Visibility.PUBLIC, false, "join", new JoinStaticMethod()))
                     .setParameters(Parameters.newInstance().add("value", EMPTY))
                     .setConstructor((thread, params) -> new TString(TNIUtils.toString(thread, params.get(0))))
                     .build();
@@ -28,12 +28,12 @@ public class TString extends PrimitiveObject<String>
             .build();
 
     private final Map<String, Member> methods = new HashMap<>(Map.of(
-            "size", new Member(Visibility.PUBLIC, false, "size", new SizeMethod()),
-            "find", new Member(Visibility.PUBLIC, false, "find", new FindMethod()),
-            "split", new Member(Visibility.PUBLIC, false, "split", new SplitMethod()),
-            "toUpperCase", new Member(Visibility.PUBLIC, false, "toUpperCase", new ToUpperCaseMethod()),
-            "toLowerCase", new Member(Visibility.PUBLIC, false, "toLowerCase", new ToLowerCaseMethod()),
-            "replace", new Member(Visibility.PUBLIC, false, "replace", new ReplaceMethod())
+            "size", Member.of(Visibility.PUBLIC, false, "size", new SizeMethod()),
+            "find", Member.of(Visibility.PUBLIC, false, "find", new FindMethod()),
+            "split", Member.of(Visibility.PUBLIC, false, "split", new SplitMethod()),
+            "toUpperCase", Member.of(Visibility.PUBLIC, false, "toUpperCase", new ToUpperCaseMethod()),
+            "toLowerCase", Member.of(Visibility.PUBLIC, false, "toLowerCase", new ToLowerCaseMethod()),
+            "replace", Member.of(Visibility.PUBLIC, false, "replace", new ReplaceMethod())
     ));
 
     public TString(String value) {
