@@ -370,8 +370,10 @@ namespace net {
                     running = false;
                     break;
                 }
+
                 var reader = BufferedReader(InputStreamReader(socket.getInputStream()));
                 var msg = reader.readLine();
+
                 var next = reader.readLine();
                 while next != null do {
                     msg += next;

@@ -29,14 +29,18 @@ class JavaType implements Type {
         for (java.lang.reflect.Constructor<?> constructor : clazz.getDeclaredConstructors()) {
             constructorTree.add(new ConstructorInvocation(constructor));
         }
+        Map<String, JavaMethod> methods = new HashMap<>();
+        init(clazz, methods);
+        content.addAll(methods.values());
+    }
+
+    private void init(Class<?> clazz, Map<String, JavaMethod> methods){
 
         for (Field field : clazz.getDeclaredFields()) {
             if (Modifier.isStatic(field.getModifiers())) {
                 content.add(new JavaField(field, this, vm));
             }
         }
-
-        Map<String, JavaMethod> methods = new LinkedHashMap<>();
 
         for (Method method : clazz.getDeclaredMethods()) {
             if (Modifier.isStatic(method.getModifiers()) && Modifier.isPublic(method.getModifiers())) {
@@ -45,7 +49,10 @@ class JavaType implements Type {
             }
         }
 
-        content.addAll(methods.values());
+
+        if (clazz.getSuperclass() != null) {
+            init(clazz.getSuperclass(), methods);
+        }
     }
 
     @Override

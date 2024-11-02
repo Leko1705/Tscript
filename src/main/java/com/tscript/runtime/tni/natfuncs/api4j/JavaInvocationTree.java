@@ -14,6 +14,7 @@ class JavaInvocationTree {
 
         public void put(Iterator<Class<?>> itr, Invokable invokable) {
             if (!itr.hasNext()) {
+                if (this.invokable != null) return;
                 this.invokable = invokable;
                 return;
             }

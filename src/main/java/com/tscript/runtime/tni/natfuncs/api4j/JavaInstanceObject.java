@@ -20,11 +20,12 @@ class JavaInstanceObject implements TObject {
     protected JavaInstanceObject(JavaType type, Object instance, TscriptVM vm) {
         this.type = Objects.requireNonNull(type);
         this.instance = Objects.requireNonNull(instance);
-        init(vm);
+        Map<String, JavaMethod> methods = new LinkedHashMap<>();
+        init(type.clazz, vm, methods);
+        content.addAll(methods.values());
     }
 
-    private void init(TscriptVM vm) {
-        Class<?> clazz = type.clazz;
+    private void init(Class<?> clazz, TscriptVM vm, Map<String, JavaMethod> methods) {
 
         for (Field field : clazz.getDeclaredFields()) {
             if (!Modifier.isStatic(field.getModifiers())) {
@@ -32,7 +33,6 @@ class JavaInstanceObject implements TObject {
             }
         }
 
-        Map<String, JavaMethod> methods = new LinkedHashMap<>();
 
         for (Method method : clazz.getDeclaredMethods()) {
             if (!Modifier.isStatic(method.getModifiers()) && Modifier.isPublic(method.getModifiers())) {
@@ -41,7 +41,9 @@ class JavaInstanceObject implements TObject {
             }
         }
 
-        content.addAll(methods.values());
+        if (clazz.getSuperclass() != null) {
+            init(clazz.getSuperclass(), vm, methods);
+        }
 
     }
 
