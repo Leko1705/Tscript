@@ -6,6 +6,7 @@ import com.tscript.compiler.impl.utils.Symbol;
 import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.impl.utils.TCTreeScanner;
 import com.tscript.compiler.source.tree.MemberAccessTree;
+import com.tscript.compiler.source.tree.Modifier;
 import com.tscript.compiler.source.tree.ThisTree;
 
 public class AssignGenerator extends TCTreeScanner<Void, Void> {
@@ -43,7 +44,12 @@ public class AssignGenerator extends TCTreeScanner<Void, Void> {
             dupIfRequireReload();
 
             if (node.sym.isStatic()){
-                func.getInstructions().add(new StoreStatic(PoolPutter.putUtf8(context, node.name)));
+                if (user.handled.modifiers.flags.contains(Modifier.STATIC)){
+                    func.getInstructions().add(new StoreInternal(node.sym.address));
+                }
+                else {
+                    func.getInstructions().add(new StoreStatic(PoolPutter.putUtf8(context, node.name)));
+                }
             }
             else if (node.sym.inSuperClass) {
                 func.getInstructions().add(new StoreSuper(PoolPutter.putUtf8(context, node.name)));

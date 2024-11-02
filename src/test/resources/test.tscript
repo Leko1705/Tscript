@@ -1,14 +1,18 @@
 module test;
 
-import std;
+class X {
+    private:
+    static var i;
+    public:
+    static function instance(){
+        if i == null then {
+            i = X();
+        }
+        return i;
+    }
 
+    private:
+    constructor(){}
+}
 
-var server = std.net.Server(1234, function(request) {
-    print("hi");
-});
-
-server.start(true);
-
-var client = std.net.Client("localhost", 1234);
-client.connect();
-client.send("hi");
+print(X());

@@ -31,7 +31,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     private int line;
 
-    private final TCFunctionTree handled;
+    protected final TCFunctionTree handled;
 
 
     public FunctionGenerator(Context context, TCFunctionTree generated) {
@@ -606,8 +606,13 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
             Scope.ClassScope clsScope = (Scope.ClassScope) node.sym.owner;
             if (!clsScope.sym.isNamespace) {
-                if (node.sym.isStatic() && !handled.modifiers.flags.contains(Modifier.STATIC)) {
-                    func.getInstructions().add(new LoadStatic(PoolPutter.putUtf8(context, node.name)));
+                if (node.sym.isStatic()) {
+                    if(handled.modifiers.flags.contains(Modifier.STATIC)){
+                        func.getInstructions().add(new LoadInternal(node.sym.address));
+                    }
+                    else {
+                        func.getInstructions().add(new LoadStatic(PoolPutter.putUtf8(context, node.name)));
+                    }
                     return null;
                 }
 
@@ -617,6 +622,10 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
                 else {
                     func.getInstructions().add(new LoadInternal(node.sym.address));
                 }
+                return null;
+            }
+            else {
+                func.getInstructions().add(new LoadInternal(node.sym.address));
                 return null;
             }
 
