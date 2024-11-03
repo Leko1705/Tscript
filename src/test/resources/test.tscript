@@ -1,22 +1,7 @@
 module test;
 
-namespace A {
-    class X {
-        private:
-        static var i;
-
-        public:
-        static function instance(){
-            if i == null then {
-                i = Y();
-            }
-            return i;
-        }
-
-        private:
-        constructor(){}
-    }
-    class Y {}
+enum X {
+    Y
 }
 
-print(A.X.instance());
+print(X.Y);

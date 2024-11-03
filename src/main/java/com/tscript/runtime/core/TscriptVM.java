@@ -1,5 +1,6 @@
 package com.tscript.runtime.core;
 
+import com.tscript.runtime.VirtualMachine;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.loading.*;
 import com.tscript.runtime.typing.Callable;
@@ -10,7 +11,7 @@ import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class TscriptVM {
+public class TscriptVM implements VirtualMachine {
 
 
     public static TscriptVM runnableInstance(File rootPath, PrintStream out, PrintStream err){
