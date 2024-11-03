@@ -622,12 +622,12 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
                 else {
                     func.getInstructions().add(new LoadInternal(node.sym.address));
                 }
-                return null;
             }
             else {
-                func.getInstructions().add(new LoadInternal(node.sym.address));
-                return null;
+                func.getInstructions().add(new LoadType(clsScope.sym.classIndex));
+                func.getInstructions().add(new LoadExternal(PoolPutter.putUtf8(context, node.name)));
             }
+            return null;
 
         }
 
