@@ -217,6 +217,24 @@ print("hi");
 ```
 Keep in mind that there can only be one main function per module.
 
+### Based Integers
+
+Integers can now be written in binary, octal and hexadecimal format:
+```javascript
+var decimal = 8;
+var binary = 0b1000; # equal to 8
+var octal = 0o10; # equal to 8
+var hex = 0xF; # equal to 15
+```
+
+### Shift Operators
+
+With the new Integer representation also comes the new shift operators:
+```javascript
+print(1 << 1); # prints: 2
+print(4 >> 1); # prints: 2
+```
+
 ## Getting Stated
 
 This Tscript implementation is purely written in Java.
@@ -275,3 +293,47 @@ class Main {
     
 }
 ```
+
+## Often Asked Questions
+
+### 1. Why are namespaces treated as Types?
+
+The Tscript runtime specifications do not specify such a thing like 'namespaces'.
+However, it specifies Types. The logical conclusion is that namespaces are generated
+as classes.<p>
+
+Consider the following namespace:
+```javascript
+namespace math {
+    const E = 2.718281828459045;
+    
+    function abs(x) {
+        if x > 0 then return x;
+        else return -x;
+    }
+}
+```
+
+This namespace is generated as this class:
+```javascript
+abstract class math {
+    public:
+        
+    static const E = 2.718281828459045;
+    
+    static function abs(x) {
+        if x > 0 then return x;
+        else return -x;
+    }
+    
+    private:
+    constructor(){
+        throw "namespaces can not get instanted";
+    }
+}
+```
+
+As we can see namespaces are transformed into non instantiable or inheritable
+classes with only static members.<br>
+The same concept of to-Type-conversion also applies to enums, where
+the enums constants are static constants in that enum.

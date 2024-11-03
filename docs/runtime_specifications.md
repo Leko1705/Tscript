@@ -95,5 +95,120 @@ The bytecode of a module describes it's structure:
 
 ![image info](bytecode-structure.png)
 
+### Header
+A compiled files begins with the following header:
+- <b>Magic number:</b> the number `0xDEAD` in 2 bytes indicating
+  that this may be a valid file containing tscript byte code
+- <b>module name:</b> the name of this module (canonical module path with dot-notation)
+- <b>Minor version:</b> the minor version this bytecode supports (1 byte)
+- <b>Major version:</b> the major version this bytecode supports (1 byte)
+- <b>Entry point:</b> a 2 byte function id for the first function to execute (main function)
+- <b>Global variables:</b> a list of names for the global registers, that are important
+  for external accesses. Each name is followed by one byte determining weather this register is
+  mutable or not. If mutable the byte is 1. The amount of names is determined by a leading 2 byte number.
+
+### Constant Pool
+The Constant Pool holds arbitrary constants and information that are
+accessed at runtime.<br>
+The purpose of the constant pool is to simplify and speed up the
+instruction execution process, especially fetching the required data.
+The constant pool begins with a 4 byte number encoding the amount of
+entries in the pool.
+Entries are structured as follows:
+<br>
+<b>ID | TYPE | VALUE</b><br>
+where:<br>
+- <b>ID:</b> is a 2 byte size number, indexing the entry
+- <b>TYPE:</b> the type of the following value
+- <b>VALUE:</b> the actual value/constant being stored
+
+The constant pool supports the following types:
+- INTEGER (4 bytes)
+- REAL (8 bytes)
+- STRING (n bytes + null-terminator)
+- BOOL (1 byte)
+- NULL (0 byte)
+- RANGE (2 * 2 bytes referencing to integer values in the constant-pool)
+- ARRAY (n * 2 bytes referencing to any entry in the constant pool + 1 byte array length representing n)
+- DICTIONARY (n * 2 * 2 bytes for key and value, each referencing any entry
+  in the constant pool + 1 byte dictionary length regarding the entries representing n)
+- UTF8 (n bytes + null-terminator)
+
+### Functions
+The functions section begins with a 2 byte number encoding the amount
+of functions.<br>
+Each functions head is encoded as follows:<br>
+<b>INDEX | NAME | PARAM_LIST | STACK_SIZE | LOCAL_REGISTER_AMOUNT | INSTRUCTION_AMOUNT</b>
+<br>
+where:<br>
+- <b>INDEX:</b> is the unique 2 byte ID associated with this function. Allows faster lookup for loading a new instance.
+  The index is stored in the constant pool for the VFUNCTION entry.
+- <b>NAME:</b> is the name of the function ending with a null-terminator
+- <b>PARAM_LIST:</b> a list of parameters. Each parameter is encoded by starting with its name,
+  the end is determined with a null-terminator, and its 2 byte default-value-address,
+  referencing to a constant in the constant pool. If a parameter has no default value its index-byte is -1.
+  The amount of parameters is determined with a leading byte.
+- <b>STACK_SIZE:</b> a 2 byte number indicating the size of this functions stack
+- <b>LOCAL_REGISTER_AMOUNT:</b> a 2 byte number indicating the amount of local
+  registers for this function (used for local variables)
+- <b>INSTRUCTION_AMOUNT:</b> a 4 byte integer encoding the amount of instructions in this function
+
+After the header all its instructions are encoded sequentially.
+
+#### Instructions
+Instructions are structured as follows:<br>
+<b>OPCODE | ARGS</b><br>
+where:<br>
+- <b>OPCODE:</b> is a 1 byte number indicating the operation to perform
+- <b>ARGS:</b> some optional additional bytes. The amount of the additional bytes depends
+  on the OPCODE.
+
+For more information about the actual instructions see tscript_bytecode_instructions.md.
+
+### Types
+The Type section begins with a 2 byte number encoding the amount
+of types.<br>
+Each type is encoded as follows:<br>
+<b>INDEX | NAME | SUPER_TYPE_INDEX | IS_ABSTRACT | CONSTRUCTOR_INDEX | STATIC_BLOCK_INDEX |STATIC_MEMBERS </b>
+<br>
+where:<br>
+- <b>INDEX:</b> is the unique 2 byte ID associated with this type. Allows faster lookup for loading.
+  This ID is in bounds of: 0 <= ID < amount-of-types, for example the first type might be indexed by 0,
+  the second by 1 and so on.
+  The index is stored in the constant pool for the TYPE entry
+- <b>NAME:</b> is the name of the type ending with a null-terminator
+- <b>SUPER_TYPE_INDEX:</b> a 2 byte ID referencing a function-entry in the constant pool.
+  Is -1 1 if this class has no super type
+- <b>IS_ABSTRACT:</b> a single byte being 1 if this type is abstract
+- <b>CONSTRUCTOR_INDEX:</b> a 2 byte index referencing a function that will be called as the constructor.
+  Is -1 if no constructor is provided
+- <b>CONSTRUCTOR_VISIBILITY:</b> a single byte encoding the visibility (see Type Members)
+- <b>STATIC_BLOCK_INDEX:</b> a 2 byte index referencing a function that will be called as the static member initializer.
+  Returns -1 if no static block is provided
+- <b>STATIC_MEMBERS:</b> a 2 byte number encoding the amount of type bound members, followed by a sequence of
+  their actual encoding
+- <b>INSTANCE_MEMBER:</b> a 2 byte number encoding the amount of instance bound members for this type,
+  followed by a sequence of their actual encoding
+
+#### Type Members
+Type members are structured as follows:<br>
+<b>NAME | SPECS</b>
+<br>
+where:<br>
+- <b>NAME:</b> is the name of this member with a null-terminator
+- <b>SPECS:</b> a 1 byte integer encoding specific properties for this member.
+
+These are:<br>
+Visibility: (Note: if no of the following applies the default visibility is <b>public</b>)
+- <b>public:</b> lsb is 1
+- <b>protected:</b> second bit after lsb is 1
+- <b>private:</b> third bit after lsb is 1
+
+Mutability:<br>
+If the forth bit after lsb is 1 then this member is immutable for external accesses (see opcode `STORE_EXTERNAL`),
+else mutable.
+
+The other bits are currently not in use. By default, every member is assigned to the null-value.
+
 
 
