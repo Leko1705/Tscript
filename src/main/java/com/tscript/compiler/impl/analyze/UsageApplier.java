@@ -262,8 +262,16 @@ public class UsageApplier {
         public Symbol visitClass(Scope.ClassScope scope) {
             Symbol sym = scope.symbols.get(name);
             if (sym != null) return sym;
-            if (scope.sym.modifiers.contains(Modifier.STATIC))
+            if (scope.sym.modifiers.contains(Modifier.STATIC)) {
+                if (scope.enclosing.kind == Scope.Kind.CLASS){
+                    Scope.ClassScope encl = (Scope.ClassScope) scope.enclosing;
+                    if (encl.sym.isNamespace) {
+                        sym = scope.enclosing.accept(this);
+                        if (sym != null) return sym;
+                    }
+                }
                 return scope.topLevel.accept(this);
+            }
             else
                 return scope.enclosing.accept(this);
         }

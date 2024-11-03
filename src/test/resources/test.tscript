@@ -1,18 +1,23 @@
 module test;
 
-class X {
-    private:
-    static var i;
-    public:
-    static function instance(){
-        if i == null then {
-            i = X();
-        }
-        return i;
-    }
+namespace A {
+    class X {
+        private:
+        static var i;
 
-    private:
-    constructor(){}
+        public:
+        static function instance(){
+            if i == null then {
+                i = Y();
+            }
+            return i;
+        }
+
+        private:
+        constructor(){}
+    }
+    class Y {}
 }
 
-print(X());
+print(A.X.instance());
+print(A.X.instance());
