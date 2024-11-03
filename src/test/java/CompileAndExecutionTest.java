@@ -20,7 +20,7 @@ public class CompileAndExecutionTest {
 
     private void compileAndRunAllInDir(String inPath, String outPath, String bootModule){
         Tool compiler = ToolFactory.createDefaultTscriptCompiler();
-        Tool inspector = ToolFactory.loadTool(SupportedTool.TSCRIPT_BC_INSPECTOR);
+        Tool inspector = ToolFactory.loadTool(SupportedTools.TSCRIPT_BC_INSPECTOR);
 
         removeDir(new File(outPath));
 
@@ -68,7 +68,7 @@ public class CompileAndExecutionTest {
 
     private void compileAndRunOnlyOne(String in, String out, String bootModule){
         Tool compiler = ToolFactory.createDefaultTscriptCompiler();
-        Tool inspector = ToolFactory.loadTool(SupportedTool.TSCRIPT_BC_INSPECTOR);
+        Tool inspector = ToolFactory.loadTool(SupportedTools.TSCRIPT_BC_INSPECTOR);
 
         runTool(compiler, in, out);
         runTool(inspector, in, out.substring(0, out.length()-1) + "i");

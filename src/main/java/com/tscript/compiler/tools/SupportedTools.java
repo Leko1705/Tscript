@@ -1,6 +1,6 @@
 package com.tscript.compiler.tools;
 
-public enum SupportedTool {
+public enum SupportedTools {
 
     DEFAULT_TSCRIPT_COMPILER(TscriptCompiler.class),
 
@@ -11,7 +11,7 @@ public enum SupportedTool {
 
     final Class<? extends Tool> clazz;
 
-    SupportedTool(Class<? extends Tool> clazz) {
+    SupportedTools(Class<? extends Tool> clazz) {
         this.clazz = clazz;
     }
 }

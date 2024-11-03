@@ -6,10 +6,10 @@ public class ToolFactory {
     }
 
     public static Compiler createDefaultTscriptCompiler(){
-        return (Compiler) loadTool(SupportedTool.DEFAULT_TSCRIPT_COMPILER);
+        return (Compiler) loadTool(SupportedTools.DEFAULT_TSCRIPT_COMPILER);
     }
 
-    public static Tool loadTool(SupportedTool tool){
+    public static Tool loadTool(SupportedTools tool){
         try {
             return tool.clazz.getConstructor().newInstance();
         }
