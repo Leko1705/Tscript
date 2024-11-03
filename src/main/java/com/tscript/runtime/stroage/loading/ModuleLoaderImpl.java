@@ -206,7 +206,15 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
             boolean isAbstract = reader.read() == 1;
 
-            Function constructor = loadSpecialTypeMethod(reader, functionArea, module);
+            Function constructor = null;
+            Visibility constructorVisibility = Visibility.PUBLIC;
+
+            if (reader.read() != 0) {
+                int index = Conversion.from2Bytes(reader.read(), reader.read());
+                constructor = functionArea.loadFunction(index, module);
+                constructorVisibility = getVisibility(reader.read());
+            }
+
             Function staticBlock = loadSpecialTypeMethod(reader, functionArea, module);
 
             int staticMemberAmount = Conversion.from2Bytes(reader.read(), reader.read());
@@ -215,7 +223,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
             int instanceMemberAmount = Conversion.from2Bytes(reader.read(), reader.read());
             Member[] instanceMembers = readMembers(reader, instanceMemberAmount);
 
-            area.virtualTypes[id] = new VirtualType(name, isAbstract, constructor, staticMembers, instanceMembers);
+            area.virtualTypes[id] = new VirtualType(name, isAbstract, constructor, constructorVisibility, staticMembers, instanceMembers);
             area.unloadedStaticBlocks[id] = staticBlock;
         }
 

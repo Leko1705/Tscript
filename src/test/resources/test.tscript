@@ -19,5 +19,5 @@ namespace A {
     class Y {}
 }
 
-print(A.X.instance());
-print(A.X.instance());
+print(A.X());
+print(A.X());

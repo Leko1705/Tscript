@@ -1,5 +1,6 @@
 package com.tscript.runtime.core;
 
+import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.typing.*;
 
 import java.util.Arrays;
@@ -14,6 +15,7 @@ public class VirtualType implements Type {
     private boolean superTypeInitialized = false;
     protected boolean isAbstract;
     private final Function constructor;
+    private final Visibility constructorVisibility;
     private final Member[] staticMembers;
 
     private final Member[] instanceMembers;
@@ -22,11 +24,13 @@ public class VirtualType implements Type {
     public VirtualType(String name,
                        boolean isAbstract,
                        Function constructor,
+                       Visibility constructorVisibility,
                        Member[] staticMembers,
                        Member[] instanceMembers) {
         this.name = name;
         this.isAbstract = isAbstract;
         this.constructor = constructor;
+        this.constructorVisibility = constructorVisibility;
         this.staticMembers = staticMembers;
 
         this.instanceMembers = instanceMembers;
@@ -84,6 +88,35 @@ public class VirtualType implements Type {
         if (isAbstract){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidAbstractInstantiation(name));
             return null;
+        }
+
+        if (constructorVisibility != Visibility.PUBLIC){
+            if (constructorVisibility == Visibility.PRIVATE){
+                TObject caller = thread.getFrame().getOwner();
+                if (caller == null || caller.getType() != this){
+                    thread.reportRuntimeError("constructor has private access");
+                    return null;
+                }
+            }
+            else if (constructorVisibility == Visibility.PROTECTED){
+                boolean isValidAccess = false;
+
+                TObject caller = thread.getFrame().getOwner();
+                if (caller != null) {
+                    Type type = caller.getType();
+                    while (type != null) {
+                        if (type == this) {
+                            isValidAccess = true;
+                            break;
+                        }
+                        type = type.getSuperType();
+                    }
+                }
+                if (!isValidAccess){
+                    thread.reportRuntimeError("constructor has protected access");
+                    return null;
+                }
+            }
         }
 
         Member[] members = new Member[instanceMembers.length];

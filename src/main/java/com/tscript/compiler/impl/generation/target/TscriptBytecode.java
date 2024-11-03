@@ -1,5 +1,6 @@
 package com.tscript.compiler.impl.generation.target;
 
+import com.tscript.compiler.impl.utils.Visibility;
 import com.tscript.runtime.core.Opcode;
 import com.tscript.runtime.stroage.loading.LoadingConstants;
 import com.tscript.runtime.utils.Conversion;
@@ -525,6 +526,7 @@ public class TscriptBytecode
     public void writeClass(CompiledClass compiledClass) {
         write(Conversion.to2Bytes(compiledClass.getIndex()));
         write(compiledClass.getName());
+
         if (compiledClass.getSuperIndex() == -1) {
             write(0);
         }
@@ -532,14 +534,20 @@ public class TscriptBytecode
             write(1);
             write(Conversion.to2Bytes(compiledClass.getSuperIndex()));
         }
+
         write(compiledClass.isAbstract() ? 1 : 0);
-        if (compiledClass.getConstructorIndex() == -1) {
+
+        CompiledClass.Constructor constructor = compiledClass.getConstructor();
+        if (constructor == null || constructor.index() == -1) {
             write(0);
         }
         else {
             write(1);
-            write(Conversion.to2Bytes(compiledClass.getConstructorIndex()));
+            write(Conversion.to2Bytes(constructor.index()));
+            write(visibility(constructor.visibility()));
+
         }
+
         if (compiledClass.getStaticInitializerIndex() == -1) {
             write(0);
         }
@@ -547,6 +555,7 @@ public class TscriptBytecode
             write(1);
             write(Conversion.to2Bytes(compiledClass.getStaticInitializerIndex()));
         }
+
         write(compiledClass.getStaticMembers());
         write(compiledClass.getInstanceMembers());
     }
@@ -555,15 +564,19 @@ public class TscriptBytecode
         write(Conversion.to2Bytes(members.size()));
         for (CompiledClass.Member member : members) {
             write(member.name);
-            int specs = switch (member.visibility){
-                case PUBLIC -> 1;
-                case PROTECTED -> 2;
-                case PRIVATE -> 4;
-            };
+            int specs = visibility(member.visibility);
             if (member.isMutable)
                 specs |= 8;
             write(specs);
         }
+    }
+
+    private static int visibility(Visibility visibility) {
+        return switch (visibility){
+            case PUBLIC -> 1;
+            case PROTECTED -> 2;
+            case PRIVATE -> 4;
+        };
     }
 
 }

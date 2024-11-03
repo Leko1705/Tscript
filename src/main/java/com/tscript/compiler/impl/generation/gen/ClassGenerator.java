@@ -5,6 +5,7 @@ import com.tscript.compiler.impl.generation.compiled.instruction.*;
 import com.tscript.compiler.impl.generation.gen.adapter.*;
 import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.impl.utils.TCTree.*;
+import com.tscript.compiler.source.tree.Modifier;
 import com.tscript.compiler.source.tree.Tree;
 
 import java.util.*;
@@ -19,6 +20,8 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
     private FunctionGenerator staticBlockGenerator;
 
     private FunctionGenerator constructorGenerator;
+    private Visibility constructorVisibility = Visibility.PUBLIC;
+
     List<Runnable> constructorGens = new ArrayList<>();
     List<Runnable> preSuperCallGens = new ArrayList<>();
 
@@ -48,7 +51,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
 
     public int generate(){
-        clazz.constructorIndex = -1;
+        clazz.constructor = new CompiledClass.Constructor(Visibility.PUBLIC, -1);
         clazz.staticIndex = -1;
         clazz.superIndex = -1;
 
@@ -109,7 +112,8 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
         }
 
-        clazz.constructorIndex = constructorGenerator.complete();
+        clazz.constructor = new CompiledClass.Constructor(
+                constructorVisibility, constructorGenerator.complete());
 
         if (staticBlockGenerator != null){
             clazz.staticIndex = staticBlockGenerator.genReturn(null).complete();
@@ -135,6 +139,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
     public Void visitConstructor(TCConstructorTree node, Void unused) {
         TCFunctionTree transformed = new ConstructorFunction(node, handled.name);
         constructorGenerator = new FunctionGenerator(context, transformed);
+        constructorVisibility = visibility(node.modifiers.flags);
 
         if (handled.superName != null && !handled.superName.isEmpty()) {
             constructorGens.add(0, () -> {
@@ -263,6 +268,12 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
         if (sym.isPublic()) return Visibility.PUBLIC;
         if (sym.isProtected()) return Visibility.PROTECTED;
         if (sym.isPrivate()) return Visibility.PRIVATE;
+        return Visibility.PUBLIC;
+    }
+
+    private static Visibility visibility(Set<Modifier> modifiers){
+        if (modifiers.contains(Modifier.PROTECTED)) return Visibility.PROTECTED;
+        if (modifiers.contains(Modifier.PRIVATE)) return Visibility.PRIVATE;
         return Visibility.PUBLIC;
     }
 

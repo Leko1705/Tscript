@@ -73,9 +73,13 @@ public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWri
         if (compiledClass.isAbstract())
             sb.append("(abstract) ");
 
-        sb.append("{\n\tconstructor:ref=").append(compiledClass.getConstructorIndex())
-                .append("\n\tstaticBlock:ref=").append(compiledClass.getStaticInitializerIndex())
-                .append("\n");
+        sb.append("{\n\tconstructor:").append("[ref:")
+                .append(compiledClass.getConstructor().index())
+                .append(", ")
+                .append(compiledClass.getConstructor().visibility())
+                .append("]")
+                .append("\n\tstaticBlock:[ref=").append(compiledClass.getStaticInitializerIndex())
+                .append("]\n");
 
         for (CompiledClass.Member member : compiledClass.getStaticMembers()){
             sb.append("\t");

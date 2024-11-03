@@ -12,7 +12,7 @@ public class CompClass implements CompiledClass {
     private final boolean isAbstract;
     public int superIndex;
 
-    public int constructorIndex;
+    public Constructor constructor;
     public int staticIndex;
 
     public final List<Member> instanceMembers = new ArrayList<>();
@@ -45,8 +45,8 @@ public class CompClass implements CompiledClass {
     }
 
     @Override
-    public int getConstructorIndex() {
-        return constructorIndex;
+    public Constructor getConstructor() {
+        return constructor;
     }
 
     @Override

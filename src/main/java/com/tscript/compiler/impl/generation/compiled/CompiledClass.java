@@ -14,7 +14,7 @@ public interface CompiledClass extends CompiledUnit {
 
     boolean isAbstract();
 
-    int getConstructorIndex();
+    Constructor getConstructor();
 
     int getStaticInitializerIndex();
 
@@ -42,6 +42,10 @@ public interface CompiledClass extends CompiledUnit {
             this.isMutable = isMutable;
         }
 
+    }
+
+
+    record Constructor(Visibility visibility, int index) {
     }
 
 }
