@@ -93,7 +93,7 @@ public class VirtualType implements Type {
         if (constructorVisibility != Visibility.PUBLIC){
             if (constructorVisibility == Visibility.PRIVATE){
                 TObject caller = thread.getFrame().getOwner();
-                if (caller == null || caller.getType() != this){
+                if (caller == null || (caller.getType() != this && caller != this)){
                     thread.reportRuntimeError("constructor has private access");
                     return null;
                 }
