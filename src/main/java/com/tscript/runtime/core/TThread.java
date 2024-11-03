@@ -204,7 +204,7 @@ public class TThread extends Thread implements Environment, TObject {
 
     public void reportRuntimeError(TObject object) {
         Frame frame = getFrame();
-        if (frame.inSafeSpot()){
+        if (frame.inUnsafeSpot()){
             frame.escapeError();
             frame.push(object);
             return;
@@ -231,7 +231,7 @@ public class TThread extends Thread implements Environment, TObject {
                 errorLog.append(" (native)");
             }
             errorLog.append('\n');
-        }while (!frameStack.isEmpty() && !frameStack.element().inSafeSpot());
+        }while (!frameStack.isEmpty() && !frameStack.element().inUnsafeSpot());
 
         if (frameStack.isEmpty()){
             System.err.println(errorLog);

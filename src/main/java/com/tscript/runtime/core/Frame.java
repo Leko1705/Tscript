@@ -1,9 +1,7 @@
 package com.tscript.runtime.core;
 
 import com.tscript.runtime.stroage.Module;
-import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.typing.Callable;
-import com.tscript.runtime.typing.Function;
 import com.tscript.runtime.typing.TObject;
 
 import java.util.ArrayDeque;
@@ -30,7 +28,7 @@ public class Frame {
 
     private int line = -1;
 
-    private final ArrayDeque<Integer> safeAddresses = new ArrayDeque<>();
+    private final ArrayDeque<Integer> safeSpots = new ArrayDeque<>();
 
     private final Map<String, TObject> names = new HashMap<>();
 
@@ -98,20 +96,20 @@ public class Frame {
         this.line = line;
     }
 
-    public boolean inSafeSpot() {
-        return !safeAddresses.isEmpty();
+    public boolean inUnsafeSpot() {
+        return !safeSpots.isEmpty();
     }
 
-    public void enterSafeSpot(int safeAddress) {
-        safeAddresses.push(safeAddress);
+    public void enterUnsafeSpot(int fallBackAddress) {
+        safeSpots.push(fallBackAddress);
     }
 
-    public void leaveSafeSpot() {
-        safeAddresses.pop();
+    public void leaveUnsafeSpot() {
+        safeSpots.pop();
     }
 
     public void escapeError() {
-        ip = safeAddresses.pop();
+        ip = safeSpots.pop();
         sp = 0;
     }
 

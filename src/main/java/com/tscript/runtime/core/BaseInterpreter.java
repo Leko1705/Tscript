@@ -426,12 +426,12 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void enterTry(byte b1, byte b2) {
-        thread.getFrame().enterSafeSpot(Conversion.from2Bytes(b1, b2));
+        thread.getFrame().enterUnsafeSpot(Conversion.from2Bytes(b1, b2));
     }
 
     @Override
     public void leaveTry() {
-        thread.getFrame().leaveSafeSpot();
+        thread.getFrame().leaveUnsafeSpot();
     }
 
     @Override
