@@ -2,3 +2,5 @@ module test;
 
 var x = [];
 use x;
+push(3);
+print(x);

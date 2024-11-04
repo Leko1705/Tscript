@@ -15,23 +15,43 @@ public class UsageApplier {
 
         private boolean inStaticContext = false;
         private boolean inSuperConstructorParams = false;
+        
+        private boolean localUsePerformed = false;
+        private boolean globalUsePerformed = false;
+        private boolean inGlobalScope;
 
         @Override
         public Void visitRoot(TCTree.TCRootTree node, Scope unused) {
-            return super.visitRoot(node, node.scope);
+            inGlobalScope = false; // avoid any miss-behaviour
+            scan(node.imports, node.scope);
+            scan(node.definitions, node.scope);
+            inGlobalScope = true;
+            scan(node.statements, node.scope);
+            return null;
         }
 
         @Override
         public Void visitClass(TCTree.TCClassTree node, Scope scope) {
-            return super.visitClass(node, node.sym.subScope);
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
+            super.visitClass(node, node.sym.subScope);
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
+            return null;
         }
 
         @Override
         public Void visitFunction(TCTree.TCFunctionTree node, Scope unused) {
             boolean prev = inStaticContext;
             inStaticContext = node.modifiers.flags.contains(Modifier.STATIC);
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
             super.visitFunction(node, node.sym.subScope);
             inStaticContext = prev;
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
             return null;
         }
 
@@ -42,65 +62,117 @@ public class UsageApplier {
             boolean prevStat = inStaticContext;
             inStaticContext = false;
             inSuperConstructorParams = true;
+            boolean prevLocalUsePerformed = localUsePerformed;
             scan(node.superArgs, node.scope);
             inStaticContext = prevStat;
             inSuperConstructorParams = false;
             scan(node.body, scope);
-            return super.visitConstructor(node, node.scope);
+            localUsePerformed = prevLocalUsePerformed;
+            return null;
         }
 
         @Override
         public Void visitLambda(TCTree.TCLambdaTree node, Scope unused) {
-            return super.visitLambda(node, node.scope);
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
+            super.visitLambda(node, node.scope);
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
+            return null;
         }
 
         @Override
         public Void visitNamespace(TCTree.TCNamespaceTree node, Scope unused) {
-            return super.visitNamespace(node, node.sym.subScope);
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
+            super.visitNamespace(node, node.sym.subScope);
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
+            return null;
         }
 
         @Override
         public Void visitBlock(TCTree.TCBlockTree node, Scope unused) {
-            return super.visitBlock(node, node.scope);
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
+            super.visitBlock(node, node.scope);
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
+            return null;
         }
 
         @Override
         public Void visitIfElse(TCTree.TCIfElseTree node, Scope scope) {
             scan(node.condition, scope);
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
             scan(node.thenStatement, node.thenScope);
             scan(node.elseStatement, node.elseScope);
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
             return null;
         }
 
         @Override
         public Void visitWhileDoLoop(TCTree.TCWhileDoTree node, Scope scope) {
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
             scan(node.condition, scope);
             scan(node.statement, node.scope);
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
             return null;
         }
 
         @Override
         public Void visitDoWhileLoop(TCTree.TCDoWhileTree node, Scope scope) {
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
             scan(node.statement, node.scope);
             scan(node.condition, scope);
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
             return null;
         }
 
         @Override
         public Void visitForLoop(TCTree.TCForLoopTree node, Scope scope) {
-            return super.visitForLoop(node, node.scope);
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
+            super.visitForLoop(node, node.scope);
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
+            return null;
         }
 
         @Override
         public Void visitTryCatch(TCTree.TCTryCatchTree node, Scope scope) {
+            boolean prevInGlobalScope = inGlobalScope;
+            inGlobalScope = false;
+            boolean prevLocalUsePerformed = localUsePerformed;
             scan(node.tryStatement, node.tryScope);
+            localUsePerformed = prevLocalUsePerformed;
             scan(node.exceptionVar, node.exceptionVar.sym.owner);
             scan(node.catchStatement, node.exceptionVar.sym.owner);
+            inGlobalScope = prevInGlobalScope;
+            localUsePerformed = prevLocalUsePerformed;
             return null;
         }
 
         @Override
         public Void visitVariable(TCTree.TCVariableTree node, Scope scope) {
+            
+            if (globalUsePerformed || localUsePerformed){
+                node.sym = new Symbol.UnknownSymbol(node.name, node.location);
+                return null;
+            }
 
             boolean hasSuperClass = hasSuperClass(scope);
             boolean superClassIsImported = hasSuperClass && superClassIsImported(scope);
@@ -227,6 +299,16 @@ public class UsageApplier {
                 throw Errors.canNotUseBeforeConstructorCalled(node.location, "this");
             return null;
         }
+
+        @Override
+        public Void visitUse(TCTree.TCUseTree node, Scope scope) {
+            super.visitUse(node, scope);
+            localUsePerformed = true;
+            if (inGlobalScope)
+                globalUsePerformed = true;
+            return null;
+        }
+
     }
 
 
