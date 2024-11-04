@@ -1,3 +1,4 @@
 module test;
 
-print(1 typeof Integer);
+var x = Integer;
+print(1 typeof x);

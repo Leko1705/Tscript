@@ -234,14 +234,23 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
         if (!(node.type instanceof TCVariableTree v
                 && (v.sym.kind == Symbol.Kind.CLASS || isBuiltinType(v)))){
+
+            /*
+            It is unclear if the given type is actually a type.
+            So we generate assertion bytecode if the given type is actually a Type.
+             */
+
             func.getInstructions().add(new Dup());
+            func.getInstructions().add(new GetType());
+            func.getInstructions().add(new LoadBuiltin(Builtins.indexOf("Type")));
+            func.getInstructions().add(new Equals());
             func.getInstructions().add(new BranchIfTrue(func.getInstructions().size() + 3));
             func.getInstructions().add(
                     new LoadConst(PoolPutter.put(context,
-                            new TCStringTree(node.getLocation(), "can not check type because the given expression is not a Type"))));
+                            new TCStringTree(node.getLocation(), "can not check type because the checked type is not a Type<Type>"))));
             func.getInstructions().add(new Throw());
-            stackGrows();
-            stackShrinks();
+            stackGrows(2);
+            stackShrinks(2);
         }
 
         func.getInstructions().add(new Equals());
