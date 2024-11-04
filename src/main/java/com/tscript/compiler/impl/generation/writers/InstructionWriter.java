@@ -118,6 +118,7 @@ public interface InstructionWriter {
 
     void writeToMapArg(ToMapArg inst);
 
-    void writeUse(Use inst);
+    void writeUseMembers(UseMembers inst);
 
+    void writeUse(Use inst);
 }

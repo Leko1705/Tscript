@@ -178,7 +178,8 @@ public class TThread extends Thread implements Environment, TObject {
             case RETURN -> interpreter.returnFunction();
             case CALL_SUPER -> interpreter.callSuper(instruction[1]);
             case IMPORT -> interpreter.importModule(instruction[1], instruction[2]);
-            case USE -> interpreter.use();
+            case USE -> interpreter.use(instruction[1], instruction[2]);
+            case USE_MEMBERS -> interpreter.useMembers();
             case LOAD_NAME -> interpreter.loadName(instruction[1], instruction[2]);
             case DUP -> interpreter.dup();
             case EXTEND -> interpreter.extend(instruction[1], instruction[2]);

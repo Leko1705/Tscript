@@ -566,15 +566,26 @@ public class BaseInterpreter implements Interpreter {
     }
 
     @Override
-    public void use() {
+    public void useMembers() {
         TObject used = thread.pop();
-        Frame frame = thread.getFrame();
+
         for (Member member : used.getMembers()){
-            boolean success = frame.storeName(member.getName(), member.get());
-            if (!success){
-                thread.reportRuntimeError(InternalRuntimeErrorMessages.nameAlreadyExists(member.getName()));
-                return;
-            }
+            storeMember(member.getName(), member.get());
+        }
+    }
+
+    @Override
+    public void use(byte b1, byte b2) {
+        String name = getUtf8Constant(b1, b2);
+        TObject value = thread.pop();
+        storeMember(name, value);
+    }
+
+    private void storeMember(String name, TObject value){
+        Frame frame = thread.getFrame();
+        boolean success = frame.storeName(name, value);
+        if (!success){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.nameAlreadyExists(name));
         }
     }
 

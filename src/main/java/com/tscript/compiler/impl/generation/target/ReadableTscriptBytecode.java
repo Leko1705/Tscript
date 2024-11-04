@@ -428,7 +428,12 @@ public class ReadableTscriptBytecode implements Target, PoolWriter, PoolEntryWri
 
     @Override
     public void writeUse(Use inst) {
-        writeInst("USE");
+        writeInst("USE " + inst.address);
+    }
+
+    @Override
+    public void writeUseMembers(UseMembers inst) {
+        writeInst("USE_MEMBERS");
     }
 
 

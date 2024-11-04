@@ -427,7 +427,12 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     public Void visitUse(TCUseTree node, Void unused) {
         scan(node.used, null);
         newLine(node);
-        func.getInstructions().add(new Use());
+        if (node.name == null) {
+            func.getInstructions().add(new UseMembers());
+        }
+        else {
+            func.getInstructions().add(new Use(PoolPutter.putUtf8(context, node.name)));
+        }
         stackShrinks();
         return null;
     }

@@ -22,6 +22,13 @@ public interface UseTree extends StatementTree {
     ExpressionTree getUsed();
 
     /**
+     * Returns a String that is associated with the used value.
+     * Is {@code null} if all the values Members should be used.
+     * @return the associated use name
+     */
+    String getName();
+
+    /**
      * {@inheritDoc}
      * @param visitor the visitor to be called
      * @param p a value to be passed to the visitor

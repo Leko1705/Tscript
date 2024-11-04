@@ -104,7 +104,9 @@ public interface Interpreter {
 
     void importModule(byte b1, byte b2);
 
-    void use();
+    void useMembers();
+
+    void use(byte b1, byte b2);
 
     void loadName(byte b1, byte b2);
 

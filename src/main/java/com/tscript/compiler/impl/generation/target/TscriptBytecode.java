@@ -517,7 +517,12 @@ public class TscriptBytecode
 
     @Override
     public void writeUse(Use inst) {
-        write(Opcode.USE);
+        write(Opcode.USE, Conversion.to2Bytes(inst.address));
+    }
+
+    @Override
+    public void writeUseMembers(UseMembers inst) {
+        write(Opcode.USE_MEMBERS);
     }
 
 

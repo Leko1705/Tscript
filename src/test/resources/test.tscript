@@ -1,6 +1,8 @@
 module test;
 
 var x = [];
-use x;
+
+from x use push;
+
 push(3);
 print(x);

@@ -69,7 +69,9 @@ public enum Opcode {
 
     IMPORT(2),
 
-    USE(0), LOAD_NAME(2),
+    USE(2),
+    USE_MEMBERS(0),
+    LOAD_NAME(2),
     DUP(0),
 
     ;Opcode(int argc){

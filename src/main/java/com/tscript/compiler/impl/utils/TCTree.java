@@ -1111,15 +1111,22 @@ public abstract class TCTree implements Tree {
     public static class TCUseTree extends TCStatementTree implements UseTree {
 
         public final TCExpressionTree used;
+        public final String name;
 
-        public TCUseTree(Location location, TCExpressionTree used) {
+        public TCUseTree(Location location, TCExpressionTree used, String name) {
             super(location);
             this.used = used;
+            this.name = name;
         }
 
         @Override
         public ExpressionTree getUsed() {
             return used;
+        }
+
+        @Override
+        public String getName() {
+            return name;
         }
 
         @Override
@@ -1383,7 +1390,8 @@ public abstract class TCTree implements Tree {
                                   TCStatementTree catchBody);
 
         TCUseTree UseTree(Location location,
-                        TCExpressionTree variable);
+                          TCExpressionTree variable,
+                          String name);
 
         TCVarDefsTree VarDefsTree(Location location,
                                 TCModifiersTree modifiers,

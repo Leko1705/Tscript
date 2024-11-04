@@ -2,8 +2,6 @@ package com.tscript.compiler.impl.parse;
 
 import com.tscript.compiler.source.utils.CompileException;
 import com.tscript.compiler.source.utils.Location;
-import com.tscript.runtime.tni.NativeCollection;
-import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.compiler.impl.utils.*;
 import com.tscript.compiler.impl.utils.TCTree.*;
 import com.tscript.compiler.source.tree.*;
@@ -647,6 +645,9 @@ public class TscriptParser implements Parser {
         else if (token.hasTag(USE)) {
             return parseUse();
         }
+        else if (token.hasTag(FROM)) {
+            return parseFromUse();
+        }
         else {
             TCExpressionTree exp = parseExpression();
             if (exp == null)
@@ -844,9 +845,27 @@ public class TscriptParser implements Parser {
     private TCUseTree parseUse() {
         Token<TscriptTokenType> token = lexer.consume();
         TCExpressionTree exp = unwrap(parseExpression(), token);
-        TCUseTree useTree = F.UseTree(token.getLocation(), exp);
+        TCUseTree useTree = F.UseTree(token.getLocation(), exp, null);
         parseEOS();
         return useTree;
+    }
+
+    private TCUseTree parseFromUse() {
+        Location location = lexer.consume().getLocation();
+        TCExpressionTree from = parseExpression();
+        Token<TscriptTokenType> token = lexer.consume();
+        if (!token.hasTag(USE))
+            error("missing keyword 'use'", token);
+
+        List<String> useChain = parseAccessChain();
+        Iterator<String> itr = useChain.iterator();
+
+        do {
+            from = F.MemberAccessTree(location, from, itr.next());
+        } while (itr.hasNext());
+
+        parseEOS();
+        return F.UseTree(location, from, useChain.get(useChain.size() - 1));
     }
 
     private TCImportTree parseImport(){
@@ -859,8 +878,9 @@ public class TscriptParser implements Parser {
     private TCFromImportTree parseFromImport(){
         Location location = lexer.consume().getLocation();
         List<String> fromAccessChain = parseAccessChain();
-        if (!lexer.consume().hasTag(IMPORT))
-            error("missing keyword 'import'", lexer.consume());
+        Token<TscriptTokenType> token = lexer.consume();
+        if (!token.hasTag(IMPORT))
+            error("missing keyword 'import'", token);
         List<String> importAccessChain = parseAccessChain();
         parseEOS();
         return F.FromImportTree(location, fromAccessChain, importAccessChain);
