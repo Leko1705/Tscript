@@ -976,7 +976,7 @@ public class TscriptParser implements Parser {
         }
         else if (token.hasTag(NOT)){
             lexer.consume();
-            expNode = F.NotTree(token.getLocation(), unwrap(parseExpression(), token));
+            expNode = F.NotTree(token.getLocation(), unwrap(parsePrimaryExpression(true), token));
         }
         else if (token.hasTag(SUPER)){
             lexer.consume();
@@ -993,13 +993,13 @@ public class TscriptParser implements Parser {
         else if (token.hasTag(PLUS) || token.hasTag(MINUS)){
             lexer.consume();
 
-            TCExpressionTree op = unwrap(parseExpression(), token);
+            TCExpressionTree op = unwrap(parsePrimaryExpression(true), token);
             boolean isNegation = token.getTag() == MINUS;
             expNode = F.SignTree(token.getLocation(), isNegation, op);
         }
         else if (token.hasTag(TYPEOF)){
             lexer.consume();
-            expNode = F.GetTypeTree(token.getLocation(), unwrap(parseExpression(), token));
+            expNode = F.GetTypeTree(token.getLocation(), unwrap(parsePrimaryExpression(true), token));
         }
         else if (token.hasTag(PARENTHESES_OPEN)){
             lexer.consume();

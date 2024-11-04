@@ -1,4 +1,4 @@
 module test;
 
 var x = Integer;
-print(1 typeof x);
+print(1 typeof x + 3);
