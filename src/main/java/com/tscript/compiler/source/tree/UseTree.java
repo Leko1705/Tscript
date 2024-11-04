@@ -16,10 +16,10 @@ import com.tscript.compiler.source.utils.TreeVisitor;
 public interface UseTree extends StatementTree {
 
     /**
-     * The variable to be used
+     * The used expression
      * @return the variable to be used
      */
-    VariableTree getVariable();
+    ExpressionTree getUsed();
 
     /**
      * {@inheritDoc}

@@ -1108,18 +1108,18 @@ public abstract class TCTree implements Tree {
         }
     }
 
-    public static class TCUseTree extends TCTree implements UseTree {
+    public static class TCUseTree extends TCStatementTree implements UseTree {
 
-        public final TCVariableTree varTree;
+        public final TCExpressionTree used;
 
-        public TCUseTree(Location location, TCVariableTree varTree) {
+        public TCUseTree(Location location, TCExpressionTree used) {
             super(location);
-            this.varTree = varTree;
+            this.used = used;
         }
 
         @Override
-        public VariableTree getVariable() {
-            return varTree;
+        public ExpressionTree getUsed() {
+            return used;
         }
 
         @Override
@@ -1383,7 +1383,7 @@ public abstract class TCTree implements Tree {
                                   TCStatementTree catchBody);
 
         TCUseTree UseTree(Location location,
-                        TCVariableTree variable);
+                        TCExpressionTree variable);
 
         TCVarDefsTree VarDefsTree(Location location,
                                 TCModifiersTree modifiers,

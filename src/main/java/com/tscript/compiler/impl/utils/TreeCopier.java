@@ -284,7 +284,7 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
 
     @Override
     public TCUseTree visitUse(TCUseTree node, Void unused) {
-        return F.UseTree(node.getLocation(), copy(node.varTree));
+        return F.UseTree(node.getLocation(), copy(node.used));
     }
 
     @Override

@@ -292,7 +292,7 @@ public class TCTreeScanner<P, R> implements TCTree.Visitor<P, R> {
 
     @Override
     public R visitUse(TCUseTree node, P p) {
-        return scan(node.varTree, p);
+        return scan(node.used, p);
     }
 
     @Override

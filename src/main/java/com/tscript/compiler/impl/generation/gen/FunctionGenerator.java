@@ -425,7 +425,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     @Override
     public Void visitUse(TCUseTree node, Void unused) {
-        scan(node.varTree, null);
+        scan(node.used, null);
         newLine(node);
         func.getInstructions().add(new Use());
         stackShrinks();

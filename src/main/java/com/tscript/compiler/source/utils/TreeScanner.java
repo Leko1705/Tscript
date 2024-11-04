@@ -292,7 +292,7 @@ public class TreeScanner<P, R> implements TreeVisitor<P, R> {
 
     @Override
     public R visitUse(UseTree node, P p) {
-        return scan(node.getVariable(), p);
+        return scan(node.getUsed(), p);
     }
 
     @Override

@@ -590,7 +590,7 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
     @Override
     public Void visitUse(UseTree node, StringBuilder stringBuilder) {
         stringBuilder.append("use ");
-        scan(node.getVariable(), stringBuilder);
+        scan(node.getUsed(), stringBuilder);
         stringBuilder.append(";");
         return null;
     }

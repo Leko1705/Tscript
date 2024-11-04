@@ -644,6 +644,9 @@ public class TscriptParser implements Parser {
         else if (token.hasTag(TRY)){
             return parseTryCatch();
         }
+        else if (token.hasTag(USE)) {
+            return parseUse();
+        }
         else {
             TCExpressionTree exp = parseExpression();
             if (exp == null)
@@ -836,6 +839,14 @@ public class TscriptParser implements Parser {
         TCStatementTree catchBody = parseStatement();
 
         return F.TryCatchTree(location, tryBody, exVarDef, catchBody);
+    }
+
+    private TCUseTree parseUse() {
+        Token<TscriptTokenType> token = lexer.consume();
+        TCExpressionTree exp = unwrap(parseExpression(), token);
+        TCUseTree useTree = F.UseTree(token.getLocation(), exp);
+        parseEOS();
+        return useTree;
     }
 
     private TCImportTree parseImport(){

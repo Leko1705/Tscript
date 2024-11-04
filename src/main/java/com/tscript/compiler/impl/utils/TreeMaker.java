@@ -275,7 +275,7 @@ public class TreeMaker implements TCTree.Factory {
     }
 
     @Override
-    public TCUseTree UseTree(Location location, TCVariableTree variable) {
+    public TCUseTree UseTree(Location location, TCExpressionTree variable) {
         return new TCUseTree(location, variable);
     }
 
