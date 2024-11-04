@@ -9,7 +9,7 @@ In this section its structure is discussed.
 ## The Overall Structure
 
 The Tscript Virtual Machine is divided into multiple sections:
-![image info](vm-structure.png)
+![image info](res/vm-structure.png)
 
 Like Java, Tscript supports multithreading by design. This means
 that different parts of a program can be executed in parallel.
@@ -41,7 +41,7 @@ Virtual functions can also be executed from the native side.
 
 The call stack has the following structure:
 
-![image info](callstack-structure.png)
+![image info](res/callstack-structure.png)
 
 A Call Stack consists of multiple `Frames`. Each frame hold information
 about a single function call in the stack trace. This information include:
@@ -93,7 +93,7 @@ initialized, its initializer block is called first.
 
 The bytecode of a module describes it's structure:
 
-![image info](bytecode-structure.png)
+![image info](res/bytecode-structure.png)
 
 ### Header
 A compiled files begins with the following header:

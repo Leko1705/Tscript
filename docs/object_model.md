@@ -20,7 +20,7 @@ To support loading abstract functions of a sub instance from its super instance
 each super instance must hold a reference to its sub instance.<p>
 A concrete object might look like this:
 
-![image info](object_model_example.png)
+![image info](res/object_model_example.png)
 
 Any object (sub instances and super instanced) should
 hold a reference to its type object.
@@ -54,7 +54,7 @@ To make this possible we make sure that every function has a reference to its
 owner. By this a bound function (called method) has full control over its
 owners members as expected.
 
-![image info](object_function_relation.png)
+![image info](res/object_function_relation.png)
 
 
 
