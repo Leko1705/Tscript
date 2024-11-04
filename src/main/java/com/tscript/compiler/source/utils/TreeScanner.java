@@ -189,6 +189,13 @@ public class TreeScanner<P, R> implements TreeVisitor<P, R> {
     }
 
     @Override
+    public R visitIsTypeofTree(IsTypeofTree node, P p) {
+        R r = scan(node.getChecked(), p);
+        r = scanSelective(node.getType(), p, r);
+        return r;
+    }
+
+    @Override
     public R visitLambda(LambdaTree node, P p) {
         R r = scan(node.getClosures(), p);
         r = scanSelective(node.getParameters(), p, r);

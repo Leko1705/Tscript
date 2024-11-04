@@ -27,7 +27,6 @@ public final class TscriptPrecedenceCalculator {
         precedences.put(TscriptTokenType.LESS, 40);
         precedences.put(TscriptTokenType.GREATER_EQ, 40);
         precedences.put(TscriptTokenType.LESS_EQ, 40);
-        precedences.put(TscriptTokenType.TYPEOF, 40);
         precedences.put(TscriptTokenType.EQUALS, 30);
         precedences.put(TscriptTokenType.NOT_EQUALS, 30);
         precedences.put(TscriptTokenType.XOR, 20);
@@ -78,7 +77,7 @@ public final class TscriptPrecedenceCalculator {
             case PLUS, MINUS, MUL, DIV,
                     IDIV, MOD, POW, SHIFT_AL,
                     SHIFT_AR , SHIFT_LR, AND, OR,
-                    XOR, TYPEOF, GREATER, LESS, GREATER_EQ, NOT_EQUALS,
+                    XOR, GREATER, LESS, GREATER_EQ, NOT_EQUALS,
                     EQUALS, LESS_EQ -> factory.BinaryOperationTree(op.getLocation(), lhs, rhs, Operation.of(tag.name));
 
             default -> throw new IllegalStateException(tag + " is not a binary expression");

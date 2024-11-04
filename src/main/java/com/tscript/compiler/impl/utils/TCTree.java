@@ -697,6 +697,33 @@ public abstract class TCTree implements Tree {
         }
     }
 
+    public static class TCIsTypeofTree extends TCExpressionTree implements IsTypeofTree {
+
+        public final TCExpressionTree checked;
+        public final TCExpressionTree type;
+
+        public TCIsTypeofTree(Location location, TCExpressionTree checked, TCExpressionTree type) {
+            super(location);
+            this.checked = checked;
+            this.type = type;
+        }
+
+        @Override
+        public <P, R> R accept(Visitor<P, R> visitor, P param) {
+            return visitor.visitIsTypeof(this, param);
+        }
+
+        @Override
+        public ExpressionTree getChecked() {
+            return checked;
+        }
+
+        @Override
+        public ExpressionTree getType() {
+            return type;
+        }
+    }
+
     public static class TCLambdaTree extends TCExpressionTree implements LambdaTree {
 
         public final List<? extends TCClosureTree> closures;
@@ -1291,6 +1318,10 @@ public abstract class TCTree implements Tree {
         TCIntegerTree IntegerTree(Location location,
                                 int value);
 
+        TCIsTypeofTree IsTypeofTree(Location location,
+                                    TCExpressionTree checked,
+                                    TCExpressionTree type);
+
         TCLambdaTree LambdaTree(Location location,
                               List<? extends TCClosureTree> closures,
                               List<? extends TCParameterTree> parameters,
@@ -1397,6 +1428,7 @@ public abstract class TCTree implements Tree {
         R visitIfElse(TCIfElseTree node, P p);
         R visitImport(TCImportTree node, P p);
         R visitInteger(TCIntegerTree node, P p);
+        R visitIsTypeof(TCIsTypeofTree node, P p);
         R visitLambda(TCLambdaTree node, P p);
         R visitMemberAccess(TCMemberAccessTree node, P p);
         R visitModifiers(TCModifiersTree node, P p);

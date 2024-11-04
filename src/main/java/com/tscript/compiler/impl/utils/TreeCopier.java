@@ -177,6 +177,14 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
     }
 
     @Override
+    public TCTree visitIsTypeof(TCIsTypeofTree node, Void unused) {
+        return F.IsTypeofTree(
+                node.getLocation(),
+                copy(node.checked),
+                copy(node.type));
+    }
+
+    @Override
     public TCLambdaTree visitLambda(TCLambdaTree node, Void unused) {
         return F.LambdaTree(
                 node.getLocation(),

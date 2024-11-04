@@ -188,6 +188,13 @@ public class TCTreeScanner<P, R> implements TCTree.Visitor<P, R> {
     }
 
     @Override
+    public R visitIsTypeof(TCIsTypeofTree node, P p) {
+        R r = scan(node.checked, p);
+        r = scanSelective(node.type, p, r);
+        return r;
+    }
+
+    @Override
     public R visitLambda(TCLambdaTree node, P p) {
         R r = scan(node.closures, p);
         r = scanSelective(node.parameters, p, r);

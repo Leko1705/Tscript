@@ -240,6 +240,14 @@ public class TypeChecker {
         }
 
         @Override
+        public Type visitIsTypeofTree(IsTypeofTree node, Void unused) {
+            scan(node.getChecked(), null);
+            Type expected = scan(node.getType(), null);
+            checkRequiredType(node, expected, List.of("Type"));
+            return types.get("Boolean");
+        }
+
+        @Override
         public Type visitForLoop(ForLoopTree node, Void unused) {
             scan(node.getVariable(), null);
             Type iterableType = scan(node.getIterable(), null);

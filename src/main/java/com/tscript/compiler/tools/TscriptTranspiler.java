@@ -401,6 +401,22 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
     }
 
     @Override
+    public Void visitIsTypeofTree(IsTypeofTree node, StringBuilder stringBuilder) {
+        if (webVersion) {
+            stringBuilder.append("Type(");
+            scan(node.getChecked(), stringBuilder);
+            stringBuilder.append(") == ");
+            scan(node.getType(), stringBuilder);
+        }
+        else {
+            scan(node.getChecked(), stringBuilder);
+            stringBuilder.append(" typeof ");
+            scan(node.getType(), stringBuilder);
+        }
+        return null;
+    }
+
+    @Override
     public Void visitLambda(LambdaTree node, StringBuilder stringBuilder) {
         stringBuilder.append("function ");
         if (!node.getClosures().isEmpty()){

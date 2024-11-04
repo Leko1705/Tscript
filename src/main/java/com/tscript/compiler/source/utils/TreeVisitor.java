@@ -222,6 +222,14 @@ public interface TreeVisitor<P, R> {
     R visitInteger(IntegerTree node, P p);
 
     /**
+     * Visits a {@code IsTypeofTree} node.
+     * @param node the node being visited
+     * @param p a parameter value
+     * @return a result value
+     */
+    R visitIsTypeofTree(IsTypeofTree node, P p);
+
+    /**
      * Visits a {@code LambdaTree} node.
      * @param node the node being visited
      * @param p a parameter value

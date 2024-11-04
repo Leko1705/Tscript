@@ -148,6 +148,11 @@ public class SimpleTreeVisitor<P, R> implements TreeVisitor<P, R> {
     }
 
     @Override
+    public R visitIsTypeofTree(IsTypeofTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
     public R visitLambda(LambdaTree node, P p) {
         return defaultAction(node, p);
     }

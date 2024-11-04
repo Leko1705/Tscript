@@ -11,6 +11,8 @@ import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.impl.utils.TCTree.*;
 import com.tscript.compiler.impl.utils.TCTreeScanner;
 import com.tscript.compiler.source.tree.*;
+import com.tscript.runtime.core.Builtins;
+import com.tscript.runtime.typing.Type;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -221,6 +223,38 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
         }
         stackShrinks();
         return null;
+    }
+
+
+    @Override
+    public Void visitIsTypeof(TCIsTypeofTree node, Void unused) {
+        scan(node.checked, null);
+        func.getInstructions().add(new GetType());
+        scan(node.type, null);
+
+        if (!(node.type instanceof TCVariableTree v
+                && (v.sym.kind == Symbol.Kind.CLASS || isBuiltinType(v)))){
+            func.getInstructions().add(new Dup());
+            func.getInstructions().add(new BranchIfTrue(func.getInstructions().size() + 3));
+            func.getInstructions().add(
+                    new LoadConst(PoolPutter.put(context,
+                            new TCStringTree(node.getLocation(), "can not check type because the given expression is not a Type"))));
+            func.getInstructions().add(new Throw());
+            stackGrows();
+            stackShrinks();
+        }
+
+        func.getInstructions().add(new Equals());
+        stackShrinks();
+
+        return null;
+    }
+
+
+    private boolean isBuiltinType(TCVariableTree v){
+        if (v.sym.kind != Symbol.Kind.BUILTIN) return false;
+        int index = Builtins.indexOf(v.name);
+        return index >= 0 && Builtins.load(index) instanceof Type;
     }
 
     @Override

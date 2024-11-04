@@ -1,7 +1,3 @@
 module test;
 
-enum X {
-    Y
-}
-
-print(X.Y);
+print(1 typeof Integer);

@@ -171,6 +171,11 @@ public class TreeMaker implements TCTree.Factory {
     }
 
     @Override
+    public TCIsTypeofTree IsTypeofTree(Location location, TCExpressionTree checked, TCExpressionTree type) {
+        return new TCIsTypeofTree(location, checked, type);
+    }
+
+    @Override
     public TCLambdaTree LambdaTree(Location location,
                                    List<? extends TCClosureTree> closures,
                                    List<? extends TCParameterTree> parameters,
