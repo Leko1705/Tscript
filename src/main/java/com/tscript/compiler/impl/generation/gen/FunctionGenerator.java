@@ -29,12 +29,11 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
     private int maxLocals = 0;
 
-    private final Deque<List<LoopFlowAction>> loopControlFlowStack = new ArrayDeque<>();
+    private final Deque<List<LoopFlowAction>> cfgStack = new ArrayDeque<>();
 
     private int line;
 
     protected final TCFunctionTree handled;
-
 
     public FunctionGenerator(Context context, TCFunctionTree generated) {
         this(context, generated, context.getNextFunctionIndex());
@@ -475,10 +474,64 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     }
 
     @Override
+    public Void visitSwitch(TCSwitchTree node, Void unused) {
+
+        if (node.cases.isEmpty() && node.defaultCase == null) {
+            // nothing to evaluate at all (no effect)
+            return null;
+        }
+        else if (node.cases.isEmpty()){
+            // avoid unnecessary stack operations
+            scan(node.defaultCase, null);
+            return null;
+        }
+
+        scan(node.expression, null);
+
+        List<BranchIfFalse> bnfs = new ArrayList<>();
+        cfgStack.push(new ArrayList<>());
+
+        for (TCCaseTree caseTree : node.cases) {
+            func.getInstructions().add(new Dup());
+            stackGrows();
+
+            BranchIfFalse branch = new BranchIfFalse(0);
+            func.getInstructions().add(branch);
+            bnfs.add(branch);
+
+            stackShrinks();
+            scan(caseTree.statement, null);
+        }
+
+        func.getInstructions().add(new Pop());
+        stackShrinks();
+
+        scan(node.defaultCase, null);
+
+        for (BranchIfFalse branch : bnfs) {
+            branch.address = func.getInstructions().size();
+        }
+
+        List<LoopFlowAction> switchCFActions = cfgStack.remove();
+        for (LoopFlowAction action : switchCFActions) {
+            if (action.isBreak()){
+                action.getInstruction().address = func.getInstructions().size();
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitCase(TCCaseTree node, Void unused) {
+        throw new AssertionError("should be covered by visitCase");
+    }
+
+    @Override
     public Void visitBreak(TCBreakTree node, Void unused) {
         AddressedInstruction instruction = new Goto(0);
         func.getInstructions().add(instruction);
-        loopControlFlowStack.element().add(new LoopFlowAction.BreakAction(instruction));
+        cfgStack.element().add(new LoopFlowAction.BreakAction(instruction));
         return null;
     }
 
@@ -486,7 +539,7 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     public Void visitContinue(TCContinueTree node, Void unused) {
         AddressedInstruction instruction = new Goto(0);
         func.getInstructions().add(instruction);
-        loopControlFlowStack.element().add(new LoopFlowAction.ContinueAction(instruction));
+        cfgStack.element().add(new LoopFlowAction.ContinueAction(instruction));
         return null;
     }
 
@@ -494,11 +547,11 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     public Void visitDoWhileLoop(TCDoWhileTree node, Void unused) {
         int headerAddress = func.getInstructions().size();
 
-        loopControlFlowStack.push(new LinkedList<>());
+        cfgStack.push(new LinkedList<>());
 
         scan(node.statement, null);
 
-        List<LoopFlowAction> loopCFActions = loopControlFlowStack.remove();
+        List<LoopFlowAction> loopCFActions = cfgStack.remove();
 
         int conditionStartAddress = func.getInstructions().size();
         scan(node.condition, null);
@@ -550,9 +603,9 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
             stackShrinks();
         }
 
-        loopControlFlowStack.push(new LinkedList<>());
+        cfgStack.push(new LinkedList<>());
         scan(node.statement, null);
-        List<LoopFlowAction> loopCFActions = loopControlFlowStack.remove();
+        List<LoopFlowAction> loopCFActions = cfgStack.remove();
 
         func.getInstructions().add(new Goto(jumpBackAddr));
         branchItr.address = func.getInstructions().size();
@@ -747,6 +800,13 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
     private boolean isExplicitReturn(){
         if (func.getInstructions().isEmpty()) return false;
         return func.getInstructions().get(func.getInstructions().size()-1) instanceof Return;
+    }
+
+
+    private interface BreakHandler {
+
+        void handle();
+
     }
 
 }
