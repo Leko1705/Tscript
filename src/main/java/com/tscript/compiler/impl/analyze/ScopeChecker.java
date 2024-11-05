@@ -145,7 +145,7 @@ public class ScopeChecker {
 
         @Override
         public Void visitBreak(BreakTree breakTree, Void unused) {
-            if (!inLoop)
+            if (!inLoop && !inBreakableCase)
                 throw Errors.canNotBreakOutOfLoop(breakTree.getLocation());
             return null;
         }

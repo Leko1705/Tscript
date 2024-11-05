@@ -76,7 +76,7 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
 
     @Override
     public TCCaseTree visitCase(TCCaseTree node, Void unused) {
-        return F.CaseTree(node.location, copy(node.statement), node.allowBreak);
+        return F.CaseTree(node.location, copy(node.expression), copy(node.statement), node.allowBreak);
     }
 
     @Override

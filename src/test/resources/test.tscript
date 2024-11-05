@@ -1,2 +1,7 @@
 module test;
 
+switch 1 then {
+    case 1 do print(1);
+    case 1 do break;
+    default print("hi");
+}

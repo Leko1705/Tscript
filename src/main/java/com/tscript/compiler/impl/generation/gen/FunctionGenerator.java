@@ -488,29 +488,28 @@ public class FunctionGenerator extends TCTreeScanner<Void, Void> {
 
         scan(node.expression, null);
 
-        List<BranchIfFalse> bnfs = new ArrayList<>();
         cfgStack.push(new ArrayList<>());
 
         for (TCCaseTree caseTree : node.cases) {
             func.getInstructions().add(new Dup());
             stackGrows();
 
+            scan(caseTree.expression, null);
+            func.getInstructions().add(new Equals());
+            stackShrinks();
+
             BranchIfFalse branch = new BranchIfFalse(0);
             func.getInstructions().add(branch);
-            bnfs.add(branch);
-
             stackShrinks();
+
             scan(caseTree.statement, null);
+            branch.address = func.getInstructions().size();
         }
 
         func.getInstructions().add(new Pop());
         stackShrinks();
 
         scan(node.defaultCase, null);
-
-        for (BranchIfFalse branch : bnfs) {
-            branch.address = func.getInstructions().size();
-        }
 
         List<LoopFlowAction> switchCFActions = cfgStack.remove();
         for (LoopFlowAction action : switchCFActions) {

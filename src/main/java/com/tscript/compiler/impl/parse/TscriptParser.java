@@ -933,7 +933,7 @@ public class TscriptParser implements Parser {
             token = lexer.consume();
             Location caseLocation = token.getLocation();
 
-            if (lexer.peek().hasTag(CASE)) {
+            if (token.hasTag(CASE)) {
                 TCExpressionTree caseExpr = parseExpression();
 
                 token = lexer.consume();
