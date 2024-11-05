@@ -271,7 +271,7 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
 
     @Override
     public TCTree visitSwitch(TCSwitchTree node, Void unused) {
-        return F.SwitchTree(node.location, copy(node.cases), copy(node.defaultCase));
+        return F.SwitchTree(node.location, copy(node.expression), copy(node.cases), copy(node.defaultCase));
     }
 
     @Override

@@ -264,8 +264,11 @@ public class TreeMaker implements TCTree.Factory {
     }
 
     @Override
-    public TCSwitchTree SwitchTree(Location location, List<? extends TCCaseTree> cases, TCStatementTree defaultCase) {
-        return new TCSwitchTree(location, cases, defaultCase);
+    public TCSwitchTree SwitchTree(Location location,
+                                   TCExpressionTree expression,
+                                   List<? extends TCCaseTree> cases,
+                                   TCStatementTree defaultCase) {
+        return new TCSwitchTree(location, expression, cases, defaultCase);
     }
 
     @Override

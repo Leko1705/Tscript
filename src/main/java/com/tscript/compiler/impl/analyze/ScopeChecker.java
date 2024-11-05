@@ -22,6 +22,7 @@ public class ScopeChecker {
         private boolean inConstructor = false;
         private boolean inClass = false;
         private boolean inLoop = false;
+        private boolean inBreakableCase = false;
         private boolean inLambda = false;
         private boolean inAbstractScope = false;
         private boolean inNamespace = false;
@@ -146,6 +147,15 @@ public class ScopeChecker {
         public Void visitBreak(BreakTree breakTree, Void unused) {
             if (!inLoop)
                 throw Errors.canNotBreakOutOfLoop(breakTree.getLocation());
+            return null;
+        }
+
+        @Override
+        public Void visitCase(CaseTree node, Void unused) {
+            boolean inCase = this.inBreakableCase;
+            inBreakableCase = node.allowBreak();
+            scan(node.getStatement(), unused);
+            this.inBreakableCase = inCase;
             return null;
         }
 

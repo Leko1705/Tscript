@@ -279,7 +279,8 @@ public class TreeScanner<P, R> implements TreeVisitor<P, R> {
 
     @Override
     public R visitSwitch(SwitchTree node, P p) {
-        R r = scan(node.getCases(), p);
+        R r = scan(node.getExpression(), p);
+        r = scanSelective(node.getCases(), p, r);
         r = scanSelective(node.getDefaultCase(), p, r);
         return r;
     }

@@ -1067,11 +1067,16 @@ public abstract class TCTree implements Tree {
 
     public static class TCSwitchTree extends TCStatementTree implements SwitchTree {
 
+        public final TCExpressionTree expression;
         public final List<? extends TCCaseTree> cases;
         public final TCStatementTree defaultCase;
 
-        public TCSwitchTree(Location location, List<? extends TCCaseTree> cases, TCStatementTree defaultCase) {
+        public TCSwitchTree(Location location,
+                            TCExpressionTree expression,
+                            List<? extends TCCaseTree> cases,
+                            TCStatementTree defaultCase) {
             super(location);
+            this.expression = expression;
             this.cases = cases;
             this.defaultCase = defaultCase;
         }
@@ -1079,6 +1084,11 @@ public abstract class TCTree implements Tree {
         @Override
         public <P, R> R accept(Visitor<P, R> visitor, P param) {
             return visitor.visitSwitch(this, param);
+        }
+
+        @Override
+        public ExpressionTree getExpression() {
+            return null;
         }
 
         @Override
@@ -1438,6 +1448,7 @@ public abstract class TCTree implements Tree {
         TCExpressionTree SuperTree(Location location, String name);
 
         TCSwitchTree SwitchTree(Location location,
+                                TCExpressionTree expression,
                                 List<? extends TCCaseTree> cases,
                                 TCStatementTree defaultCase);
 
