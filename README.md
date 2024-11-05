@@ -45,6 +45,23 @@ which is equivalent to:
 var type = Type(x);
 ```
 
+### Switch Case Statement
+Tscript now supports switch-case statements:
+
+```javascript
+switch "Tommy" then {
+    case "Tommy" do print("I love Cake!");
+    case "Jane" do {
+        print("I love Chocklate!");
+        print("Really!");
+        break; # skip all remaining cases + default
+    }
+
+    # Evaluated at the end.
+    # The evaluation of the cases has no effect on the default evaluation.
+    default print("no one selected :(");
+}
+```
 
 ### Abstract Types
 
