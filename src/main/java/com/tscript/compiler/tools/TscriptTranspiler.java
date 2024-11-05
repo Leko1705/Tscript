@@ -641,4 +641,5 @@ public class TscriptTranspiler extends TreeScanner<StringBuilder, Void> implemen
         scan(node.getStatement(), stringBuilder);
         return null;
     }
+
 }

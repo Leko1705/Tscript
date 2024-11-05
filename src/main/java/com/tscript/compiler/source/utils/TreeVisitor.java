@@ -94,6 +94,14 @@ public interface TreeVisitor<P, R> {
     R visitCall(CallTree node, P p);
 
     /**
+     * Visits a {@code CaseTree} node.
+     * @param node the node being visited
+     * @param p a parameter value
+     * @return a result value
+     */
+    R visitCase(CaseTree node, P p);
+
+    /**
      * Visits a {@code ClassTree} node.
      * @param node the node being visited
      * @param p a parameter value
@@ -332,6 +340,14 @@ public interface TreeVisitor<P, R> {
      * @return a result value
      */
     R visitSuper(SuperTree node, P p);
+
+    /**
+     * Visits a {@code SwitchTree} node.
+     * @param node the node being visited
+     * @param p a parameter value
+     * @return a result value
+     */
+    R visitSwitch(SwitchTree node, P p);
 
     /**
      * Visits a {@code ThisTree} node.

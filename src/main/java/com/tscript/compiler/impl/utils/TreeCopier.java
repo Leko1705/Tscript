@@ -1,6 +1,7 @@
 package com.tscript.compiler.impl.utils;
 
 import com.tscript.compiler.impl.utils.TCTree.*;
+import com.tscript.compiler.source.tree.IsTypeofTree;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,6 +72,11 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
                 node.getLocation(),
                 copy(node.called),
                 copy(node.arguments));
+    }
+
+    @Override
+    public TCCaseTree visitCase(TCCaseTree node, Void unused) {
+        return F.CaseTree(node.location, copy(node.statement), node.allowBreak);
     }
 
     @Override
@@ -177,7 +183,7 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
     }
 
     @Override
-    public TCTree visitIsTypeof(TCIsTypeofTree node, Void unused) {
+    public TCIsTypeofTree visitIsTypeof(TCIsTypeofTree node, Void unused) {
         return F.IsTypeofTree(
                 node.getLocation(),
                 copy(node.checked),
@@ -261,6 +267,11 @@ public class TreeCopier extends TCTreeScanner<Void, TCTree> {
     @Override
     public TCSuperTree visitSuper(TCSuperTree node, Void unused) {
         return F.SuperTree(node.getLocation(), node.getName());
+    }
+
+    @Override
+    public TCTree visitSwitch(TCSwitchTree node, Void unused) {
+        return F.SwitchTree(node.location, copy(node.cases), copy(node.defaultCase));
     }
 
     @Override

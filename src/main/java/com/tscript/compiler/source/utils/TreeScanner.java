@@ -88,6 +88,11 @@ public class TreeScanner<P, R> implements TreeVisitor<P, R> {
     }
 
     @Override
+    public R visitCase(CaseTree node, P p) {
+        return scan(node.getStatement(), p);
+    }
+
+    @Override
     public R visitClass(ClassTree node, P p) {
         R r = scan(node.getModifiers(), p);
         r = scanSelective(node.getMembers(), p, r);
@@ -270,6 +275,13 @@ public class TreeScanner<P, R> implements TreeVisitor<P, R> {
     @Override
     public R visitSuper(SuperTree node, P p) {
         return null;
+    }
+
+    @Override
+    public R visitSwitch(SwitchTree node, P p) {
+        R r = scan(node.getCases(), p);
+        r = scanSelective(node.getDefaultCase(), p, r);
+        return r;
     }
 
     @Override

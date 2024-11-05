@@ -408,6 +408,33 @@ public abstract class TCTree implements Tree {
         }
     }
 
+    public static class TCCaseTree extends TCTree implements CaseTree {
+
+        public final TCStatementTree statement;
+        public final boolean allowBreak;
+
+        public TCCaseTree(Location location, TCStatementTree statement, boolean allowBreak) {
+            super(location);
+            this.statement = statement;
+            this.allowBreak = allowBreak;
+        }
+
+        @Override
+        public <P, R> R accept(Visitor<P, R> visitor, P param) {
+            return visitor.visitCase(this, param);
+        }
+
+        @Override
+        public StatementTree getStatement() {
+            return statement;
+        }
+
+        @Override
+        public boolean allowBreak() {
+            return allowBreak;
+        }
+    }
+
     public static class TCDictionaryTree extends TCExpressionTree implements DictionaryTree {
 
         public final List<? extends TCExpressionTree> keys;
@@ -1038,6 +1065,33 @@ public abstract class TCTree implements Tree {
         }
     }
 
+    public static class TCSwitchTree extends TCStatementTree implements SwitchTree {
+
+        public final List<? extends TCCaseTree> cases;
+        public final TCStatementTree defaultCase;
+
+        public TCSwitchTree(Location location, List<? extends TCCaseTree> cases, TCStatementTree defaultCase) {
+            super(location);
+            this.cases = cases;
+            this.defaultCase = defaultCase;
+        }
+
+        @Override
+        public <P, R> R accept(Visitor<P, R> visitor, P param) {
+            return visitor.visitSwitch(this, param);
+        }
+
+        @Override
+        public List<? extends CaseTree> getCases() {
+            return cases;
+        }
+
+        @Override
+        public StatementTree getDefaultCase() {
+            return defaultCase;
+        }
+    }
+
     public static class TCThisTree extends TCExpressionTree implements ThisTree {
         public TCThisTree(Location location) {
             super(location);
@@ -1260,6 +1314,10 @@ public abstract class TCTree implements Tree {
                           TCExpressionTree called,
                           List<? extends TCArgumentTree> arguments);
 
+        TCCaseTree CaseTree(Location location,
+                            TCStatementTree statementTree,
+                            boolean allowBreak);
+
         TCClassTree ClassTree(Location location,
                             TCModifiersTree modifiers,
                             String name,
@@ -1379,6 +1437,10 @@ public abstract class TCTree implements Tree {
 
         TCExpressionTree SuperTree(Location location, String name);
 
+        TCSwitchTree SwitchTree(Location location,
+                                List<? extends TCCaseTree> cases,
+                                TCStatementTree defaultCase);
+
         TCThisTree ThisTree(Location location);
 
         TCThrowTree ThrowTree(Location location,
@@ -1420,6 +1482,7 @@ public abstract class TCTree implements Tree {
         R visitBoolean(TCBooleanTree node, P p);
         R visitBreak(TCBreakTree node, P p);
         R visitCall(TCCallTree node, P p);
+        R visitCase(TCCaseTree node, P p);
         R visitClass(TCClassTree node, P p);
         R visitClosure(TCClosureTree node, P p);
         R visitConstructor(TCConstructorTree node, P p);
@@ -1450,6 +1513,7 @@ public abstract class TCTree implements Tree {
         R visitSign(TCSignTree node, P p);
         R visitString(TCStringTree node, P p);
         R visitSuper(TCSuperTree node, P p);
+        R visitSwitch(TCSwitchTree node, P p);
         R visitThis(TCThisTree node, P p);
         R visitThrow(TCThrowTree node, P p);
         R visitTryCatch(TCTryCatchTree node, P p);

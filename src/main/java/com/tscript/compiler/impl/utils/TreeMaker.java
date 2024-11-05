@@ -63,6 +63,13 @@ public class TreeMaker implements TCTree.Factory {
     }
 
     @Override
+    public TCCaseTree CaseTree(Location location,
+                               TCStatementTree statementTree,
+                               boolean allowBreak) {
+        return new TCCaseTree(location, statementTree, allowBreak);
+    }
+
+    @Override
     public TCClassTree ClassTree(Location location,
                                  TCModifiersTree modifiers,
                                  String name,
@@ -254,6 +261,11 @@ public class TreeMaker implements TCTree.Factory {
     @Override
     public TCSuperTree SuperTree(Location location, String name) {
         return new TCSuperTree(location, name);
+    }
+
+    @Override
+    public TCSwitchTree SwitchTree(Location location, List<? extends TCCaseTree> cases, TCStatementTree defaultCase) {
+        return new TCSwitchTree(location, cases, defaultCase);
     }
 
     @Override

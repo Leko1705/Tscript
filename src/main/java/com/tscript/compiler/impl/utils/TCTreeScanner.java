@@ -87,6 +87,11 @@ public class TCTreeScanner<P, R> implements TCTree.Visitor<P, R> {
     }
 
     @Override
+    public R visitCase(TCCaseTree node, P p) {
+        return scan(node.statement, p);
+    }
+
+    @Override
     public R visitClass(TCClassTree node, P p) {
         R r = scan(node.modifiers, p);
         r = scanSelective(node.members, p, r);
@@ -270,6 +275,13 @@ public class TCTreeScanner<P, R> implements TCTree.Visitor<P, R> {
     @Override
     public R visitSuper(TCSuperTree node, P p) {
         return null;
+    }
+
+    @Override
+    public R visitSwitch(TCSwitchTree node, P p) {
+        R r = scan(node.cases, p);
+        r = scanSelective(node.defaultCase, p, r);
+        return r;
     }
 
     @Override

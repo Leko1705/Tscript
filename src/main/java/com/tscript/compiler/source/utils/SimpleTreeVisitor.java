@@ -68,6 +68,11 @@ public class SimpleTreeVisitor<P, R> implements TreeVisitor<P, R> {
     }
 
     @Override
+    public R visitCase(CaseTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
     public R visitClass(ClassTree node, P p) {
         return defaultAction(node, p);
     }
@@ -215,6 +220,11 @@ public class SimpleTreeVisitor<P, R> implements TreeVisitor<P, R> {
     @Override
     public R visitSuper(SuperTree node, P p) {
         return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitSwitch(SwitchTree node, P p) {
+        return null;
     }
 
     @Override
