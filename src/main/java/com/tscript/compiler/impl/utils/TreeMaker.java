@@ -64,9 +64,10 @@ public class TreeMaker implements TCTree.Factory {
 
     @Override
     public TCCaseTree CaseTree(Location location,
+                               TCExpressionTree expression,
                                TCStatementTree statementTree,
                                boolean allowBreak) {
-        return new TCCaseTree(location, statementTree, allowBreak);
+        return new TCCaseTree(location, expression, statementTree, allowBreak);
     }
 
     @Override

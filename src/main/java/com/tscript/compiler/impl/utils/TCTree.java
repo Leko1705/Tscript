@@ -410,11 +410,16 @@ public abstract class TCTree implements Tree {
 
     public static class TCCaseTree extends TCTree implements CaseTree {
 
+        public final TCExpressionTree expression;
         public final TCStatementTree statement;
         public final boolean allowBreak;
 
-        public TCCaseTree(Location location, TCStatementTree statement, boolean allowBreak) {
+        public TCCaseTree(Location location,
+                          TCExpressionTree expression,
+                          TCStatementTree statement,
+                          boolean allowBreak) {
             super(location);
+            this.expression = expression;
             this.statement = statement;
             this.allowBreak = allowBreak;
         }
@@ -422,6 +427,11 @@ public abstract class TCTree implements Tree {
         @Override
         public <P, R> R accept(Visitor<P, R> visitor, P param) {
             return visitor.visitCase(this, param);
+        }
+
+        @Override
+        public ExpressionTree getExpression() {
+            return expression;
         }
 
         @Override
@@ -1325,6 +1335,7 @@ public abstract class TCTree implements Tree {
                           List<? extends TCArgumentTree> arguments);
 
         TCCaseTree CaseTree(Location location,
+                            TCExpressionTree expression,
                             TCStatementTree statementTree,
                             boolean allowBreak);
 

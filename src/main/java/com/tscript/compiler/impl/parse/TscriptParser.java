@@ -611,6 +611,9 @@ public class TscriptParser implements Parser {
         else if (token.hasTag(IF)){
             return parseIfElse();
         }
+        else if (token.hasTag(SWITCH)){
+            return parseSwitchCase();
+        }
         else if (token.hasTag(WHILE)){
             return parseWhileDo();
         }
@@ -908,6 +911,51 @@ public class TscriptParser implements Parser {
         while (true);
 
         return accessChain;
+    }
+
+    private TCSwitchTree parseSwitchCase(){
+        Location location = lexer.consume().getLocation();
+
+        TCExpressionTree expr = parseExpression();
+
+        Token<TscriptTokenType> token = lexer.consume();
+        if (!token.hasTag(THEN))
+            error("missing keyword 'then'", token);
+
+        token = lexer.consume();
+        if (!token.hasTag(CURVED_OPEN))
+            error("missing '{'", token);
+
+        List<TCCaseTree> cases = new ArrayList<>();
+        TCStatementTree defaultCase = null;
+
+        while (lexer.peek().hasTag(CASE, DEFAULT)){
+            token = lexer.consume();
+            Location caseLocation = token.getLocation();
+
+            if (lexer.peek().hasTag(CASE)) {
+                TCExpressionTree caseExpr = parseExpression();
+
+                token = lexer.consume();
+                if (!token.hasTag(DO))
+                    error("missing keyword 'do'", token);
+
+                TCStatementTree caseBody = parseStatement();
+                cases.add(F.CaseTree(caseLocation, caseExpr, caseBody, true));
+            }
+            else { // is default
+                if (defaultCase != null) {
+                    error("can not define multiple default cases", token);
+                }
+                defaultCase = parseStatement();
+            }
+        }
+
+        token = lexer.consume();
+        if (!token.hasTag(CURVED_CLOSED))
+            error("missing '}'", token);
+
+        return F.SwitchTree(location, expr, cases, defaultCase);
     }
 
     private TCBlockTree parseBlock(){

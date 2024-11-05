@@ -4,6 +4,8 @@ import com.tscript.compiler.source.utils.TreeVisitor;
 
 public interface CaseTree extends Tree {
 
+    ExpressionTree getExpression();
+
     StatementTree getStatement();
 
     boolean allowBreak();
