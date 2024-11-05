@@ -10,7 +10,7 @@ import com.tscript.compiler.source.utils.TreeVisitor;
  *   typeof <em>expression</em>
  * </pre>
  *
- * @since 1.0
+ * @since 2.0
  * @author Lennart Köhler
  */
 public interface GetTypeTree extends UnaryExpressionTree {

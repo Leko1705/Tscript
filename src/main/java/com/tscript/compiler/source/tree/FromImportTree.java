@@ -16,7 +16,7 @@ import java.util.List;
  *  from <em>name</em> import * ;
  * </pre>
  *
- * @since 1.0
+ * @since 2.0
  * @author Lennart Köhler
  */
 public interface FromImportTree extends Tree {
