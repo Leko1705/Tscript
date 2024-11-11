@@ -298,7 +298,7 @@ class Main {
 
         Compiler compiler = CompilerProvider.createDefaultTscriptCompiler();
         int exitCode = compiler.run(in, out, null, null);
-        if (exitCode != null){
+        if (exitCode != 0){
             // compilation error occurred
             System.exit(exitCode);
         }
