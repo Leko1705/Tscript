@@ -6,7 +6,6 @@ import com.tscript.runtime.stroage.TypeArea;
 import com.tscript.runtime.stroage.loading.ModuleLoader;
 import com.tscript.runtime.stroage.loading.ModuleLoadingException;
 import com.tscript.runtime.stroage.Pool;
-import com.tscript.runtime.tni.NativeCollection;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.tni.TNIUtils;
 import com.tscript.runtime.typing.*;
@@ -48,7 +47,7 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void loadNative(byte b1, byte b2) {
         String name = getUtf8Constant(b1, b2);
-        NativeFunction func = NativeCollection.getNativeFunction(name);
+        NativeFunction func = thread.getVM().buildFile.getNative(name);
 
         if (func == null){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchNativeFunctionFound(name));

@@ -1,5 +1,6 @@
 package com.tscript.runtime.core;
 
+import com.tscript.buildfile.BuildFile;
 import com.tscript.runtime.VirtualMachine;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.loading.*;
@@ -33,6 +34,7 @@ public class TscriptVM implements VirtualMachine {
     private final Map<Long, TThread> runningThreads;
     private volatile int exitCode = 0;
     private final Set<TerminationListener> terminationListeners = new HashSet<>();
+    protected BuildFile buildFile = null;
 
     private TscriptVM(File[] rootPath, PrintStream out, PrintStream err){
         this.rootPaths = rootPath;
@@ -92,6 +94,14 @@ public class TscriptVM implements VirtualMachine {
         if (started)
             throw new IllegalStateException("vm already running");
         this.sharedModuleLoader = sharedModuleLoader;
+    }
+
+    public void setBuildFile(BuildFile buildFile) {
+        this.buildFile = Objects.requireNonNull(buildFile);
+    }
+
+    public BuildFile getBuildFile() {
+        return buildFile;
     }
 
     public void addTerminationListener(TerminationListener listener){

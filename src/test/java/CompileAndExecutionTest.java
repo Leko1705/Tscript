@@ -1,3 +1,4 @@
+import com.tscript.buildfile.BuildFile;
 import com.tscript.compiler.tools.*;
 import com.tscript.compiler.source.utils.CompileException;
 import com.tscript.runtime.core.TscriptVM;
@@ -33,7 +34,10 @@ public class CompileAndExecutionTest {
             runTool(inspector, file.getAbsolutePath(), outPath + File.separator + file.getName() + "i");
         }
 
+        BuildFile buildFile = BuildFile.parse("/home/kali/IdeaProjects/Tscript9/src/test/resources/config.tsrt");
+
         TscriptVM vm = TscriptVM.runnableInstance(new File(outPath), System.out, System.err);
+        vm.setBuildFile(buildFile);
         int exitCode = vm.execute(bootModule);
         Assertions.assertEquals(0, exitCode);
     }
