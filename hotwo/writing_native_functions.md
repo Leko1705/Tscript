@@ -69,9 +69,9 @@ public class NativePrint extends NativeFunction {
 ### Step 3: Register the Native Implementation
 
 After defining the native implementation we have to register it.
-To do so we navigate to the `com.tscript.runime.tni.NativeCollection` class.
-Here we call `registerNativeFunction(new NativePrint());` in the static initializer
-block.
+To do so we navigate to the `project.tsrt` file.
+Here we add the line `native com.tscript.runtime.tni.natfuncs.std.NativePrint`.
+Note that the fully qualified name with the dotted notation is required.
 
 ### Step 4: Done!
 
