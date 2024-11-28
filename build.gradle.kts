@@ -1,4 +1,5 @@
 plugins {
+    application
     id("java")
 }
 
@@ -17,3 +18,14 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+application {
+    mainClass.set("com.tscript.Main") // Replace with your main class
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = application.mainClass.get()
+    }
+}
+
