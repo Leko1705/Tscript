@@ -8,7 +8,7 @@ import com.tscript.runtime.typing.TReal;
 
 import java.util.List;
 
-public class NativeTime extends NativeFunction {
+public final class NativeTime extends NativeFunction {
 
     @Override
     public String getName() {

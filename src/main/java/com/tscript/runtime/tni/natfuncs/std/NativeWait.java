@@ -9,7 +9,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class NativeWait extends NativeFunction {
+public final class NativeWait extends NativeFunction {
 
     @Override
     public String getName() {

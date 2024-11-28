@@ -7,7 +7,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class NativeError extends NativeFunction {
+public final class NativeError extends NativeFunction {
 
     @Override
     public String getName() {

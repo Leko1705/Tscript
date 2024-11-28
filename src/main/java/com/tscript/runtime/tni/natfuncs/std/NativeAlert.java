@@ -10,7 +10,7 @@ import com.tscript.runtime.typing.TObject;
 import javax.swing.*;
 import java.util.List;
 
-public class NativeAlert extends NativeFunction {
+public final class NativeAlert extends NativeFunction {
 
     @Override
     public String getName() {

@@ -11,7 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-public class NativeExists extends NativeFunction {
+public final class NativeExists extends NativeFunction {
 
     @Override
     public String getName() {

@@ -10,7 +10,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class TurtleMove extends NativeFunction {
+public final class TurtleMove extends NativeFunction {
 
     @Override
     public String getName() {

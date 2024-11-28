@@ -11,7 +11,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class CanvasText extends NativeFunction {
+public final class CanvasText extends NativeFunction {
 
     @Override
     public String getName() {

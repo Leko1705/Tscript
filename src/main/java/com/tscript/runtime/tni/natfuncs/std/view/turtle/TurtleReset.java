@@ -7,7 +7,7 @@ import com.tscript.runtime.typing.*;
 
 import java.util.List;
 
-public class TurtleReset extends NativeFunction {
+public final class TurtleReset extends NativeFunction {
 
     private static final TInteger ZERO = new TInteger(0);
 

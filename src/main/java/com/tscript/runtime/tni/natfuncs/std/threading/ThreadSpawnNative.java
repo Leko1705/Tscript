@@ -10,7 +10,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class ThreadSpawnNative extends NativeFunction {
+public final class ThreadSpawnNative extends NativeFunction {
 
     @Override
     public String getName() {

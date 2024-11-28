@@ -7,7 +7,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class NativeEnterEventMode extends NativeFunction {
+public final class NativeEnterEventMode extends NativeFunction {
 
     @Override
     public String getName() {

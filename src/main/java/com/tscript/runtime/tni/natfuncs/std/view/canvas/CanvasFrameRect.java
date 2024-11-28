@@ -7,7 +7,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class CanvasFrameRect extends NativeFunction {
+public final class CanvasFrameRect extends NativeFunction {
 
     private final CanvasFillRect filler = new CanvasFillRect();
     private final CanvasRect outline = new CanvasRect();

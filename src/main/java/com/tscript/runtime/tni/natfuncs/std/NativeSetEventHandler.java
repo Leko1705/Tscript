@@ -7,7 +7,7 @@ import com.tscript.runtime.typing.*;
 
 import java.util.List;
 
-public class NativeSetEventHandler extends NativeFunction {
+public final class NativeSetEventHandler extends NativeFunction {
 
     @Override
     public String getName() {

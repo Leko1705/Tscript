@@ -8,7 +8,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class NativeListKeys extends NativeFunction {
+public final class NativeListKeys extends NativeFunction {
 
     @Override
     public String getName() {

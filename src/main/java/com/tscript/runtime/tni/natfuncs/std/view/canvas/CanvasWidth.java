@@ -9,7 +9,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class CanvasWidth extends NativeFunction {
+public final class CanvasWidth extends NativeFunction {
 
     @Override
     public String getName() {

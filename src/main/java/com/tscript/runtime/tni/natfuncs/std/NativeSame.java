@@ -9,7 +9,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class NativeSame extends NativeFunction {
+public final class NativeSame extends NativeFunction {
 
     @Override
     public String getName() {

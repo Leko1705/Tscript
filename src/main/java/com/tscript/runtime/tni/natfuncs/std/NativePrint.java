@@ -10,7 +10,7 @@ import com.tscript.runtime.typing.TString;
 
 import java.util.List;
 
-public class NativePrint extends NativeFunction {
+public final class NativePrint extends NativeFunction {
 
     @Override
     public String getName() {

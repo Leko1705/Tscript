@@ -9,7 +9,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class CanvasClear extends NativeFunction {
+public final class CanvasClear extends NativeFunction {
 
     @Override
     public String getName() {

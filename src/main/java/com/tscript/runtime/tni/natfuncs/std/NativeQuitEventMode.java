@@ -8,7 +8,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class NativeQuitEventMode extends NativeFunction {
+public final class NativeQuitEventMode extends NativeFunction {
 
     @Override
     public String getName() {

@@ -9,7 +9,7 @@ import com.tscript.runtime.typing.TReal;
 import java.util.Calendar;
 import java.util.List;
 
-public class NativeLocalTime extends NativeFunction {
+public final class NativeLocalTime extends NativeFunction {
 
     @Override
     public String getName() {

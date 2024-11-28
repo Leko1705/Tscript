@@ -7,7 +7,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class CanvasFrameCircle extends NativeFunction {
+public final class CanvasFrameCircle extends NativeFunction {
 
     CanvasFillCircle filler = new CanvasFillCircle();
     CanvasCircle outline = new CanvasCircle();

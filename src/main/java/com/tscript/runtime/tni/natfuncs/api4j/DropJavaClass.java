@@ -6,7 +6,7 @@ import com.tscript.runtime.typing.*;
 
 import java.util.List;
 
-public class DropJavaClass extends NativeFunction {
+public final class DropJavaClass extends NativeFunction {
 
     @Override
     public String getName() {

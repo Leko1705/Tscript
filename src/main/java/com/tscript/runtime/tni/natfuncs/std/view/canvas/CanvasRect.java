@@ -10,7 +10,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class CanvasRect extends NativeFunction {
+public final class CanvasRect extends NativeFunction {
 
     @Override
     public String getName() {

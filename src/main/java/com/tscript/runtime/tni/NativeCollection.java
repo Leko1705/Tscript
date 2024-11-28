@@ -4,7 +4,6 @@ import com.tscript.runtime.core.ExecutionException;
 import com.tscript.runtime.tni.natfuncs.api4j.DropJavaClass;
 import com.tscript.runtime.tni.natfuncs.api4j.IsJavaType;
 import com.tscript.runtime.tni.natfuncs.api4j.LoadJavaClass;
-import com.tscript.runtime.tni.natfuncs.std.*;
 import com.tscript.runtime.tni.natfuncs.std.threading.NativeCurrentThread;
 import com.tscript.runtime.tni.natfuncs.std.threading.ThreadSpawnNative;
 import com.tscript.runtime.tni.natfuncs.std.view.canvas.*;

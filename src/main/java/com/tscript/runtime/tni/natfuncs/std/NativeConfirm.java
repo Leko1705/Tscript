@@ -10,7 +10,7 @@ import com.tscript.runtime.typing.TObject;
 import javax.swing.*;
 import java.util.List;
 
-public class NativeConfirm extends NativeFunction {
+public final class NativeConfirm extends NativeFunction {
 
     @Override
     public String getName() {

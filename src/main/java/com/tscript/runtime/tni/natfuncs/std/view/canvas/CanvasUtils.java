@@ -6,6 +6,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
+@SuppressWarnings("BooleanMethodIsAlwaysInverted")
 public class CanvasUtils {
     
     public static boolean checkRectangleIntArgs(List<TObject> args, Environment env){

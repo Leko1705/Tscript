@@ -9,7 +9,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class NativeExit extends NativeFunction {
+public final class NativeExit extends NativeFunction {
 
     private static final TInteger DEFAULT_STATUS = new TInteger(0);
 

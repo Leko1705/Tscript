@@ -9,7 +9,7 @@ import com.tscript.runtime.typing.*;
 import java.util.List;
 import java.util.Map;
 
-public class NativeDeepcopy extends NativeFunction {
+public final class NativeDeepcopy extends NativeFunction {
 
     @Override
     public String getName() {

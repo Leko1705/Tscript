@@ -9,7 +9,7 @@ import com.tscript.runtime.typing.Type;
 
 import java.util.List;
 
-public class IsJavaType extends NativeFunction {
+public final class IsJavaType extends NativeFunction {
 
     @Override
     public String getName() {

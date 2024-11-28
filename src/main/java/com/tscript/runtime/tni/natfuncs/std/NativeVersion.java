@@ -8,7 +8,7 @@ import com.tscript.runtime.typing.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-public class NativeVersion extends NativeFunction {
+public final class NativeVersion extends NativeFunction {
 
     @Override
     public String getName() {

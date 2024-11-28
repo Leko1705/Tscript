@@ -7,7 +7,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class NativeCurrentThread extends NativeFunction {
+public final class NativeCurrentThread extends NativeFunction {
 
     @Override
     public String getName() {

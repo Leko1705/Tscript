@@ -11,7 +11,7 @@ import com.tscript.runtime.typing.TString;
 import javax.swing.*;
 import java.util.List;
 
-public class NativePrompt extends NativeFunction {
+public final class NativePrompt extends NativeFunction {
 
     private static final TString DEFAULT = new TString("");
 

@@ -9,7 +9,7 @@ import com.tscript.runtime.typing.TObject;
 
 import java.util.List;
 
-public class TurtlePen extends NativeFunction {
+public final class TurtlePen extends NativeFunction {
 
     @Override
     public String getName() {

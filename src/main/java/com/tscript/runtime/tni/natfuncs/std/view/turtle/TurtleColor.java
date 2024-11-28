@@ -7,7 +7,7 @@ import com.tscript.runtime.typing.*;
 import java.awt.*;
 import java.util.List;
 
-public class TurtleColor extends NativeFunction {
+public final class TurtleColor extends NativeFunction {
 
     @Override
     public String getName() {

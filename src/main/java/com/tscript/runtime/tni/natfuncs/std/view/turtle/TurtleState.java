@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class TurtleState {
+public final class TurtleState {
 
     private record Key(String key, TscriptVM vm){
         @Override
