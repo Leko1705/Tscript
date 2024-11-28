@@ -6,5 +6,5 @@ inspection src/test/resources/out/inspect
 
 run test
 
-package /home/kali/IdeaProjects/Tscript9/tdk
+package src/test/resources/tdk
 
