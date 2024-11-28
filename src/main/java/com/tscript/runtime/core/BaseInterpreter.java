@@ -1,5 +1,6 @@
 package com.tscript.runtime.core;
 
+import com.tscript.projectfile.ProjectFile;
 import com.tscript.runtime.stroage.FunctionArea;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.TypeArea;
@@ -47,7 +48,14 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void loadNative(byte b1, byte b2) {
         String name = getUtf8Constant(b1, b2);
-        NativeFunction func = thread.getVM().buildFile.getNative(name);
+
+        ProjectFile projectFile = thread.getVM().projectFile;
+        if (projectFile == null){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchNativeFunctionFound(name));
+            return;
+        }
+
+        NativeFunction func = projectFile.getNative(name);
 
         if (func == null){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchNativeFunctionFound(name));

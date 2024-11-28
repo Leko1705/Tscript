@@ -1,0 +1,3 @@
+
+native com.tscript.runtime.tni.natfuncs.std.threading.NativeCurrentThread
+native com.tscript.runtime.tni.natfuncs.std.threading.ThreadSpawnNative

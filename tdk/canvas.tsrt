@@ -1,0 +1,12 @@
+
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasCircle
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasClear
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasFillCircle
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasFillRect
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasFrameCircle
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasFrameRect
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasHeight
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasLine
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasRect
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasText
+native com.tscript.runtime.tni.natfuncs.std.view.canvas.CanvasWidth

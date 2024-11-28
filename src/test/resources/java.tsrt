@@ -1,4 +1,0 @@
-
-include com.tscript.runtime.tni.natfuncs.api4j.DropJavaClass
-include com.tscript.runtime.tni.natfuncs.api4j.LoadJavaClass
-include com.tscript.runtime.tni.natfuncs.api4j.IsJavaType

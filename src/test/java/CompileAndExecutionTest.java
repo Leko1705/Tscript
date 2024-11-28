@@ -1,11 +1,6 @@
-import com.tscript.buildfile.BuildFile;
-import com.tscript.compiler.tools.*;
-import com.tscript.compiler.source.utils.CompileException;
-import com.tscript.runtime.core.TscriptVM;
-import org.junit.jupiter.api.Assertions;
+import com.tscript.projectfile.ProjectFile;
+import com.tscript.projectfile.ProjectFileRunner;
 import org.junit.jupiter.api.Test;
-
-import java.io.*;
 
 public class CompileAndExecutionTest {
 
@@ -15,71 +10,10 @@ public class CompileAndExecutionTest {
 
     @Test
     public void test(){
-        //compileAndRunOnlyOne("src/test/resources/test.tscript", "src/test/resources/out/test.tscriptc", "test");
-        compileAndRunAllInDir("src/test/resources", "src/test/resources/out", "test");
-    }
-
-    private void compileAndRunAllInDir(String inPath, String outPath, String bootModule){
-        Tool compiler = ToolFactory.createDefaultTscriptCompiler();
-        Tool inspector = ToolFactory.loadTool(SupportedTools.TSCRIPT_BC_INSPECTOR);
-
-        removeDir(new File(outPath));
-
-        File[] files = new File(inPath).listFiles();
-        if (files == null)
-            throw new AssertionError();
-        for (File file : files){
-            if (!file.getName().endsWith(".tscript")) continue;
-            runTool(compiler, file.getAbsolutePath(), outPath + File.separator + file.getName() + "c");
-            runTool(inspector, file.getAbsolutePath(), outPath + File.separator + file.getName() + "i");
-        }
-
-        BuildFile buildFile = BuildFile.parse("/home/kali/IdeaProjects/Tscript9/src/test/resources/config.tsrt");
-
-        TscriptVM vm = TscriptVM.runnableInstance(new File(outPath), System.out, System.err);
-        vm.setBuildFile(buildFile);
-        int exitCode = vm.execute(bootModule);
-        Assertions.assertEquals(0, exitCode);
-    }
-
-    private void removeDir(File dir){
-        File[] files = dir.listFiles();
-        if (files == null) return;
-        for (File file: files) {
-            if (file.isDirectory())
-                removeDir(file);
-            file.delete();
-        }
-    }
-
-    private void runTool(Tool tool, String inPath, String outPath, String... args){
-        try {
-            InputStream in = new FileInputStream(inPath);
-            OutputStream out = new FileOutputStream(outPath);
-
-            try {
-                tool.run(in, out, args);
-            }
-            catch (CompileException e) {
-                Assertions.fail(e);
-            }
-        }
-        catch (Exception e){
-            Assertions.fail(e);
-        }
-
-    }
-
-    private void compileAndRunOnlyOne(String in, String out, String bootModule){
-        Tool compiler = ToolFactory.createDefaultTscriptCompiler();
-        Tool inspector = ToolFactory.loadTool(SupportedTools.TSCRIPT_BC_INSPECTOR);
-
-        runTool(compiler, in, out);
-        runTool(inspector, in, out.substring(0, out.length()-1) + "i");
-
-        TscriptVM vm = TscriptVM.runnableInstance(new File(out), System.out, System.err);
-        int exitCode = vm.execute(bootModule);
-        Assertions.assertEquals(0, exitCode);
+        ProjectFile projectFile = ProjectFile.parse(
+                "/home/kali/IdeaProjects/Tscript9/src/test/resources/config.tsrt");
+        int exitCode = ProjectFileRunner.runTscriptProject(projectFile);
+        System.exit(exitCode);
     }
 
 }

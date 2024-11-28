@@ -1,4 +1,10 @@
 
-dependency /home/kali/IdeaProjects/Tscript9/src/test/resources/java.tsrt
-dependency /home/kali/IdeaProjects/Tscript9/src/test/resources/canvas.tsrt
-dependency /home/kali/IdeaProjects/Tscript9/src/test/resources/turtle.tsrt
+
+src src/test/resources
+out src/test/resources/out
+inspection src/test/resources/out/inspect
+
+run test
+
+package /home/kali/IdeaProjects/Tscript9/tdk
+
