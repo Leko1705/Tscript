@@ -171,6 +171,7 @@ public class DebugInterpreter extends InterpreterDecorator {
             Map<TObject, ObjectState> buildCache = new HashMap<>();
 
             for (TObject object : frame.locals) {
+                if (object == null) continue;
                 if (buildCache.containsKey(object)) {
                     locals.add(buildCache.get(object));
                 }
@@ -180,6 +181,7 @@ public class DebugInterpreter extends InterpreterDecorator {
             }
 
             for (TObject object : frame.stack) {
+                if (object == null) continue;
                 if (buildCache.containsKey(object)) {
                     stack.add(buildCache.get(object));
                 }
@@ -221,6 +223,7 @@ public class DebugInterpreter extends InterpreterDecorator {
 
             for (Member member : object.getMembers()) {
                 TObject obj = member.get();
+                if (obj == null) continue;
                 if (buildCache.containsKey(obj)) {
                     members.put(member.getName(), buildCache.get(obj));
                 }

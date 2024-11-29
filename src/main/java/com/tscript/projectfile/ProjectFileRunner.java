@@ -25,7 +25,7 @@ public class ProjectFileRunner {
         return runTscriptProject(projectFile, debugger, breakPoints);
     }
 
-    public static int runTscriptProject(ProjectFile projectFile, Debugger debugger, Set<Integer> breakPoints) {
+    private static int runTscriptProject(ProjectFile projectFile, Debugger debugger, Set<Integer> breakPoints) {
 
         Tool compiler = ToolFactory.createDefaultTscriptCompiler();
         Tool inspector = ToolFactory.loadTool(SupportedTools.TSCRIPT_BC_INSPECTOR);
