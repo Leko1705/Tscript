@@ -16,7 +16,7 @@ public class MyDebugger implements Debugger {
         // implement debugger logic here
         
         // notify the observer to continue the execution
-        observer.onAction(Action.RESUME);
+        observer.notify(Action.RESUME);
     }
     
 }
@@ -40,7 +40,8 @@ public class MyDebugger extends WrappedDebugger {
 ```
 
 <b>Important:</b> The debugger expects the observer to be notified.
-If not done the program is locked and will <b>not</b> continue!
+If not done the program is locked and will <b>not</b> continue! An observer
+can not be notified twice in one debug-halt process.
 
 
 ### Step 2: Attach the Debugger

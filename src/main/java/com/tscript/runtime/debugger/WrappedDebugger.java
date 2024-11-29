@@ -15,7 +15,7 @@ public abstract class WrappedDebugger implements Debugger {
     public abstract void onHalt(long threadId, VMState state);
 
     public void notify(Debugger.Action action){
-        observer.onAction(action);
+        observer.notify(action);
     }
 
 }

@@ -29,19 +29,19 @@ public class ConsoleDebugger implements Debugger {
             switch (input[0]) {
                 case "s", "step":
                     System.out.print(ANSI_RESET);
-                    observer.onAction(Action.STEP_OVER);
+                    observer.notify(Action.STEP_OVER);
                     break label;
                 case "o", "out":
                     System.out.print(ANSI_RESET);
-                    observer.onAction(Action.STEP_OUT);
+                    observer.notify(Action.STEP_OUT);
                     break label;
                 case "r", "resume":
                     System.out.print(ANSI_RESET);
-                    observer.onAction(Action.RESUME);
+                    observer.notify(Action.RESUME);
                     break label;
                 case "q", "quit":
                     System.out.print(ANSI_RESET);
-                    observer.onAction(Action.QUIT);
+                    observer.notify(Action.QUIT);
                     break label;
 
                 case "h", "help":

@@ -12,7 +12,7 @@ import com.tscript.runtime.typing.Type;
 
 import java.util.*;
 
-public class DebugInterpreter extends InterpreterDecorator implements DebugActionObserver {
+public class DebugInterpreter extends InterpreterDecorator {
 
     private static final Object lock = new Object();
 
@@ -72,12 +72,33 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
             }
 
             Thread debugThread = new Thread(() -> {
+
+                DebugActionObserver observer = new DebugActionObserver() {
+
+                    boolean notified = false;
+
+                    @Override
+                    public void notify(Debugger.Action action) {
+                        if (notified)
+                            throw new IllegalStateException("already notified");
+                        notified = true;
+                        DebugInterpreter.this.action = action;
+                        Collection<TThread> threads = getCurrentThread().getVM().getThreads();
+                        for (TThread thread : threads) {
+                            thread.release();
+                        }
+                        if (action == Debugger.Action.QUIT){
+                            getCurrentThread().getVM().exit(0);
+                        }
+                    }
+                };
+
                 try {
-                    debugger.onHalt(getCurrentThread().getId(), getVMState(), this);
+                    debugger.onHalt(getCurrentThread().getId(), getVMState(), observer);
                 }
                 catch (Exception e) {
                     e.printStackTrace(getCurrentThread().getVM().getErr());
-                    onAction(Debugger.Action.QUIT);
+                    observer.notify(Debugger.Action.QUIT);
                 }
             });
             debugThread.start();
@@ -89,19 +110,6 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
 
     private VMState getVMState() {
         return new VMStateImp(getCurrentThread().getVM());
-    }
-
-
-    @Override
-    public void onAction(Debugger.Action action) {
-        this.action = action;
-        Collection<TThread> threads = getCurrentThread().getVM().getThreads();
-        for (TThread thread : threads) {
-            thread.release();
-        }
-        if (action == Debugger.Action.QUIT){
-            getCurrentThread().getVM().exit(0);
-        }
     }
 
 
