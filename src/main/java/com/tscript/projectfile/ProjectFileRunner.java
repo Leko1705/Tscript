@@ -16,13 +16,13 @@ import java.util.Set;
 
 public class ProjectFileRunner {
 
+    public static int runTscriptProject(ProjectFile projectFile) {
+        return runTscriptProject(projectFile, null, null);
+    }
+
     public static int runDebugTscriptProject(ProjectFile projectFile, Debugger debugger, Set<Integer> breakPoints) {
         Objects.requireNonNull(debugger, "use runTscriptProject(ProjectFile) instead");
         return runTscriptProject(projectFile, debugger, breakPoints);
-    }
-
-    public static int runTscriptProject(ProjectFile projectFile) {
-        return runTscriptProject(projectFile, null, null);
     }
 
     public static int runTscriptProject(ProjectFile projectFile, Debugger debugger, Set<Integer> breakPoints) {

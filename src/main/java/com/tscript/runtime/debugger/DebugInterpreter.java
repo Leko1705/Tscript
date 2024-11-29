@@ -19,32 +19,18 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
 
     private final Debugger debugger;
 
-    private final Set<Integer> breakpoints;
-
     private Debugger.Action action = Debugger.Action.RESUME;
 
 
     public DebugInterpreter(Interpreter interpreter, Debugger debugger) {
-        this(interpreter, debugger, new HashSet<>());
-    }
-
-    public DebugInterpreter(Interpreter interpreter, Debugger debugger, Set<Integer> breakpoints) {
         super(interpreter);
         this.debugger = Objects.requireNonNull(debugger);
-        this.breakpoints = Objects.requireNonNull(breakpoints);
-    }
-
-    public void addBreakpoint(int line) {
-        breakpoints.add(line);
-    }
-
-    public void removeBreakpoint(int line) {
-        breakpoints.remove(line);
     }
 
     @Override
     public void newLine(int line) {
         super.newLine(line);
+        Set<Integer> breakpoints = getCurrentThread().getVM().getBreakPoints();
         if (breakpoints.contains(line) || action == Debugger.Action.STEP_OVER) {
             halt();
         }
