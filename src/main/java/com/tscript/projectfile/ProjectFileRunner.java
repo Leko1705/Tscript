@@ -12,19 +12,20 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Set;
 
 public class ProjectFileRunner {
 
-    public static int runDebugTscriptProject(ProjectFile projectFile, Debugger debugger) {
-        Objects.requireNonNull(debugger);
-        return runTscriptProject(projectFile, Objects.requireNonNull(debugger, "use runTscriptProject(ProjectFile) instead"));
+    public static int runDebugTscriptProject(ProjectFile projectFile, Debugger debugger, Set<Integer> breakPoints) {
+        Objects.requireNonNull(debugger, "use runTscriptProject(ProjectFile) instead");
+        return runTscriptProject(projectFile, debugger, breakPoints);
     }
 
     public static int runTscriptProject(ProjectFile projectFile) {
-        return runTscriptProject(projectFile, null);
+        return runTscriptProject(projectFile, null, null);
     }
 
-    public static int runTscriptProject(ProjectFile projectFile, Debugger debugger) {
+    public static int runTscriptProject(ProjectFile projectFile, Debugger debugger, Set<Integer> breakPoints) {
 
         Tool compiler = ToolFactory.createDefaultTscriptCompiler();
         Tool inspector = ToolFactory.loadTool(SupportedTools.TSCRIPT_BC_INSPECTOR);
@@ -70,6 +71,7 @@ public class ProjectFileRunner {
         vm.setBuildFile(projectFile);
         if (debugger != null){
             vm.setDebugger(debugger);
+            vm.setBreakPoints(breakPoints);
         }
         return vm.execute(projectFile.getBootModule());
     }

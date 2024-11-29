@@ -41,7 +41,7 @@ public class TscriptVM implements VirtualMachine {
     private final Set<TerminationListener> terminationListeners = new HashSet<>();
     protected ProjectFile projectFile = null;
     private Function<TThread, Interpreter> interpreterSupplier = BaseInterpreter::new;
-    private final Set<Integer> breakPoints = new HashSet<>();
+    private Set<Integer> breakPoints = new HashSet<>();
 
     private TscriptVM(File[] rootPath, PrintStream out, PrintStream err){
         this.rootPaths = rootPath;
@@ -114,6 +114,11 @@ public class TscriptVM implements VirtualMachine {
         else {
             interpreterSupplier = t -> new DebugInterpreter(interpreterSupplier.apply(t), debugger, breakPoints);
         }
+    }
+
+    public void setBreakPoints(Set<Integer> breakPoints) {
+        Objects.requireNonNull(breakPoints);
+        this.breakPoints = breakPoints;
     }
 
     public Set<Integer> getBreakPoints() {
