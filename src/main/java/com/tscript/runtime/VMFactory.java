@@ -10,11 +10,11 @@ public class VMFactory {
     private VMFactory() {
     }
 
-    public static VirtualMachine newRunnableTscriptVM(File rootPath, PrintStream out, PrintStream err) {
+    public static TscriptVM newRunnableTscriptVM(File rootPath, PrintStream out, PrintStream err) {
         return TscriptVM.runnableInstance(rootPath, out, err);
     }
 
-    public static VirtualMachine newRunnableTscriptVM(File[] rootPath, PrintStream out, PrintStream err) {
+    public static TscriptVM newRunnableTscriptVM(File[] rootPath, PrintStream out, PrintStream err) {
         return TscriptVM.runnableInstance(rootPath, out, err);
     }
 }

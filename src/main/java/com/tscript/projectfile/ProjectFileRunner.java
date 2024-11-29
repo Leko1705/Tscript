@@ -4,15 +4,27 @@ import com.tscript.compiler.source.utils.CompileException;
 import com.tscript.compiler.tools.SupportedTools;
 import com.tscript.compiler.tools.Tool;
 import com.tscript.compiler.tools.ToolFactory;
+import com.tscript.runtime.VMFactory;
 import com.tscript.runtime.core.TscriptVM;
+import com.tscript.runtime.debugger.Debugger;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 
 public class ProjectFileRunner {
 
+    public static int runDebugTscriptProject(ProjectFile projectFile, Debugger debugger) {
+        Objects.requireNonNull(debugger);
+        return runTscriptProject(projectFile, Objects.requireNonNull(debugger, "use runTscriptProject(ProjectFile) instead"));
+    }
+
     public static int runTscriptProject(ProjectFile projectFile) {
+        return runTscriptProject(projectFile, null);
+    }
+
+    public static int runTscriptProject(ProjectFile projectFile, Debugger debugger) {
 
         Tool compiler = ToolFactory.createDefaultTscriptCompiler();
         Tool inspector = ToolFactory.loadTool(SupportedTools.TSCRIPT_BC_INSPECTOR);
@@ -54,7 +66,11 @@ public class ProjectFileRunner {
             throw new AssertionError(e);
         }
 
-        TscriptVM vm = createTscriptVM(projectFile);
+        TscriptVM vm = VMFactory.newRunnableTscriptVM(projectFile.getRoots(), System.out, System.err);
+        vm.setBuildFile(projectFile);
+        if (debugger != null){
+            vm.setDebugger(debugger);
+        }
         return vm.execute(projectFile.getBootModule());
     }
 
@@ -65,12 +81,6 @@ public class ProjectFileRunner {
             if (file.isFile())
                 file.delete();
         });
-    }
-
-    private static TscriptVM createTscriptVM(ProjectFile file) {
-        TscriptVM vm = TscriptVM.runnableInstance(file.getRoots(), System.out, System.err);
-        vm.setBuildFile(file);
-        return vm;
     }
 
 }

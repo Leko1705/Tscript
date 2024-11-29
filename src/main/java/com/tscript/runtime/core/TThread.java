@@ -10,6 +10,7 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public class TThread extends Thread implements Environment, TObject {
 
@@ -40,12 +41,12 @@ public class TThread extends Thread implements Environment, TObject {
             "stop", Member.of(Visibility.PUBLIC, false, "stop", new StopMethod())
     ));
 
-    public TThread(TscriptVM vm, Callable callable, List<TObject> args) {
+    public TThread(TscriptVM vm, Callable callable, List<TObject> args, Function<TThread, Interpreter> interpreterSupplier) {
         this.vm = vm;
         this.baseFunction = callable;
         this.arguments = args;
 
-        interpreter = new BaseInterpreter(this);
+        interpreter = interpreterSupplier.apply(this);
     }
 
     @Override

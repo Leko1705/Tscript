@@ -2,6 +2,8 @@ package com.tscript.runtime.core;
 
 import com.tscript.projectfile.ProjectFile;
 import com.tscript.runtime.VirtualMachine;
+import com.tscript.runtime.debugger.DebugInterpreter;
+import com.tscript.runtime.debugger.Debugger;
 import com.tscript.runtime.debugger.states.ThreadState;
 import com.tscript.runtime.debugger.states.VMState;
 import com.tscript.runtime.stroage.Module;
@@ -13,9 +15,10 @@ import java.io.File;
 import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class TscriptVM implements VirtualMachine {
-
 
     public static TscriptVM runnableInstance(File rootPath, PrintStream out, PrintStream err){
         return new TscriptVM(new File[]{rootPath}, out, err);
@@ -37,6 +40,8 @@ public class TscriptVM implements VirtualMachine {
     private volatile int exitCode = 0;
     private final Set<TerminationListener> terminationListeners = new HashSet<>();
     protected ProjectFile projectFile = null;
+    private Function<TThread, Interpreter> interpreterSupplier = BaseInterpreter::new;
+    private final Set<Integer> breakPoints = new HashSet<>();
 
     private TscriptVM(File[] rootPath, PrintStream out, PrintStream err){
         this.rootPaths = rootPath;
@@ -47,8 +52,7 @@ public class TscriptVM implements VirtualMachine {
     }
 
     public int execute(String moduleName){
-        if (started)
-            throw new IllegalStateException("vm already running");
+        checkNotRunning();
 
         started = true;
 
@@ -93,17 +97,27 @@ public class TscriptVM implements VirtualMachine {
     }
 
     public void setSharedModuleLoader(ModuleLoader sharedModuleLoader) {
-        if (started)
-            throw new IllegalStateException("vm already running");
+        checkNotRunning();
         this.sharedModuleLoader = sharedModuleLoader;
     }
 
     public void setBuildFile(ProjectFile projectFile) {
+        checkNotRunning();
         this.projectFile = projectFile;
     }
 
-    public ProjectFile getBuildFile() {
-        return projectFile;
+    public void setDebugger(Debugger debugger) {
+        checkNotRunning();
+        if (debugger == null){
+            interpreterSupplier = BaseInterpreter::new;
+        }
+        else {
+            interpreterSupplier = t -> new DebugInterpreter(interpreterSupplier.apply(t), debugger, breakPoints);
+        }
+    }
+
+    public Set<Integer> getBreakPoints() {
+        return breakPoints;
     }
 
     public void addTerminationListener(TerminationListener listener){
@@ -140,7 +154,7 @@ public class TscriptVM implements VirtualMachine {
     }
 
     public TThread spawnThread(Callable callable, List<TObject> arguments){
-        TThread thread = new TThread(this, callable, arguments);
+        TThread thread = new TThread(this, callable, arguments, interpreterSupplier);
         runningThreads.put(thread.getId(), thread);
         return thread;
     }
@@ -155,6 +169,12 @@ public class TscriptVM implements VirtualMachine {
 
     public Collection<TThread> getThreads(){
         return runningThreads.values();
+    }
+
+
+    private void checkNotRunning(){
+        if (started)
+            throw new IllegalStateException("vm already running");
     }
 
 }
