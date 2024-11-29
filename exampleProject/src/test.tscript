@@ -1,5 +1,3 @@
 module test;
 
-import std.Thread;
-
 print("Hello World!");

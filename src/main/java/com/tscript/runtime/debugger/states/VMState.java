@@ -6,6 +6,6 @@ public interface VMState {
 
     List<ThreadState> getThreads();
 
-    List<ObjectState> getGlobals();
+    List<ObjectState> getModules();
 
 }

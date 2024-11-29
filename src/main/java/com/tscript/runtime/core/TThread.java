@@ -127,10 +127,11 @@ public class TThread extends Thread implements Environment, TObject {
 
     public void checkHalt(){
         if (!halt) return;
+        if (this == Thread.currentThread()) return;
         performHalt();
     }
 
-    private void performHalt(){
+    private synchronized void performHalt(){
         try {
             wait();
         }catch (InterruptedException e){
@@ -138,7 +139,7 @@ public class TThread extends Thread implements Environment, TObject {
         }
     }
 
-    public void release(){
+    public synchronized void release(){
         halt = false;
         this.notify();
     }

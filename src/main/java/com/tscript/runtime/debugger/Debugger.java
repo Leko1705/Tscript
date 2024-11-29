@@ -7,10 +7,10 @@ public interface Debugger {
     enum Action {
         STEP_OVER,
         STEP_OUT,
-        RUN,
-        STOP
+        RESUME,
+        QUIT
     }
 
-    void onHalt(VMState state, DebugActionObserver observer);
+    void onHalt(long threadId, VMState state, DebugActionObserver observer);
 
 }

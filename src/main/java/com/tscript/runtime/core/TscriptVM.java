@@ -112,7 +112,8 @@ public class TscriptVM implements VirtualMachine {
             interpreterSupplier = BaseInterpreter::new;
         }
         else {
-            interpreterSupplier = t -> new DebugInterpreter(interpreterSupplier.apply(t), debugger, breakPoints);
+            interpreterSupplier =
+                    t -> new DebugInterpreter(new BaseInterpreter(t), debugger, breakPoints);
         }
     }
 

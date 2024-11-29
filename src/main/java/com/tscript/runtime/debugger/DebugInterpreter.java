@@ -7,6 +7,8 @@ import com.tscript.runtime.debugger.states.ThreadState;
 import com.tscript.runtime.debugger.states.VMState;
 import com.tscript.runtime.typing.Member;
 import com.tscript.runtime.typing.TObject;
+import com.tscript.runtime.typing.TString;
+import com.tscript.runtime.typing.Type;
 
 import java.util.*;
 
@@ -19,7 +21,7 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
 
     private final Set<Integer> breakpoints;
 
-    private Debugger.Action action = Debugger.Action.RUN;
+    private Debugger.Action action = Debugger.Action.RESUME;
 
 
     public DebugInterpreter(Interpreter interpreter, Debugger debugger) {
@@ -83,10 +85,19 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
                 }
             }
 
-            Thread debugThread = new Thread(() -> debugger.onHalt(getVMState(), this));
+            Thread debugThread = new Thread(() -> {
+                try {
+                    debugger.onHalt(getCurrentThread().getId(), getVMState(), this);
+                }
+                catch (Exception e) {
+                    e.printStackTrace(getCurrentThread().getVM().getErr());
+                    onAction(Debugger.Action.QUIT);
+                }
+            });
             debugThread.start();
 
             getCurrentThread().halt();
+            getCurrentThread().checkHalt();
         }
     }
 
@@ -102,7 +113,7 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
         for (TThread thread : threads) {
             thread.release();
         }
-        if (action == Debugger.Action.STOP){
+        if (action == Debugger.Action.QUIT){
             getCurrentThread().getVM().exit(0);
         }
     }
@@ -124,7 +135,7 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
         }
 
         @Override
-        public List<ObjectState> getGlobals() {
+        public List<ObjectState> getModules() {
             return List.of();
         }
     }
@@ -132,11 +143,18 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
     private static class ThreadStateImp implements ThreadState {
 
         private final List<FrameState> frameStates = new ArrayList<>();
+        private final long id;
 
         public ThreadStateImp(TThread thread) {
+            this.id = thread.getId();
             for (Frame frame : thread.frameStack) {
                 frameStates.add(new FrameStateImp(frame));
             }
+        }
+
+        @Override
+        public long getId() {
+            return id;
         }
 
         @Override
@@ -148,11 +166,13 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
     private static class FrameStateImp implements FrameState {
 
         private final String name;
+        private final int line;
         private final List<ObjectState> locals = new ArrayList<>();
         private final List<ObjectState> stack = new ArrayList<>();
 
         public FrameStateImp(Frame frame) {
             this.name = frame.getName();
+            this.line = frame.line();
 
             Map<TObject, ObjectState> buildCache = new HashMap<>();
 
@@ -181,6 +201,11 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
         }
 
         @Override
+        public int getLineNumber() {
+            return line;
+        }
+
+        @Override
         public List<ObjectState> getLocals() {
             return locals;
         }
@@ -193,10 +218,12 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
 
     private static class ObjectStateImp implements ObjectState {
 
+        private final TObject object;
         private final Map<String, ObjectState> members;
 
         public ObjectStateImp(TObject object, Map<TObject, ObjectState> buildCache) {
             this.members = new HashMap<>();
+            this.object = object;
 
             for (Member member : object.getMembers()) {
                 TObject obj = member.get();
@@ -212,6 +239,18 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
         @Override
         public Map<String, ObjectState> getMembers() {
             return members;
+        }
+
+        @Override
+        public String toString() {
+            String str = object.getDisplayName();
+            Type type = object.getType();
+
+            if (type == TString.TYPE){
+                str = "\"" + str + "\"";
+            }
+
+            return str + " (" + type.getDisplayName() + ")";
         }
     }
 }

@@ -6,6 +6,8 @@ public interface FrameState {
 
     String getName();
 
+    int getLineNumber();
+
     List<ObjectState> getLocals();
 
     List<ObjectState> getStack();
