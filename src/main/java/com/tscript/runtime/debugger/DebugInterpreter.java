@@ -1,8 +1,12 @@
 package com.tscript.runtime.debugger;
 
-import com.tscript.runtime.core.Interpreter;
-import com.tscript.runtime.core.InterpreterDecorator;
-import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.core.*;
+import com.tscript.runtime.debugger.states.FrameState;
+import com.tscript.runtime.debugger.states.ObjectState;
+import com.tscript.runtime.debugger.states.ThreadState;
+import com.tscript.runtime.debugger.states.VMState;
+import com.tscript.runtime.typing.Member;
+import com.tscript.runtime.typing.TObject;
 
 import java.util.*;
 
@@ -79,11 +83,15 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
                 }
             }
 
-            Thread debugThread = new Thread(() -> debugger.onHalt(this));
+            Thread debugThread = new Thread(() -> debugger.onHalt(getVMState(), this));
             debugThread.start();
 
             getCurrentThread().halt();
         }
+    }
+
+    private VMState getVMState() {
+        return new VMStateImp(getCurrentThread().getVM());
     }
 
 
@@ -96,6 +104,114 @@ public class DebugInterpreter extends InterpreterDecorator implements DebugActio
         }
         if (action == Debugger.Action.STOP){
             getCurrentThread().getVM().exit(0);
+        }
+    }
+
+
+    private static class VMStateImp implements VMState {
+
+        private final List<ThreadState> threadStates = new ArrayList<>();
+
+        public VMStateImp(TscriptVM vm) {
+            for (TThread thread : vm.getThreads()) {
+                threadStates.add(new ThreadStateImp(thread));
+            }
+        }
+
+        @Override
+        public List<ThreadState> getThreads() {
+            return threadStates;
+        }
+
+        @Override
+        public List<ObjectState> getGlobals() {
+            return List.of();
+        }
+    }
+
+    private static class ThreadStateImp implements ThreadState {
+
+        private final List<FrameState> frameStates = new ArrayList<>();
+
+        public ThreadStateImp(TThread thread) {
+            for (Frame frame : thread.frameStack) {
+                frameStates.add(new FrameStateImp(frame));
+            }
+        }
+
+        @Override
+        public List<FrameState> getFrames() {
+            return frameStates;
+        }
+    }
+
+    private static class FrameStateImp implements FrameState {
+
+        private final String name;
+        private final List<ObjectState> locals = new ArrayList<>();
+        private final List<ObjectState> stack = new ArrayList<>();
+
+        public FrameStateImp(Frame frame) {
+            this.name = frame.getName();
+
+            Map<TObject, ObjectState> buildCache = new HashMap<>();
+
+            for (TObject object : frame.locals) {
+                if (buildCache.containsKey(object)) {
+                    locals.add(buildCache.get(object));
+                }
+                else {
+                    locals.add(new ObjectStateImp(object, buildCache));
+                }
+            }
+
+            for (TObject object : frame.stack) {
+                if (buildCache.containsKey(object)) {
+                    stack.add(buildCache.get(object));
+                }
+                else {
+                    stack.add(new ObjectStateImp(object, buildCache));
+                }
+            }
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public List<ObjectState> getLocals() {
+            return locals;
+        }
+
+        @Override
+        public List<ObjectState> getStack() {
+            return stack;
+        }
+    }
+
+    private static class ObjectStateImp implements ObjectState {
+
+        private final Map<String, ObjectState> members;
+
+        public ObjectStateImp(TObject object, Map<TObject, ObjectState> buildCache) {
+            this.members = new HashMap<>();
+
+            for (Member member : object.getMembers()) {
+                TObject obj = member.get();
+                if (buildCache.containsKey(obj)) {
+                    members.put(member.getName(), buildCache.get(obj));
+                }
+                else {
+                    members.put(member.getName(), new ObjectStateImp(obj, buildCache));
+                }
+            }
+        }
+
+        @Override
+        public Map<String, ObjectState> getMembers() {
+            return members;
         }
     }
 }

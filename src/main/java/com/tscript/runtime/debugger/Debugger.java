@@ -1,5 +1,7 @@
 package com.tscript.runtime.debugger;
 
+import com.tscript.runtime.debugger.states.VMState;
+
 public interface Debugger {
 
     enum Action {
@@ -9,6 +11,6 @@ public interface Debugger {
         STOP
     }
 
-    void onHalt(DebugActionObserver observer);
+    void onHalt(VMState state, DebugActionObserver observer);
 
 }

@@ -21,8 +21,8 @@ public class Frame {
 
     private int ip = 0, sp = 0;
 
-    protected final TObject[] stack;
-    protected final TObject[] locals;
+    public final TObject[] stack;
+    public final TObject[] locals;
 
     private final Module module;
 

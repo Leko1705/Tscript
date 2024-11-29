@@ -2,6 +2,8 @@ package com.tscript.runtime.core;
 
 import com.tscript.projectfile.ProjectFile;
 import com.tscript.runtime.VirtualMachine;
+import com.tscript.runtime.debugger.states.ThreadState;
+import com.tscript.runtime.debugger.states.VMState;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.loading.*;
 import com.tscript.runtime.typing.Callable;
@@ -154,4 +156,5 @@ public class TscriptVM implements VirtualMachine {
     public Collection<TThread> getThreads(){
         return runningThreads.values();
     }
+
 }
