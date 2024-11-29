@@ -18,30 +18,34 @@ public class ProjectFileRunner {
         Tool inspector = ToolFactory.loadTool(SupportedTools.TSCRIPT_BC_INSPECTOR);
 
         try {
-            Files.walk(Path.of(projectFile.getSourcePath())).forEach(path -> {
-                File file = path.toFile();
-                if (!file.getName().endsWith(".tscript")) return;
+            deleteAll(projectFile.getFragmentPath());
+            deleteAll(projectFile.getInspectionPath());
 
-                try {
-                    InputStream in = new FileInputStream(file);
-                    File outFile = new File(projectFile.getFragmentPath() + File.separator + file.getName() + "c");
-                    outFile.getParentFile().mkdirs();
-                    outFile.createNewFile();
-                    OutputStream out = new FileOutputStream(outFile);
-                    compiler.run(in, out, null);
+            for (String sourcePath : projectFile.getSourcePaths()) {
+                Files.walk(Path.of(sourcePath)).forEach(path -> {
+                    File file = path.toFile();
+                    if (!file.getName().endsWith(".tscript")) return;
 
-                    if (projectFile.getInspectionPath() != null){
-                        outFile = new File(projectFile.getInspectionPath() + File.separator + file.getName() + "i");
+                    try {
+                        InputStream in = new FileInputStream(file);
+                        File outFile = new File(projectFile.getFragmentPath() + File.separator + file.getName() + "c");
                         outFile.getParentFile().mkdirs();
                         outFile.createNewFile();
-                        out = new FileOutputStream(outFile);
-                        inspector.run(in, out, null);
+                        OutputStream out = new FileOutputStream(outFile);
+                        compiler.run(in, out, null);
+
+                        if (projectFile.getInspectionPath() != null) {
+                            outFile = new File(projectFile.getInspectionPath() + File.separator + file.getName() + "i");
+                            outFile.getParentFile().mkdirs();
+                            outFile.createNewFile();
+                            out = new FileOutputStream(outFile);
+                            inspector.run(in, out, null);
+                        }
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
                     }
-                }
-                catch (Exception e){
-                    throw new RuntimeException(e);
-                }
-            });
+                });
+            }
         }
         catch (CompileException e){
             throw e;
@@ -52,6 +56,15 @@ public class ProjectFileRunner {
 
         TscriptVM vm = createTscriptVM(projectFile);
         return vm.execute(projectFile.getBootModule());
+    }
+
+    private static void deleteAll(String dir) throws Exception {
+        if (dir == null) return;
+        Files.list(Path.of(dir)).forEach(path -> {
+            File file = path.toFile();
+            if (file.isFile())
+                file.delete();
+        });
     }
 
     private static TscriptVM createTscriptVM(ProjectFile file) {

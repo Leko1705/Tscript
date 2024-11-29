@@ -54,12 +54,19 @@ public class ProjectFile {
                                     throw new RuntimeException(e);
                                 }
                             }
+                            else if (file.getAbsolutePath().endsWith(".tscript")) {
+                                projectFile.sourcePaths.add(file.toPath().getParent().toAbsolutePath().toString());
+                            }
+
+                            else if (file.getAbsolutePath().endsWith(".tscriptc")) {
+                                projectFile.roots.add(file.toPath().getParent().toAbsolutePath().toFile());
+                            }
                         });
                     }
                     case "src" -> {
                         if (split.length != 2) throw new Exception();
-                        if (projectFile.sourcePath != null) throw new Exception("source path already set");
-                        projectFile.sourcePath = split[1];
+                        if (projectFile.sourcePaths.contains(split[1])) throw new Exception("source path already set");
+                        projectFile.sourcePaths.add(split[1]);
                     }
                     case "out" -> {
                         if (split.length != 2) throw new Exception();
@@ -109,7 +116,7 @@ public class ProjectFile {
 
     private final Map<String, NativeFunction> natives = new HashMap<>();
 
-    private String sourcePath;
+    private final Set<String> sourcePaths = new HashSet<>();
 
     private String fragmentPath;
 
@@ -133,8 +140,8 @@ public class ProjectFile {
         return bootModule;
     }
 
-    public String getSourcePath() {
-        return sourcePath;
+    public Set<String> getSourcePaths() {
+        return sourcePaths;
     }
 
     public String getFragmentPath() {
