@@ -11,7 +11,7 @@ public class CompileAndExecutionTest {
     @Test
     public void test(){
         ProjectFile projectFile = ProjectFile.parse(
-                "/home/kali/IdeaProjects/Tscript9/src/test/resources/project.tsrt");
+                "./exampleProject/project.tsrt");
         int exitCode = ProjectFileRunner.runTscriptProject(projectFile);
         System.exit(exitCode);
     }

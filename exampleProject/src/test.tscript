@@ -2,4 +2,4 @@ module test;
 
 import std.Thread;
 
-print("hi");
+print("Hello World!");

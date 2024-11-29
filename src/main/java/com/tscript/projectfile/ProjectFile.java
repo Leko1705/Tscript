@@ -115,7 +115,7 @@ public class ProjectFile {
 
     private String inspectionPath;
 
-    private final List<File> roots = new ArrayList<>();
+    private final Set<File> roots = new HashSet<>();
 
     private String bootModule;
 
