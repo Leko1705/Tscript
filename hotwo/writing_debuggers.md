@@ -69,5 +69,5 @@ Set<Integer> breakpoints = vm.getBreakPoints();
 
 In order to attach a debugger to a running project use:
 ```java
-import java.util.HashSet;ProjectFileRunner.runDebugTscriptProject(projectFile, new MyDebugger(), new HashSet<>());
+ProjectFileRunner.runDebugTscriptProject(projectFile, new MyDebugger(), new HashSet<>());
 ```
