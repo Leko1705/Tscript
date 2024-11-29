@@ -112,7 +112,7 @@ public class TscriptVM implements VirtualMachine {
         terminationListeners.remove(listener);
     }
 
-    public void exit(int status){
+    public synchronized void exit(int status){
         if (!runningThreads.isEmpty())
             exitCode = status;
         for(TThread thread : runningThreads.values()){
@@ -149,5 +149,9 @@ public class TscriptVM implements VirtualMachine {
 
     public File[] getRootPaths() {
         return rootPaths;
+    }
+
+    public Collection<TThread> getThreads(){
+        return runningThreads.values();
     }
 }

@@ -24,6 +24,21 @@ public class BaseInterpreter implements Interpreter {
     }
 
     @Override
+    public TThread getCurrentThread() {
+        return thread.getCurrentThread();
+    }
+
+    @Override
+    public void reportRuntimeError(TObject message) {
+        thread.reportRuntimeError(message);
+    }
+
+    @Override
+    public TObject call(Callable called, List<TObject> arguments) {
+        return thread.call(called, arguments);
+    }
+
+    @Override
     public void pushNull() {
         thread.push(Null.INSTANCE);
     }

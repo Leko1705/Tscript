@@ -26,6 +26,7 @@ public class TThread extends Thread implements Environment, TObject {
 
     public final ArrayDeque<Frame> frameStack = new ArrayDeque<>();
     private volatile Interpreter interpreter;
+    private volatile boolean halt = false;
 
     protected volatile boolean running = true;
 
@@ -113,9 +114,32 @@ public class TThread extends Thread implements Environment, TObject {
 
     private void startExecutionCycle(){
         while (running && frameStack.size() > frameStackExitThreshold){
+            if (halt) performHalt();
             byte[] instruction = frameStack.element().fetch();
             decodeAndExecute(instruction);
         }
+    }
+
+    public void halt() {
+        halt = true;
+    }
+
+    public void checkHalt(){
+        if (!halt) return;
+        performHalt();
+    }
+
+    private void performHalt(){
+        try {
+            wait();
+        }catch (InterruptedException e){
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void release(){
+        halt = false;
+        this.notify();
     }
 
     private void decodeAndExecute(byte[] instruction){

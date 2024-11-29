@@ -1,6 +1,19 @@
 package com.tscript.runtime.core;
 
-public interface Interpreter {
+import com.tscript.runtime.tni.Environment;
+import com.tscript.runtime.typing.Callable;
+import com.tscript.runtime.typing.TObject;
+
+import java.util.List;
+
+public interface Interpreter extends Environment {
+
+    TThread getCurrentThread();
+
+    void reportRuntimeError(TObject message);
+
+    TObject call(Callable called, List<TObject> arguments);
+
 
     void pushNull();
 
