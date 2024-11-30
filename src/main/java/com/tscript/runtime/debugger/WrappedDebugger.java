@@ -2,7 +2,7 @@ package com.tscript.runtime.debugger;
 
 import com.tscript.runtime.debugger.states.VMState;
 
-public abstract class WrappedDebugger implements Debugger {
+public abstract class WrappedDebugger implements Debugger, DebugActionObserver {
 
     private DebugActionObserver observer;
 
