@@ -4,6 +4,7 @@ import com.tscript.runtime.tni.NativeFunction;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -97,6 +98,9 @@ public class ProjectFile {
             }
 
             return projectFile;
+        }
+        catch (NoSuchFileException e){
+            throw new InvalidProjectFileException("can not find file " + fileName, e);
         }
         catch (Exception e) {
             throw new InvalidProjectFileException("In line " + lineNum + ": " + e.getMessage(), e);
