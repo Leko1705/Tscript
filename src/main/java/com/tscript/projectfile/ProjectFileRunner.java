@@ -52,6 +52,7 @@ public class ProjectFileRunner {
                             outFile = new File(projectFile.getInspectionPath() + File.separator + file.getName() + "i");
                             outFile.getParentFile().mkdirs();
                             outFile.createNewFile();
+                            in = new FileInputStream(file);
                             out = new FileOutputStream(outFile);
                             inspector.run(in, out, null);
                         }
