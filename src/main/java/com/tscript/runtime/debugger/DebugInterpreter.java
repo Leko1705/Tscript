@@ -30,10 +30,20 @@ public class DebugInterpreter extends InterpreterDecorator {
     @Override
     public void newLine(int line) {
         super.newLine(line);
-        Set<Integer> breakpoints = getCurrentThread().getVM().getBreakPoints();
-        if (breakpoints.contains(line) || action == Debugger.Action.STEP_OVER) {
+        if (hasBreakingBreakpoint(line) || action == Debugger.Action.STEP_OVER) {
             halt();
         }
+    }
+
+    private boolean hasBreakingBreakpoint(int line) {
+        Set<BreakPoint> breakpoints = getCurrentThread().getVM().getBreakPoints();
+        String currModuleName = getCurrentThread().frameStack.element().getModule().getCanonicalPath();
+        for (BreakPoint breakPoint : breakpoints) {
+            if (breakPoint.line == line && currModuleName.equals(breakPoint.moduleName)){
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

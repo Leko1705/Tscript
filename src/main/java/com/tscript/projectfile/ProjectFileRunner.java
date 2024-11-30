@@ -6,6 +6,7 @@ import com.tscript.compiler.tools.Tool;
 import com.tscript.compiler.tools.ToolFactory;
 import com.tscript.runtime.VMFactory;
 import com.tscript.runtime.core.TscriptVM;
+import com.tscript.runtime.debugger.BreakPoint;
 import com.tscript.runtime.debugger.Debugger;
 
 import java.io.*;
@@ -20,12 +21,12 @@ public class ProjectFileRunner {
         return runTscriptProject(projectFile, null, null);
     }
 
-    public static int runDebugTscriptProject(ProjectFile projectFile, Debugger debugger, Set<Integer> breakPoints) {
+    public static int runDebugTscriptProject(ProjectFile projectFile, Debugger debugger, Set<BreakPoint> breakPoints) {
         Objects.requireNonNull(debugger, "use runTscriptProject(ProjectFile) instead");
         return runTscriptProject(projectFile, debugger, breakPoints);
     }
 
-    private static int runTscriptProject(ProjectFile projectFile, Debugger debugger, Set<Integer> breakPoints) {
+    private static int runTscriptProject(ProjectFile projectFile, Debugger debugger, Set<BreakPoint> breakPoints) {
 
         Tool compiler = ToolFactory.createDefaultTscriptCompiler();
         Tool inspector = ToolFactory.loadTool(SupportedTools.TSCRIPT_BC_INSPECTOR);

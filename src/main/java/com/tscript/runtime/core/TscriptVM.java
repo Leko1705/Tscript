@@ -2,6 +2,7 @@ package com.tscript.runtime.core;
 
 import com.tscript.projectfile.ProjectFile;
 import com.tscript.runtime.VirtualMachine;
+import com.tscript.runtime.debugger.BreakPoint;
 import com.tscript.runtime.debugger.DebugInterpreter;
 import com.tscript.runtime.debugger.Debugger;
 import com.tscript.runtime.debugger.states.ThreadState;
@@ -41,7 +42,7 @@ public class TscriptVM implements VirtualMachine {
     private final Set<TerminationListener> terminationListeners = new HashSet<>();
     protected ProjectFile projectFile = null;
     private Function<TThread, Interpreter> interpreterSupplier = BaseInterpreter::new;
-    private Set<Integer> breakPoints = new HashSet<>();
+    private Set<BreakPoint> breakPoints = new HashSet<>();
 
     private TscriptVM(File[] rootPath, PrintStream out, PrintStream err){
         this.rootPaths = rootPath;
@@ -117,12 +118,12 @@ public class TscriptVM implements VirtualMachine {
         }
     }
 
-    public void setBreakPoints(Set<Integer> breakPoints) {
+    public void setBreakPoints(Set<BreakPoint> breakPoints) {
         Objects.requireNonNull(breakPoints);
         this.breakPoints = breakPoints;
     }
 
-    public Set<Integer> getBreakPoints() {
+    public Set<BreakPoint> getBreakPoints() {
         return breakPoints;
     }
 
