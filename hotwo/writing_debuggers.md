@@ -60,7 +60,7 @@ To modify breakpoint simply use:
 
 ```java
 TscriptVM vm = ...;
-Set<Integer> breakpoints = vm.getBreakPoints();
+Set<Breakpoint> breakpoints = vm.getBreakPoints();
 // modify the breakpoint set
 ```
 
