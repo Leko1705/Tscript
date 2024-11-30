@@ -1,7 +1,7 @@
 
 ## What's new?
 
-THis section shows all new features this tscript implementation provides.
+This section shows all new features this tscript implementation provides.
 
 ### Dictionaries
 Dictionaries now allow other key types than `String`, for example:
