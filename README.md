@@ -31,8 +31,6 @@ docker run -p 8080:8080 tscript
 import com.tscript.projectfile.ProjectFile;
 import com.tscript.projectfile.ProjectFileRunner;
 
-import java.util.Set;
-
 public class Main {
 
     public static void main(String[] args) {
