@@ -15,7 +15,9 @@ public class CompileAndExecutionTest {
     public void test(){
         ProjectFile projectFile = ProjectFile.parse(
                 "./exampleProject/project.tsrt");
-        int exitCode = ProjectFileRunner.runDebugTscriptProject(projectFile, new ConsoleDebugger(), Set.of(3));
+        int exitCode;
+        exitCode = ProjectFileRunner.runDebugTscriptProject(projectFile, new ConsoleDebugger(), Set.of(3));
+        //exitCode = ProjectFileRunner.runTscriptProject(projectFile);
         System.exit(exitCode);
     }
 

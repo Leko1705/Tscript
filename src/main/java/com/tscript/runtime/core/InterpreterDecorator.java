@@ -51,7 +51,7 @@ public class InterpreterDecorator implements Interpreter {
 
     @Override
     public void loadNative(byte b1, byte b2) {
-
+        interpreter.loadNative(b1, b2);
     }
 
     @Override

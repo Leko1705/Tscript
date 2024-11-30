@@ -1,5 +1,5 @@
 
-# How to write Native Functions
+# How to write a Debugger
 
 In this section it is shown how one can write and attach his own custom debugger.
 
