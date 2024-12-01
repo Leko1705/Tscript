@@ -1,0 +1,9 @@
+module test;
+
+function foo(){
+    print("Hello World!");
+}
+
+for 0:200 do {
+    foo();
+}

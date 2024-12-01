@@ -1,0 +1,10 @@
+
+
+src exampleProject/src
+out exampleProject/out
+inspection exampleProject/out/inspect
+
+run test
+
+package exampleProject/tdk
+

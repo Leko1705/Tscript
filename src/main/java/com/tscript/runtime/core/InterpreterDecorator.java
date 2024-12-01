@@ -9,6 +9,10 @@ public class InterpreterDecorator implements Interpreter {
 
     private final Interpreter interpreter;
 
+    public Interpreter getUnderlying() {
+        return interpreter;
+    }
+
     public InterpreterDecorator(Interpreter interpreter) {
         this.interpreter = interpreter;
     }
@@ -313,4 +317,5 @@ public class InterpreterDecorator implements Interpreter {
     public void extend(byte b1, byte b2) {
         interpreter.extend(b1, b2);
     }
+
 }

@@ -468,7 +468,7 @@ public class BaseInterpreter implements Interpreter {
         Callable called = checkCall(thread.pop());
         if (called == null) return;
 
-        List<TObject> args = new ArrayList<>(3); // avg. param amount
+        List<TObject> args = new ArrayList<>(argCount);
         for (int i = 0; i < argCount; i++) args.add(thread.pop());
         TObject res = called.call(thread, args);
         if (res != null && thread.frameStack.size() > thread.frameStackExitThreshold)
@@ -480,10 +480,8 @@ public class BaseInterpreter implements Interpreter {
         Callable called = checkCall(thread.pop());
         if (called == null) return;
 
-        // choose 3 as the most avg. max. number of arguments to
-        // reduce the amount of array growth in ArrayList.
-        List<String> names = new ArrayList<>(3);
-        List<TObject> values = new ArrayList<>(3);
+        List<String> names = new ArrayList<>(argCount);
+        List<TObject> values = new ArrayList<>(argCount);
 
         for (int i = 0; i < argCount; i++) {
             Argument arg = (Argument) thread.pop();

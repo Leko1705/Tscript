@@ -19,7 +19,7 @@ public class Frame {
     private final String name;
     private final byte[][] instructions;
 
-    private int ip = 0, sp = 0;
+    public int ip = 0, sp = 0;
 
     public final TObject[] stack;
     public final TObject[] locals;

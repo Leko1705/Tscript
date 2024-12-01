@@ -128,4 +128,5 @@ public interface Interpreter extends Environment {
     void dup();
 
     void extend(byte b1, byte b2);
+
 }

@@ -76,4 +76,7 @@ public class VirtualFunction extends Function {
         return duplicate;
     }
 
+    public Module getModule() {
+        return module;
+    }
 }
