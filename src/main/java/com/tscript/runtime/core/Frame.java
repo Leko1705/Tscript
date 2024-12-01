@@ -118,4 +118,7 @@ public class Frame {
         return name;
     }
 
+    public byte[][] getInstructions() {
+        return instructions;
+    }
 }

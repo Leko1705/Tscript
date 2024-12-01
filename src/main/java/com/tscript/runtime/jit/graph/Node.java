@@ -7,5 +7,7 @@ public interface Node {
 
     Expression getExpr();
 
+    void setNext(Node next);
+
     void step(TraversingStrategy walker, Context context);
 }

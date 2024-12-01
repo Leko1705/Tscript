@@ -8,14 +8,18 @@ public class FlowNode implements Node {
     public Expression expression;
     public Node next;
 
-    public FlowNode(Expression expression, Node next) {
+    public FlowNode(Expression expression) {
         this.expression = expression;
-        this.next = next;
     }
 
     @Override
     public Expression getExpr() {
         return expression;
+    }
+
+    @Override
+    public void setNext(Node next) {
+        this.next = next;
     }
 
     @Override

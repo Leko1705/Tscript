@@ -2,7 +2,7 @@ package com.tscript.runtime.jit.graph.expr;
 
 public class Real extends LiteralExpr<Double> {
 
-    protected Real(Double value) {
+    public Real(Double value) {
         super(value);
     }
 

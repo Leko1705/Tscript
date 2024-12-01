@@ -3,9 +3,6 @@ package com.tscript.runtime.jit.compilers;
 import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.graph.Node;
-import com.tscript.runtime.jit.graph.parse.GraphParser;
-import com.tscript.runtime.jit.graph.parse.GraphParserImpl;
-import com.tscript.runtime.jit.instructions.Instruction;
 import com.tscript.runtime.jit.lower.Generator;
 import com.tscript.runtime.jit.lower.JBCGenerator;
 import com.tscript.runtime.jit.optim.Optimizer;
@@ -19,16 +16,10 @@ public class JITCompilerImpl implements JITCompiler {
 
 
     @Override
-    public CompletableFuture<NativeImage> compile(List<Instruction> instructions) {
-        Node graph = parse(instructions);
+    public CompletableFuture<NativeImage> compile(Node graph) {
         graph = optimize(graph);
         NativeImage image = lower(graph);
         return CompletableFuture.completedFuture(image);
-    }
-
-    private Node parse(List<Instruction> instructions) {
-        GraphParser parser = new GraphParserImpl();
-        return parser.parse(instructions);
     }
 
     private Node optimize(Node node) {

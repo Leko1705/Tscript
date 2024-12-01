@@ -24,6 +24,10 @@ public class BranchNode implements Node {
         return condition;
     }
 
+    @Override
+    public void setNext(Node next) {
+    }
+
     public boolean requireTrue() {
         return requireTrue;
     }

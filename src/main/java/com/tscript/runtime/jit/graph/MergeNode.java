@@ -7,7 +7,7 @@ public class MergeNode implements Node {
 
     private final int inputs;
     private final Expression expression;
-    private final Node next;
+    private Node next;
 
     public MergeNode(int inputs, Expression expression, Node next) {
         this.inputs = inputs;
@@ -18,6 +18,11 @@ public class MergeNode implements Node {
     @Override
     public Expression getExpr() {
         return expression;
+    }
+
+    @Override
+    public void setNext(Node next) {
+        this.next = next;
     }
 
     public Node getNext() {

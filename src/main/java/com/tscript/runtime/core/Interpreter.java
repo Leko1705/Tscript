@@ -27,7 +27,7 @@ public interface Interpreter extends Environment {
 
     void loadVirtual(byte b1, byte b2);
 
-    void loadBuiltin(byte b, byte b1);
+    void loadBuiltin(byte b1, byte b2);
 
     void loadType(byte b1, byte b2);
 

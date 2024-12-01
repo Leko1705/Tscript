@@ -2,9 +2,8 @@ package com.tscript.runtime.jit.compilers;
 
 import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.NativeImage;
-import com.tscript.runtime.jit.instructions.Instruction;
+import com.tscript.runtime.jit.graph.Node;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class ParallelJIT implements JITCompiler {
@@ -16,10 +15,10 @@ public class ParallelJIT implements JITCompiler {
     }
 
     @Override
-    public CompletableFuture<NativeImage> compile(List<Instruction> instructions) {
+    public CompletableFuture<NativeImage> compile(Node graph) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return underlying.compile(instructions).get();
+                return underlying.compile(graph).get();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

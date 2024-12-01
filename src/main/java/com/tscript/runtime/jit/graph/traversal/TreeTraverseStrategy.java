@@ -11,7 +11,7 @@ public abstract class TreeTraverseStrategy implements TraversingStrategy {
     
     @Override
     public void onFlowNode(FlowNode node, Context context) {
-        context.setNext(node.getNext());
+        context.setNext(node.next);
     }
 
     @Override

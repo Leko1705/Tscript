@@ -64,8 +64,8 @@ public class InterpreterDecorator implements Interpreter {
     }
 
     @Override
-    public void loadBuiltin(byte b, byte b1) {
-        interpreter.loadBuiltin(b, b1);
+    public void loadBuiltin(byte b1, byte b2) {
+        interpreter.loadBuiltin(b1, b2);
     }
 
     @Override

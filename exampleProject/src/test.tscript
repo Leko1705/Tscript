@@ -1,7 +1,8 @@
 module test;
 
 function foo(){
-    print("Hello World!");
+    for 0:1 do
+        print("Hello World!");
 }
 
 for 0:200 do {
