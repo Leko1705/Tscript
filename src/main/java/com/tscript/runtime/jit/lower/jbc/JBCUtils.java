@@ -10,13 +10,25 @@ import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.typing.*;
 
 import java.util.Arrays;
+import java.util.Map;
 
+@SuppressWarnings("unused")
 public class JBCUtils {
 
     @JITSensitive
     public static TObject[] copyArray(TObject[] src, TObject[] dst) {
         System.arraycopy(src, 0, dst, 0, src.length);
         return dst;
+    }
+
+    @JITSensitive
+    public static TObject makeDict(TObject[] keys, TObject[] values) {
+        TDictionary dict = new TDictionary();
+        Map<TObject, TObject> map = dict.getValue();
+        for (int i = 0; i < keys.length; i++) {
+            map.put(keys[i], values[i]);
+        }
+        return dict;
     }
 
     @JITSensitive
@@ -154,6 +166,10 @@ public class JBCUtils {
         return writeable.writeToContainer(thread, key, value);
     }
 
+
+    /* ------------------------ load/store fast ------------------------ */
+
+
     @JITSensitive
     public static boolean storeFast(TThread thread, TObject obj, TObject what, int address, int layer){
         return getMember(obj, address, layer).set(what, thread);
@@ -173,6 +189,12 @@ public class JBCUtils {
     public static TObject loadFast(TObject obj, int address){
         return obj.loadMember(address).get();
     }
+
+
+
+    /* ------------------------ load/store ------------------------ */
+
+
 
     @JITSensitive
     public static boolean store(TThread thread, TObject obj, TObject what, String name, int layer){
@@ -195,6 +217,68 @@ public class JBCUtils {
     }
 
 
+    /* ------------------------ load/store static ------------------------ */
+
+
+    @JITSensitive
+    public static TObject loadStatic(TObject obj, String name, int layer){
+        return getStaticMember(obj, name, layer).get();
+    }
+
+    @JITSensitive
+    public static TObject loadStatic(TObject obj, String name){
+        return obj.getType().loadMember(name).get();
+    }
+
+    @JITSensitive
+    public static boolean storeStatic(TThread thread, TObject obj, TObject what, String name, int layer){
+        return getStaticMember(obj, name, layer).set(what, thread);
+    }
+
+    @JITSensitive
+    public static boolean storeStatic(TThread thread, TObject obj, TObject what, String name){
+        return obj.getType().loadMember(name).set(what, thread);
+    }
+
+
+    /* ------------------------ load/store static fast ------------------------ */
+
+
+
+    @JITSensitive
+    public static TObject loadStaticFast(TObject obj, int address, int layer){
+        return getStaticMember(obj, address, layer).get();
+    }
+
+    @JITSensitive
+    public static TObject loadStaticFast(TObject obj, int address){
+        return obj.getType().loadMember(address).get();
+    }
+
+    @JITSensitive
+    public static boolean storeStaticFast(TThread thread, TObject obj, TObject what, int address, int layer){
+        return getStaticMember(obj, address, layer).set(what, thread);
+    }
+
+    @JITSensitive
+    public static boolean storeStaticFast(TThread thread, TObject obj, TObject what, int address){
+        return obj.getType().loadMember(address).set(what, thread);
+    }
+
+
+
+
+
+    private static Member getStaticMember(TObject obj, String name, int layer){
+        return traverseType(obj.getType(), layer).loadMember(name);
+    }
+
+    private static Member getStaticMember(TObject obj,int index, int layer){
+        return traverseType(obj.getType(), layer).loadMember(index);
+    }
+
+
+
     private static Member getMember(TObject obj, String name, int layer){
         return traverseObject(obj, layer).loadMember(name);
     }
@@ -202,6 +286,8 @@ public class JBCUtils {
     private static Member getMember(TObject obj, int address, int layer){
         return traverseObject(obj, layer).loadMember(address);
     }
+
+
 
     private static TObject traverseObject(TObject obj, int layer){
         if (layer > 0){
@@ -219,6 +305,31 @@ public class JBCUtils {
             obj = vobj;
         }
         return obj;
+    }
+
+    @JITSensitive
+    public static TObject searchMemberDownward(TObject obj, String name){
+        VirtualObject vobj = (VirtualObject) obj;
+        Member member = null;
+        while (vobj != null && (member = vobj.subObject.loadMember(name)) == null){
+            vobj = vobj.subObject;
+        }
+        if (vobj == null) return null;
+        return member.get();
+    }
+
+    private static Type traverseType(Type type, int layer){
+        if (layer > 0){
+            while (layer != 0){
+                type = type.getSuperType();
+                layer--;
+            }
+        }
+        else if (layer < 0){
+            throw new ExecutionException(
+                    "JIT execution error --> layer for static access is < 0 ");
+        }
+        return type;
     }
 
 }

@@ -4,6 +4,7 @@ public class LoadExternal implements Expression {
 
     public Expression what;
     public final String name;
+    public boolean isStaticAccess = false;
     public int index = -1;
     public int layer = -1;
 

@@ -18,6 +18,7 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.objectweb.asm.Opcodes.*;
@@ -34,12 +35,13 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     private final MethodVisitor clinit;
 
     private final Map<Object, String> constants;
-    private int sp;
+    private int sp; // used for debugging
 
     public MethodGenerator(String internalName, ClassWriter cw, MethodVisitor mv) {
         this.internalName = internalName;
         this.cw = cw;
         this.mv = mv;
+        sp = 0;
         constants = new HashMap<>();
         clinit = cw.visitMethod(
                 ACC_STATIC, // Access flags
@@ -91,12 +93,6 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public boolean isThenFirst(BranchNode node, Context context) {
         return false;
-    }
-
-    @Override
-    public Void visitUnknownValue(Unknown expression, Void unused) {
-        // dummy expression; ignored
-        return null;
     }
 
     @Override
@@ -233,15 +229,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         mv.visitTypeInsn(NEW, tarrInternal);
         mv.visitInsn(DUP);
 
-        mv.visitIntInsn(BIPUSH, expr.contents().size());
-        mv.visitTypeInsn(ANEWARRAY, TOBJECT_INTERNAL);
-
-        for (int i = 0; i < expr.contents().size(); i++) {
-            mv.visitInsn(DUP);
-            mv.visitIntInsn(BIPUSH, i);
-            expr.contents().get(i).accept(this);
-            mv.visitInsn(AASTORE);
-        }
+        genNewTObjectArray(expr.contents());
 
         mv.visitMethodInsn(
                 INVOKESPECIAL,
@@ -257,6 +245,23 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitDict(Dict expr, Void unused) {
+
+        genNewTObjectArray(expr.keys);
+        genNewTObjectArray(expr.values);
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "makeDict",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(TObject[].class)
+                        + org.objectweb.asm.Type.getDescriptor(TObject[].class)
+                        + ")"
+                        + TOBJECT_DESC,
+                false
+        );
+
+        sp -= expr.values.size() + expr.keys.size()-1;
         return null;
     }
 
@@ -332,6 +337,24 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitAbstract(Abstract expr, Void unused) {
+
+        if (expr.index != -1 && expr.layer < 0){
+            loadFast(expr.index, expr.layer, false, this::genLoadOwner);
+        }
+        else {
+            mv.visitMethodInsn(
+                    INVOKESTATIC,
+                    org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                    "searchMemberDownward",
+                    "("
+                            + TOBJECT_DESC
+                            + org.objectweb.asm.Type.getDescriptor(String.class)
+                            + ")" + TOBJECT_DESC,
+                    false
+            );
+            genFailureReturnIfNull();
+        }
+
         return null;
     }
 
@@ -340,15 +363,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         genLoadThread();
         expr.called.accept(this);
 
-        mv.visitIntInsn(BIPUSH, expr.args.size());
-        mv.visitTypeInsn(ANEWARRAY, TOBJECT_INTERNAL);
-
-        for (int i = 0; i < expr.args.size(); i++) {
-            mv.visitInsn(DUP);
-            mv.visitIntInsn(BIPUSH, i);
-            expr.args.get(i).accept(this);
-            mv.visitInsn(AASTORE);
-        }
+        genNewTObjectArray(expr.args);
 
         mv.visitMethodInsn(
                 INVOKESTATIC,
@@ -600,10 +615,10 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     public Void visitLoadExternal(LoadExternal expr, Void unused) {
 
         if (expr.index != -1 && expr.layer != -1){
-            loadFast(expr.index, expr.layer, () -> expr.what.accept(this));
+            loadFast(expr.index, expr.layer, expr.isStaticAccess, () -> expr.what.accept(this));
         }
         else {
-            load(expr.name, expr.layer, () -> expr.what.accept(this));
+            load(expr.name, expr.layer, expr.isStaticAccess, () -> expr.what.accept(this));
         }
 
         return null;
@@ -612,10 +627,10 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitStoreExternal(StoreExternal expr, Void unused) {
         if (expr.index != -1 && expr.layer != -1){
-            storeFast(expr.what, expr.index, expr.layer, () -> expr.where.accept(this));
+            storeFast(expr.what, expr.index, expr.layer, expr.isStaticAccess, () -> expr.where.accept(this));
         }
         else {
-            store(expr.what, expr.name, expr.layer, () -> expr.where.accept(this));
+            store(expr.what, expr.name, expr.layer, expr.isStaticAccess, () -> expr.where.accept(this));
         }
 
         sp -= 2;
@@ -624,14 +639,14 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitLoadInternal(LoadInternal expr, Void unused) {
-        loadFast(expr.index(), 0, this::genLoadOwner);
+        loadFast(expr.index(), 0, false, this::genLoadOwner);
         sp++;
         return null;
     }
 
     @Override
     public Void visitStoreInternal(StoreInternal expr, Void unused) {
-        storeFast(expr.what, expr.index, 0, this::genLoadOwner);
+        storeFast(expr.what, expr.index, 0, false, this::genLoadOwner);
         sp--;
         return null;
     }
@@ -639,10 +654,10 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitLoadSuper(LoadSuper expr, Void unused) {
         if (expr.index != -1 && expr.layer != -1){
-            loadFast(expr.index, expr.layer, this::genLoadOwner);
+            loadFast(expr.index, expr.layer, true, this::genLoadOwner);
         }
         else {
-            load(expr.name, expr.layer, this::genLoadOwner);
+            load(expr.name, expr.layer, true, this::genLoadOwner);
         }
 
         sp++;
@@ -653,140 +668,40 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     public Void visitStoreSuper(StoreSuper expr, Void unused) {
 
         if (expr.index != -1 && expr.layer != -1){
-            storeFast(expr.what, expr.index, expr.layer, this::genLoadOwner);
+            storeFast(expr.what, expr.index, expr.layer, false, this::genLoadOwner);
         }
         else {
-            store(expr.what, expr.name, expr.layer, this::genLoadOwner);
+            store(expr.what, expr.name, expr.layer, false, this::genLoadOwner);
         }
 
         sp--;
         return null;
     }
 
-    private void storeFast(Expression expr, int address, int layer, Runnable accessGenerator){
-
-        genLoadThread();
-        accessGenerator.run();
-        expr.accept(this);
-        mv.visitIntInsn(BIPUSH, address);
-
-        String desc = "("
-                + org.objectweb.asm.Type.getDescriptor(TThread.class)
-                + TOBJECT_DESC
-                + TOBJECT_DESC
-                + "I";
-
-
-        if (layer > 0) {
-            mv.visitIntInsn(BIPUSH, layer);
-            desc += "I";
-         }
-
-
-        desc += ")Z";
-
-        mv.visitMethodInsn(
-                INVOKESTATIC,
-                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
-                "storeFast",
-                desc,
-                false
-        );
-
-        genFailureReturnIfFalse();
-    }
-
-    private void loadFast(int address, int traversal, Runnable accessedGenerator){
-        accessedGenerator.run();
-        mv.visitIntInsn(BIPUSH, address);
-
-        String desc = "("
-                + TOBJECT_DESC
-                + "I";
-
-        if (traversal > 0) {
-            mv.visitIntInsn(BIPUSH, traversal);
-            desc += "I";
-        }
-
-        desc += ")" + TOBJECT_DESC;
-
-        mv.visitMethodInsn(
-                INVOKESTATIC,
-                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
-                "loadFast",
-                desc,
-                false
-        );
-    }
-
-    private void store(Expression expr, String name, int layer, Runnable accessedGenerator){
-
-        genLoadThread();
-        accessedGenerator.run();
-        expr.accept(this);
-
-        mv.visitLdcInsn(name);
-
-        String desc = "("
-                + org.objectweb.asm.Type.getDescriptor(TThread.class)
-                + TOBJECT_DESC
-                + TOBJECT_DESC
-                + org.objectweb.asm.Type.getDescriptor(String.class);
-
-
-        if (layer > 0) {
-            mv.visitIntInsn(BIPUSH, layer);
-            desc += "I";
-        }
-
-
-        desc += ")Z";
-
-        mv.visitMethodInsn(
-                INVOKESTATIC,
-                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
-                "store",
-                desc,
-                false
-        );
-
-        genFailureReturnIfFalse();
-    }
-
-    private void load(String name, int traversal, Runnable accessedGenerator){
-        accessedGenerator.run();
-
-        mv.visitLdcInsn(name);
-
-        String desc = "("
-                + TOBJECT_DESC
-                + org.objectweb.asm.Type.getDescriptor(String.class);
-
-        if (traversal > 0) {
-            mv.visitIntInsn(BIPUSH, traversal);
-            desc += "I";
-        }
-
-        desc += ")" + TOBJECT_DESC;
-
-        mv.visitMethodInsn(
-                INVOKESTATIC,
-                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
-                "load",
-                desc,
-                false
-        );
-    }
-
 
     @Override
     public Void visitLoadStatic(LoadStatic expr, Void unused) {
+        if (expr.index != -1 && expr.layer != -1){
+            loadFast(expr.index, expr.layer, false, this::genLoadOwner);
+        }
+        else {
+            load(expr.name, expr.layer, false, this::genLoadOwner);
+        }
+
+        sp++;
         return null;
     }
 
     @Override
     public Void visitStoreStatic(StoreStatic expr, Void unused) {
+        if (expr.index != -1 && expr.layer != -1){
+            storeFast(expr.what, expr.index, expr.layer, true, this::genLoadOwner);
+        }
+        else {
+            store(expr.what, expr.name, expr.layer, true, this::genLoadOwner);
+        }
+
+        sp--;
         return null;
     }
 
@@ -866,26 +781,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         return null;
     }
 
-    private void addDebugPrint(MethodVisitor mv) {
-        mv.visitFieldInsn(
-                GETSTATIC,                       // Opcode for static field access
-                "java/lang/System",                     // Class containing the field
-                "out",                                  // Field name
-                "Ljava/io/PrintStream;"                 // Field descriptor
-        );
 
-        // 2. Push the string "HERE" onto the stack
-        mv.visitLdcInsn("HERE");
-
-        // 3. Invoke println(String) on PrintStream
-        mv.visitMethodInsn(
-                INVOKEVIRTUAL,                  // Opcode for virtual method call
-                "java/io/PrintStream",                 // Class containing the method
-                "println",                             // Method name
-                "(Ljava/lang/String;)V",               // Method descriptor
-                false                                   // Not an interface
-        );
-    }
 
     private void pushJBCInt(int value){
         if (value == 0) clinit.visitInsn(ICONST_0);
@@ -964,5 +860,146 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     private void genLocalsArray(){
         mv.visitVarInsn(ALOAD, 3);
+    }
+
+    private void storeFast(Expression expr, int address, int layer, boolean staticAccess, Runnable accessGenerator){
+
+        genLoadThread();
+        accessGenerator.run();
+        expr.accept(this);
+        mv.visitIntInsn(BIPUSH, address);
+
+        String desc = "("
+                + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                + TOBJECT_DESC
+                + TOBJECT_DESC
+                + "I";
+
+
+        if (layer > 0) {
+            mv.visitIntInsn(BIPUSH, layer);
+            desc += "I";
+        }
+
+        desc += ")Z";
+
+        String methodName = "store";
+        if (staticAccess) methodName += "Static";
+        methodName += "Fast";
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                methodName,
+                desc,
+                false
+        );
+
+        genFailureReturnIfFalse();
+    }
+
+    private void loadFast(int address, int layer, boolean staticAccess, Runnable accessedGenerator){
+        accessedGenerator.run();
+        mv.visitIntInsn(BIPUSH, address);
+
+        String desc = "("
+                + TOBJECT_DESC
+                + "I";
+
+        if (layer > 0) {
+            mv.visitIntInsn(BIPUSH, layer);
+            desc += "I";
+        }
+
+        desc += ")" + TOBJECT_DESC;
+
+        String methodName = "load";
+        if (staticAccess) methodName += "Static";
+        methodName += "Fast";
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                methodName,
+                desc,
+                false
+        );
+    }
+
+    private void store(Expression expr, String name, int layer, boolean staticAccess, Runnable accessedGenerator){
+
+        genLoadThread();
+        accessedGenerator.run();
+        expr.accept(this);
+
+        mv.visitLdcInsn(name);
+
+        String desc = "("
+                + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                + TOBJECT_DESC
+                + TOBJECT_DESC
+                + org.objectweb.asm.Type.getDescriptor(String.class);
+
+
+        if (layer > 0) {
+            mv.visitIntInsn(BIPUSH, layer);
+            desc += "I";
+        }
+
+        String methodName = "store";
+        if (staticAccess) methodName += "Static";
+
+        desc += ")Z";
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                methodName,
+                desc,
+                false
+        );
+
+        genFailureReturnIfFalse();
+    }
+
+    private void load(String name, int layer, boolean staticAccess, Runnable accessedGenerator){
+        accessedGenerator.run();
+
+        mv.visitLdcInsn(name);
+
+        String desc = "("
+                + TOBJECT_DESC
+                + org.objectweb.asm.Type.getDescriptor(String.class);
+
+        if (layer > 0) {
+            mv.visitIntInsn(BIPUSH, layer);
+            desc += "I";
+        }
+
+        desc += ")" + TOBJECT_DESC;
+
+        String methodName = "load";
+        if (staticAccess) methodName += "Static";
+
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                methodName,
+                desc,
+                false
+        );
+    }
+
+    private void genNewTObjectArray(List<Expression> values){
+        mv.visitIntInsn(BIPUSH, values.size());
+        mv.visitTypeInsn(ANEWARRAY, TOBJECT_INTERNAL);
+
+        for (int i = 0; i < values.size(); i++) {
+            mv.visitInsn(DUP);
+            mv.visitIntInsn(BIPUSH, i);
+            values.get(i).accept(this);
+            mv.visitInsn(AASTORE);
+        }
     }
 }

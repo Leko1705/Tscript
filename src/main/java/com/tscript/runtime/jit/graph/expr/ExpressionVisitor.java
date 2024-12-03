@@ -2,8 +2,6 @@ package com.tscript.runtime.jit.graph.expr;
 
 public interface ExpressionVisitor<P, R> {
 
-    R visitUnknownValue(Unknown expr, P p);
-
     R visitPop(Pop expr, P p);
 
     R visitNull(Null expr, P p);

@@ -3,6 +3,8 @@ package com.tscript.runtime.jit.graph.expr;
 public class StoreStatic implements Expression {
 
     public final String name;
+    public int index = -1;
+    public int layer = -1;
     public Expression what;
 
     public StoreStatic(String name, Expression what) {

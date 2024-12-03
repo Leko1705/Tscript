@@ -5,6 +5,7 @@ public class StoreExternal implements Expression {
     public final String name;
     public int index = -1;
     public int layer = -1;
+    public boolean isStaticAccess = false;
     public Expression where;
     public Expression what;
 
