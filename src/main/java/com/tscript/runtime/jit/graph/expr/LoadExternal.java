@@ -1,6 +1,17 @@
 package com.tscript.runtime.jit.graph.expr;
 
-public record LoadExternal(String name) implements Expression {
+public class LoadExternal implements Expression {
+
+    public Expression what;
+    public final String name;
+    public int index = -1;
+    public int layer = -1;
+
+    public LoadExternal(Expression what, String name) {
+        this.what = what;
+        this.name = name;
+    }
+
     @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitLoadExternal(this, p);

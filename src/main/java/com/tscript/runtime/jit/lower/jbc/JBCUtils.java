@@ -170,11 +170,40 @@ public class JBCUtils {
     }
 
     @JITSensitive
-    public static TObject loadFast(TObject obj, int layer){
-        return obj.loadMember(layer).get();
+    public static TObject loadFast(TObject obj, int address){
+        return obj.loadMember(address).get();
+    }
+
+    @JITSensitive
+    public static boolean store(TThread thread, TObject obj, TObject what, String name, int layer){
+        return getMember(obj, name, layer).set(what, thread);
+    }
+
+    @JITSensitive
+    public static boolean store(TThread thread, TObject obj, TObject what, String name){
+        return obj.loadMember(name).set(what, thread);
+    }
+
+    @JITSensitive
+    public static TObject load(TObject obj, String name, int layer){
+        return getMember(obj, name, layer).get();
+    }
+
+    @JITSensitive
+    public static TObject load(TObject obj, String name){
+        return obj.loadMember(name).get();
+    }
+
+
+    private static Member getMember(TObject obj, String name, int layer){
+        return traverseObject(obj, layer).loadMember(name);
     }
 
     private static Member getMember(TObject obj, int address, int layer){
+        return traverseObject(obj, layer).loadMember(address);
+    }
+
+    private static TObject traverseObject(TObject obj, int layer){
         if (layer > 0){
             while (layer != 0){
                 obj = obj.getSuper();
@@ -189,7 +218,7 @@ public class JBCUtils {
             }
             obj = vobj;
         }
-        return obj.loadMember(address);
+        return obj;
     }
 
 }

@@ -598,24 +598,40 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitLoadExternal(LoadExternal expr, Void unused) {
+
+        if (expr.index != -1 && expr.layer != -1){
+            loadFast(expr.index, expr.layer, () -> expr.what.accept(this));
+        }
+        else {
+            load(expr.name, expr.layer, () -> expr.what.accept(this));
+        }
+
         return null;
     }
 
     @Override
     public Void visitStoreExternal(StoreExternal expr, Void unused) {
+        if (expr.index != -1 && expr.layer != -1){
+            storeFast(expr.what, expr.index, expr.layer, () -> expr.where.accept(this));
+        }
+        else {
+            store(expr.what, expr.name, expr.layer, () -> expr.where.accept(this));
+        }
+
+        sp -= 2;
         return null;
     }
 
     @Override
     public Void visitLoadInternal(LoadInternal expr, Void unused) {
-        loadFast(expr.index(), 0);
+        loadFast(expr.index(), 0, this::genLoadOwner);
         sp++;
         return null;
     }
 
     @Override
     public Void visitStoreInternal(StoreInternal expr, Void unused) {
-        storeFast(expr.what, expr.index, 0);
+        storeFast(expr.what, expr.index, 0, this::genLoadOwner);
         sp--;
         return null;
     }
@@ -623,10 +639,10 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitLoadSuper(LoadSuper expr, Void unused) {
         if (expr.index != -1 && expr.layer != -1){
-            loadFast(expr.index, expr.layer);
+            loadFast(expr.index, expr.layer, this::genLoadOwner);
         }
         else {
-            // TODO impl me
+            load(expr.name, expr.layer, this::genLoadOwner);
         }
 
         sp++;
@@ -637,20 +653,20 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     public Void visitStoreSuper(StoreSuper expr, Void unused) {
 
         if (expr.index != -1 && expr.layer != -1){
-            storeFast(expr.what, expr.index, expr.layer);
+            storeFast(expr.what, expr.index, expr.layer, this::genLoadOwner);
         }
         else {
-            // TODO impl me
+            store(expr.what, expr.name, expr.layer, this::genLoadOwner);
         }
 
         sp--;
         return null;
     }
 
-    private void storeFast(Expression expr, int address, int layer){
+    private void storeFast(Expression expr, int address, int layer, Runnable accessGenerator){
 
         genLoadThread();
-        genLoadOwner();
+        accessGenerator.run();
         expr.accept(this);
         mv.visitIntInsn(BIPUSH, address);
 
@@ -680,8 +696,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         genFailureReturnIfFalse();
     }
 
-    private void loadFast(int address, int traversal){
-        genLoadOwner();
+    private void loadFast(int address, int traversal, Runnable accessedGenerator){
+        accessedGenerator.run();
         mv.visitIntInsn(BIPUSH, address);
 
         String desc = "("
@@ -703,6 +719,66 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
     }
+
+    private void store(Expression expr, String name, int layer, Runnable accessedGenerator){
+
+        genLoadThread();
+        accessedGenerator.run();
+        expr.accept(this);
+
+        mv.visitLdcInsn(name);
+
+        String desc = "("
+                + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                + TOBJECT_DESC
+                + TOBJECT_DESC
+                + org.objectweb.asm.Type.getDescriptor(String.class);
+
+
+        if (layer > 0) {
+            mv.visitIntInsn(BIPUSH, layer);
+            desc += "I";
+        }
+
+
+        desc += ")Z";
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "store",
+                desc,
+                false
+        );
+
+        genFailureReturnIfFalse();
+    }
+
+    private void load(String name, int traversal, Runnable accessedGenerator){
+        accessedGenerator.run();
+
+        mv.visitLdcInsn(name);
+
+        String desc = "("
+                + TOBJECT_DESC
+                + org.objectweb.asm.Type.getDescriptor(String.class);
+
+        if (traversal > 0) {
+            mv.visitIntInsn(BIPUSH, traversal);
+            desc += "I";
+        }
+
+        desc += ")" + TOBJECT_DESC;
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "load",
+                desc,
+                false
+        );
+    }
+
 
     @Override
     public Void visitLoadStatic(LoadStatic expr, Void unused) {

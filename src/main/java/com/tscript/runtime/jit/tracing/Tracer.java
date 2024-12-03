@@ -219,13 +219,15 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void loadExternal(byte b1, byte b2) {
         super.loadExternal(b1, b2);
-        stack.push(new LoadExternal(getUtf8Constant(b1, b2)));
+        stack.push(new LoadExternal(stack.remove(), getUtf8Constant(b1, b2)));
     }
 
     @Override
     public void storeExternal(byte b1, byte b2) {
         super.storeExternal(b1, b2);
-        extendFlow(new StoreExternal(getUtf8Constant(b1, b2), stack.remove()));
+        Expression where = stack.remove();
+        Expression what = stack.remove();
+        extendFlow(new StoreExternal(getUtf8Constant(b1, b2), where, what));
     }
 
     @Override

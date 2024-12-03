@@ -1,17 +1,17 @@
 module test;
 
 class X {
-    private:
+    public:
     var x = 4;
 
     public:
-    function foo(){
-        x = 3;
-        print(x);
+    function foo(x){
+        x.x = 5;
     }
 }
 
 var x = X();
 for 0:200 do {
-    x.foo();
+    x.foo(x);
 }
+print(x.x);

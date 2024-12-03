@@ -3,10 +3,14 @@ package com.tscript.runtime.jit.graph.expr;
 public class StoreExternal implements Expression {
 
     public final String name;
+    public int index = -1;
+    public int layer = -1;
+    public Expression where;
     public Expression what;
 
-    public StoreExternal(String name, Expression what) {
+    public StoreExternal(String name, Expression where, Expression what) {
         this.name = name;
+        this.where = where;
         this.what = what;
     }
 
