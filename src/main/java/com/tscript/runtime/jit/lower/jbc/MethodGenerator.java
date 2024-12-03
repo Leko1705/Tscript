@@ -355,6 +355,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
             genFailureReturnIfNull();
         }
 
+        sp++;
         return null;
     }
 

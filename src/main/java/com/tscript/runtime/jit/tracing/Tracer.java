@@ -175,9 +175,17 @@ public class Tracer extends InterpreterDecorator {
     public void callInplace(byte argCount) {
         super.callInplace(argCount);
         Expression func = stack.remove();
-        List<Expression> args = new ArrayList<>();
-        for (int i = 0; i < argCount; i++) args.add(stack.remove());
-        stack.push(new CallInp(func, args));
+
+        if (func instanceof Native){
+            List<Expression> args = new ArrayList<>();
+            for (int i = 0; i < argCount; i++) args.add(stack.remove());
+            stack.push(new CallInp(func, args));
+        }
+        else {
+            Expression[] args = new Expression[argCount];
+            for (int i = 0; i < argCount; i++) args[i] = stack.remove();
+            for (int i = argCount-1; i >= 0; i--) stack.push(args[i]);
+        }
     }
 
     @Override
