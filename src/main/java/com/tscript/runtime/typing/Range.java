@@ -1,6 +1,7 @@
 package com.tscript.runtime.typing;
 
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.utils.Tuple;
@@ -54,6 +55,7 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
         this(new TInteger(start), new TInteger(end));
     }
 
+    @JITSensitive
     public Range(TInteger from, TInteger to) {
         super(new Tuple<>(from, to));
         methods = new HashMap<>(Map.of(

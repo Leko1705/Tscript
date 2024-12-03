@@ -4,7 +4,7 @@ import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.jit.lower.Generator;
-import com.tscript.runtime.jit.lower.JBCGenerator;
+import com.tscript.runtime.jit.lower.jbc.JBCGenerator;
 import com.tscript.runtime.jit.optim.Optimizer;
 
 import java.util.List;

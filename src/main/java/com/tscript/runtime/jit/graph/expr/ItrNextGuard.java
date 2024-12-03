@@ -1,11 +1,10 @@
 package com.tscript.runtime.jit.graph.expr;
 
-public class ItrNextGuard extends Guard {
+public class ItrNextGuard implements Expression {
 
     public boolean shouldHaveNext;
 
-    public ItrNextGuard(Expression expression, boolean shouldHaveNext) {
-        super(expression);
+    public ItrNextGuard(boolean shouldHaveNext) {
         this.shouldHaveNext = shouldHaveNext;
     }
 

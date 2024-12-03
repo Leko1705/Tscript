@@ -1,9 +1,14 @@
 package com.tscript.runtime.jit.graph.expr;
 
+import com.tscript.runtime.core.Opcode;
+
 public class BinaryOp extends Binary {
 
-    public BinaryOp(Expression lhs, Expression rhs) {
+    public Opcode opcode;
+
+    public BinaryOp(Expression lhs, Expression rhs, Opcode opcode) {
         super(lhs, rhs);
+        this.opcode = opcode;
     }
 
     @Override

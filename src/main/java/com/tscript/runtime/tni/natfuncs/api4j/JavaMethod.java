@@ -49,8 +49,8 @@ class JavaMethod extends NativeFunction implements Member {
     }
 
     @Override
-    public void set(TObject value, Environment env) {
-        throw new IllegalAccessError();
+    public boolean set(TObject value, Environment env) {
+        return false;
     }
 
     @Override

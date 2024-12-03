@@ -75,6 +75,7 @@ public class ProjectFileRunner {
             vm.setDebugger(debugger);
             vm.setBreakPoints(breakPoints);
         }
+        vm.setJitEnabled(projectFile.isJitEnabled());
         return vm.execute(projectFile.getBootModule());
     }
 

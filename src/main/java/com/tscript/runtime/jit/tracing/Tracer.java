@@ -31,8 +31,13 @@ public class Tracer extends InterpreterDecorator {
     private int traceSize;
 
     private final Deque<Expression> stack;
+    private int argsLeft;
 
-    public Tracer(Interpreter interpreter, Profiler profiler, int callStackDepth, Profiler.Value value) {
+    public Tracer(Interpreter interpreter,
+                  Profiler profiler,
+                  int callStackDepth,
+                  Profiler.Value value,
+                  int args) {
         super(interpreter);
         this.profiler = profiler;
         this.callStackDepth = callStackDepth;
@@ -44,6 +49,7 @@ public class Tracer extends InterpreterDecorator {
 
         stack = new ArrayDeque<>();
         traceSize = 0;
+        this.argsLeft = args;
     }
 
     @Override
@@ -203,6 +209,10 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void storeLocal(byte address) {
         super.storeLocal(address);
+        if (argsLeft > 0) {
+            argsLeft--;
+            return;
+        }
         extendFlow(new StoreLocal(address, stack.remove()));
     }
 
@@ -311,7 +321,7 @@ public class Tracer extends InterpreterDecorator {
         super.binaryOperation(opcode);
         Expression rhs = stack.remove();
         Expression lhs = stack.remove();
-        stack.push(new BinaryOp(lhs, rhs));
+        stack.push(new BinaryOp(lhs, rhs, opcode));
     }
 
     @Override
@@ -325,15 +335,16 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void getIterator() {
         super.getIterator();
-        stack.push(new Itr(stack.remove()));
+        Itr itr = new Itr(stack.remove());
+        stack.push(itr);
+        extendFlow(itr);
     }
 
     @Override
     public void iteratorNext() {
         super.iteratorNext();
         // assume itr is on top
-        extendFlow(ItrNext.INSTANCE);
-        stack.push(Unknown.INSTANCE);
+        stack.push(ItrNext.INSTANCE);
     }
 
     @Override
@@ -345,9 +356,10 @@ public class Tracer extends InterpreterDecorator {
         super.branchIterator(b1, b2);
 
         boolean hasNext = (currIp == frame.ip);
-        extendFlow(new ItrNextGuard(stack.peek(), hasNext));
+        extendFlow(new ItrNextGuard(hasNext));
         if (!hasNext){
             stack.remove();
+            extendFlow(new Pop(null));
         }
     }
 
@@ -366,7 +378,7 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void pop() {
         super.pop();
-        extendFlow(stack.remove());
+        extendFlow(new Pop(stack.remove()));
     }
 
     @Override

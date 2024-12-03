@@ -1,8 +1,10 @@
 package com.tscript.runtime.typing;
 
+import com.tscript.runtime.jit.JITSensitive;
+
 public interface TObject {
 
-    
+    @JITSensitive
     Type getType();
 
     

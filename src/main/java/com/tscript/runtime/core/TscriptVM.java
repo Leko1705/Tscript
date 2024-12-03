@@ -40,10 +40,10 @@ public class TscriptVM implements VirtualMachine {
     private final Map<Long, TThread> runningThreads;
     private volatile int exitCode = 0;
     private final Set<TerminationListener> terminationListeners = new HashSet<>();
-    protected ProjectFile projectFile = null;
+    public ProjectFile projectFile = null;
     private Function<TThread, Interpreter> interpreterSupplier = t -> new Profiler(new BaseInterpreter(t));
     private Set<BreakPoint> breakPoints = new HashSet<>();
-    private final JITCompiler jitCompiler;
+    private JITCompiler jitCompiler;
 
     private TscriptVM(File[] rootPath, PrintStream out, PrintStream err){
         this.rootPaths = rootPath;
@@ -119,6 +119,17 @@ public class TscriptVM implements VirtualMachine {
     public void setBreakPoints(Set<BreakPoint> breakPoints) {
         Objects.requireNonNull(breakPoints);
         this.breakPoints = breakPoints;
+    }
+
+    public void setJitEnabled(boolean jitEnabled) {
+        if (jitEnabled) {
+            jitCompiler = new JITCompilerImpl();
+            interpreterSupplier = t -> new Profiler(new BaseInterpreter(t));
+        }
+        else {
+            jitCompiler = new NoJIT();
+            interpreterSupplier = BaseInterpreter::new;
+        }
     }
 
     public Set<BreakPoint> getBreakPoints() {

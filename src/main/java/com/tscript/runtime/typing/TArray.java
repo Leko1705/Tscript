@@ -3,6 +3,7 @@ package com.tscript.runtime.typing;
 
 import com.tscript.runtime.core.ALU;
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.utils.Tuple;
@@ -64,6 +65,7 @@ public class TArray extends PrimitiveObject<List<TObject>>
         this(new ArrayList<>());
     }
 
+    @JITSensitive
     public TArray(TObject... value) {
         this(new ArrayList<>(List.of(value)));
     }

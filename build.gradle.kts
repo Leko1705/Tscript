@@ -15,6 +15,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     implementation("info.picocli:picocli:4.7.6")
+    implementation("org.ow2.asm:asm:6.0")
+    implementation("org.ow2.asm:asm-util:6.0")
 }
 
 tasks.test {

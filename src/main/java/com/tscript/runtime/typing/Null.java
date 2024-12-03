@@ -1,6 +1,7 @@
 package com.tscript.runtime.typing;
 
 
+import com.tscript.runtime.jit.JITSensitive;
 
 public class Null extends PrimitiveObject<Void> {
 
@@ -9,6 +10,7 @@ public class Null extends PrimitiveObject<Void> {
             .setConstructor((thread, params) -> Null.INSTANCE)
             .build();
 
+    @JITSensitive
     public static final Null INSTANCE = new Null();
 
     private Null() {

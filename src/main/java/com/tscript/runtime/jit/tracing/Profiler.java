@@ -62,7 +62,7 @@ public class Profiler extends InterpreterDecorator {
         Value value = cache.computeIfAbsent(key, k -> new Value());
 
         if (value.image != null){
-            TObject result = value.image.run(thread, args);
+            TObject result = value.image.run(thread, vfunc.getOwner(), args);
             if (result != null)
                 frame.push(result);
             return;
@@ -70,7 +70,7 @@ public class Profiler extends InterpreterDecorator {
 
         for (int i = argCount-1; i >= 0; i--) frame.push(args[i]);
         frame.push(top);
-        checkThreshold(value);
+        checkThreshold(value, argCount);
         super.callInplace(argCount);
     }
 
@@ -88,21 +88,30 @@ public class Profiler extends InterpreterDecorator {
             Value value = cache.computeIfAbsent(key, k -> new Value());
 
             if (value.image != null) {
-                return value.image.run(thread, arguments.toArray(new TObject[0]));
+                return value.image.run(thread, vfunc.getOwner(), arguments.toArray(new TObject[0]));
             }
 
-            checkThreshold(value);
+            checkThreshold(value, arguments.size());
         }
 
         return super.call(called, arguments);
     }
 
-    private void checkThreshold(Value value) {
+    private void checkThreshold(Value value, int args) {
         value.hotness++;
         if (value.hotness >= TRACING_THRESHOLD) {
             TThread thread = getCurrentThread();
             int callStackDepth = thread.frameStack.size();
-            thread.setInterpreter(new Tracer(this.getUnderlying(), this, callStackDepth, value));
+
+            Tracer tracer = new Tracer(
+                    this.getUnderlying(),
+                    this,
+                    callStackDepth,
+                    value,
+                    args
+            );
+
+            thread.setInterpreter(tracer);
         }
     }
 

@@ -60,5 +60,8 @@ public abstract class TreeTraverseStrategy implements TraversingStrategy {
             Node lastCheckpoint = context.checkpointTrace.remove();
             context.setNext(lastCheckpoint);
         }
+        else {
+            context.setNext(null);
+        }
     }
 }

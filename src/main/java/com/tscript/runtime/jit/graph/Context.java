@@ -19,7 +19,7 @@ public class Context {
     }
 
     public void setNext(Node next) {
-        this.next = Objects.requireNonNull(next);
+        this.next =next;
     }
 
 }

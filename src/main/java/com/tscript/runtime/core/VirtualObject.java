@@ -9,7 +9,7 @@ import java.util.Arrays;
 public class VirtualObject implements TObject {
 
     protected TObject superObject = null;
-    protected VirtualObject subObject = null;
+    public VirtualObject subObject = null;
     private final Type type;
     private final Member[] members;
 

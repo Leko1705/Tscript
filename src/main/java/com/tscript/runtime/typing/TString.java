@@ -1,6 +1,7 @@
 package com.tscript.runtime.typing;
 
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.tni.TNIUtils;
@@ -36,6 +37,7 @@ public class TString extends PrimitiveObject<String>
             "replace", Member.of(Visibility.PUBLIC, false, "replace", new ReplaceMethod())
     ));
 
+    @JITSensitive
     public TString(String value) {
         super(value);
     }

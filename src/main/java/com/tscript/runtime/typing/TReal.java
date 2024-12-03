@@ -1,6 +1,7 @@
 package com.tscript.runtime.typing;
 
 
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 
@@ -41,7 +42,8 @@ public class TReal extends PrimitiveObject<Double> {
 
     private final Map<String, Member> methods;
 
-    public TReal(Double value) {
+    @JITSensitive
+    public TReal(double value) {
         super(value);
         methods = new HashMap<>(Map.of(
                 "isFinite", Member.of(Visibility.PUBLIC, false, "isFinite", new IsFiniteMethod()),

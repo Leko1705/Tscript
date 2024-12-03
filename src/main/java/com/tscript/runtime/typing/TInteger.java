@@ -1,6 +1,7 @@
 package com.tscript.runtime.typing;
 
 
+import com.tscript.runtime.jit.JITSensitive;
 
 public class TInteger extends PrimitiveObject<Integer> {
 
@@ -29,6 +30,7 @@ public class TInteger extends PrimitiveObject<Integer> {
                         return null;
                     })).build();
 
+    @JITSensitive
     public TInteger(int value) {
         super(value);
     }

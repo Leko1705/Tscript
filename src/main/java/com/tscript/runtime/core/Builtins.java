@@ -1,5 +1,6 @@
 package com.tscript.runtime.core;
 
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.natfuncs.std.*;
 import com.tscript.runtime.typing.*;
 
@@ -19,6 +20,7 @@ public class Builtins {
         registerBuiltin(builtin.getName(), builtin);
     }
 
+    @JITSensitive
     public static TObject load(int index){
         return builtins.get(index);
     }
