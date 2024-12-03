@@ -225,6 +225,9 @@ public class SymbolResolver {
 
 
         private int index(Set<Modifier> modifiers){
+            if (modifiers != null && modifiers.contains(Modifier.ABSTRACT))
+                return 0; // never used in context of abstract methods
+
             if (modifiers != null && modifiers.contains(Modifier.STATIC))
                 return staticAddress++;
             else
