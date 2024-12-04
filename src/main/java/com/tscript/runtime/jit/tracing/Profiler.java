@@ -62,9 +62,12 @@ public class Profiler extends InterpreterDecorator {
         Value value = cache.computeIfAbsent(key, k -> new Value());
 
         if (value.image != null){
-            TObject result = value.image.run(thread, vfunc.getOwner(), args);
-            if (result != null)
-                frame.push(result);
+            try {
+                TObject result = value.image.run(thread, vfunc.getOwner(), args, new ImageFrame(frame));
+                if (result != null)
+                    frame.push(result);
+            }
+            catch (FallbackException ignored){}
             return;
         }
 
@@ -88,10 +91,14 @@ public class Profiler extends InterpreterDecorator {
             Value value = cache.computeIfAbsent(key, k -> new Value());
 
             if (value.image != null) {
-                return value.image.run(thread, vfunc.getOwner(), arguments.toArray(new TObject[0]));
+                try {
+                    return value.image.run(thread, vfunc.getOwner(), arguments.toArray(new TObject[0]), new ImageFrame(frame));
+                }
+                catch (FallbackException ignored){}
             }
-
-            checkThreshold(value, arguments.size());
+            else {
+                checkThreshold(value, arguments.size());
+            }
         }
 
         return super.call(called, arguments);

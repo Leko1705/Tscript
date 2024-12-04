@@ -1,5 +1,6 @@
 package com.tscript.runtime.jit.graph.traversal;
 
+import com.tscript.runtime.jit.graph.Context;
 import com.tscript.runtime.jit.graph.*;
 
 public interface TraversingStrategy {

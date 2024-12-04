@@ -17,6 +17,16 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
     }
 
     @Override
+    public R visitPushFrame(PushFrame expr, P p) {
+        return null;
+    }
+
+    @Override
+    public R visitPopFrame(PopFrame expr, P p) {
+        return null;
+    }
+
+    @Override
     public R visitPop(Pop expr, P p) {
         return null;
     }

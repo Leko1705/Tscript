@@ -4,6 +4,7 @@ public interface Expression {
 
     Expression EMPTY = new Expression() {
         public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) { return null; }
+        public String toString() { return "EMPTY"; }
     };
 
 

@@ -3,14 +3,15 @@ package com.tscript.runtime.jit.lower.jbc;
 import com.tscript.projectfile.ProjectFile;
 import com.tscript.runtime.core.*;
 import com.tscript.runtime.jit.JITSensitive;
+import com.tscript.runtime.jit.tracing.FallbackException;
+import com.tscript.runtime.jit.tracing.ImageFrame;
 import com.tscript.runtime.stroage.FunctionArea;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.TypeArea;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.typing.*;
 
-import java.util.Arrays;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("unused")
 public class JBCUtils {
@@ -330,6 +331,40 @@ public class JBCUtils {
                     "JIT execution error --> layer for static access is < 0 ");
         }
         return type;
+    }
+
+
+    @JITSensitive
+    public static ImageFrame pushFrame(TObject called, ImageFrame prevFrame, int extraLocals){
+        return new ImageFrame((VirtualFunction) called, prevFrame, extraLocals);
+    }
+
+    @JITSensitive
+    public static ImageFrame popFrame(ImageFrame top){
+        return top.next;
+    }
+
+
+    private static void fallback(TThread thread, ImageFrame frame){
+
+        List<ImageFrame> frames = new ArrayList<>();
+        while (frame != null){
+            frames.add(frame);
+            frame = frame.next;
+        }
+
+        for (ImageFrame imgFrame : frames){
+            Frame trueFrame = new Frame(
+                    imgFrame.owner,
+                    imgFrame.name,
+                    imgFrame.instructions,
+                    imgFrame.stackSize,
+                    imgFrame.locals.length,
+                    imgFrame.module);
+            thread.frameStack.push(trueFrame);
+        }
+
+        throw new FallbackException();
     }
 
 }

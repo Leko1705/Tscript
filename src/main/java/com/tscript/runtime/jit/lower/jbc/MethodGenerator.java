@@ -96,6 +96,18 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     }
 
     @Override
+    public Void visitPushFrame(PushFrame expr, Void unused) {
+        // TODO impl me
+        return null;
+    }
+
+    @Override
+    public Void visitPopFrame(PopFrame expr, Void unused) {
+        // TODO impl me
+        return null;
+    }
+
+    @Override
     public Void visitPop(Pop expr, Void unused) {
         if (expr.expression() != null)
             expr.expression().accept(this);
@@ -592,6 +604,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitLoadLocal(LoadLocal expr, Void unused) {
 
+        // TODO change to frame access
+
         genLocalsArray();
         mv.visitIntInsn(BIPUSH, expr.index());
         mv.visitInsn(AALOAD);
@@ -602,6 +616,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitStoreLocal(StoreLocal expr, Void unused) {
+
+        // TODO change to frame access
 
         genLocalsArray();
         mv.visitIntInsn(BIPUSH, expr.index);

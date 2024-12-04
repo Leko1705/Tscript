@@ -4,6 +4,7 @@ import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.jit.lower.Generator;
+import com.tscript.runtime.jit.tracing.ImageFrame;
 import com.tscript.runtime.typing.TObject;
 import org.objectweb.asm.*;
 import org.objectweb.asm.util.Textifier;
@@ -44,6 +45,7 @@ public class JBCGenerator implements Generator {
                 + Type.getDescriptor(TThread.class)
                 + Type.getDescriptor(TObject.class)
                 + Type.getDescriptor(TObject[].class)
+                + Type.getDescriptor(ImageFrame.class)
                 + ")"
                 + Type.getDescriptor(TObject.class);
 

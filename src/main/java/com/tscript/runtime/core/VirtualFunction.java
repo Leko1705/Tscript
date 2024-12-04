@@ -79,4 +79,16 @@ public class VirtualFunction extends Function {
     public Module getModule() {
         return module;
     }
+
+    public int getLocals() {
+        return locals;
+    }
+
+    public byte[][] getInstructions() {
+        return instructions;
+    }
+
+    public int getStackSize() {
+        return stackSize;
+    }
 }

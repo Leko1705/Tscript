@@ -182,6 +182,7 @@ public class Tracer extends InterpreterDecorator {
             stack.push(new CallInp(func, args));
         }
         else {
+            extendFlow(new PushFrame());
             Expression[] args = new Expression[argCount];
             for (int i = 0; i < argCount; i++) args[i] = stack.remove();
             for (int i = argCount-1; i >= 0; i--) stack.push(args[i]);
@@ -191,8 +192,13 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void returnFunction() {
         super.returnFunction();
-        if (traceComplete()){
+        if (traceComplete()) {
             completeTrace(stack.remove());
+        }
+        else {
+            extendFlow(stack.remove());
+            stack.push(Expression.EMPTY);
+            extendFlow(PopFrame.INSTANCE);
         }
     }
 

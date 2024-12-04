@@ -28,9 +28,9 @@ public class Frame {
 
     private int line = -1;
 
-    private final ArrayDeque<Integer> safeSpots = new ArrayDeque<>();
+    public final ArrayDeque<Integer> safeSpots = new ArrayDeque<>();
 
-    private final Map<String, TObject> names = new HashMap<>();
+    public final Map<String, TObject> names = new HashMap<>();
 
     public Frame(TObject owner, String name, byte[][] instructions, int stackSize, int locals, Module module) {
         this.owner = owner;
