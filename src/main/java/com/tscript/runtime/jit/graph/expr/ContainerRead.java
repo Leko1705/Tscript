@@ -3,6 +3,7 @@ package com.tscript.runtime.jit.graph.expr;
 public class ContainerRead implements Expression {
 
     public Expression container, key;
+    public boolean canFail = true;
 
     public ContainerRead(Expression container, Expression key) {
         this.container = container;

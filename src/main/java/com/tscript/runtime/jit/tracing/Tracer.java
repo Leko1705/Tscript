@@ -142,7 +142,7 @@ public class Tracer extends InterpreterDecorator {
         super.loadNative(b1, b2);
         NativeFunction function = (NativeFunction) top();
         if (function == null) return;
-        stack.push(new Native(function.getName()));
+        stack.push(new Native(function.getName(), false));
     }
 
     @Override
@@ -160,7 +160,7 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void loadAbstract(byte b1, byte b2) {
         super.loadAbstract(b1, b2);
-        stack.push(new Abstract(getUtf8Constant(b1, b2)));
+        stack.push(new Abstract(getUtf8Constant(b1, b2), false));
     }
 
     @Override
@@ -182,7 +182,7 @@ public class Tracer extends InterpreterDecorator {
             stack.push(new CallInp(func, args));
         }
         else {
-            extendFlow(new PushFrame());
+            extendFlow(new PushFrame(func));
             Expression[] args = new Expression[argCount];
             for (int i = 0; i < argCount; i++) args[i] = stack.remove();
             for (int i = argCount-1; i >= 0; i--) stack.push(args[i]);
@@ -289,14 +289,14 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void loadType(byte b1, byte b2) {
         super.loadType(b1, b2);
-        stack.push(new Type(Conversion.from2Bytes(b1, b2)));
+        stack.push(new Type(Conversion.from2Bytes(b1, b2), false));
     }
 
     @Override
     public void buildType(byte b1, byte b2) {
         super.buildType(b1, b2);
         stack.remove();
-        stack.push(new Type(Conversion.from2Bytes(b1, b2)));
+        stack.push(new Type(Conversion.from2Bytes(b1, b2), false));
     }
 
     @Override

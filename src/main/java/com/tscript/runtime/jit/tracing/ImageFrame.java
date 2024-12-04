@@ -2,17 +2,18 @@ package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.Frame;
 import com.tscript.runtime.core.VirtualFunction;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.typing.TObject;
 
 public class ImageFrame {
     public String name;
     public Module module;
-    public int line;
+    @JITSensitive public int line;
     public byte[][] instructions;
     public int stackSize;
-    public TObject[] locals;
-    public TObject owner;
+    @JITSensitive public TObject[] locals;
+    @JITSensitive public TObject owner;
     public int nextSafeSpot = -1;
     public ImageFrame next;
 

@@ -43,8 +43,6 @@ public class JBCGenerator implements Generator {
 
         String desc = "("
                 + Type.getDescriptor(TThread.class)
-                + Type.getDescriptor(TObject.class)
-                + Type.getDescriptor(TObject[].class)
                 + Type.getDescriptor(ImageFrame.class)
                 + ")"
                 + Type.getDescriptor(TObject.class);

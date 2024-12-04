@@ -6,5 +6,5 @@ import com.tscript.runtime.typing.TObject;
 
 public interface NativeImage {
 
-    TObject run(TThread thread, TObject owner, TObject[] args, ImageFrame frame);
+    TObject run(TThread thread, ImageFrame frame);
 }

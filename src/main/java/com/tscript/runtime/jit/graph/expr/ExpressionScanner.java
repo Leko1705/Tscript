@@ -125,12 +125,12 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitNot(Not expr, P p) {
-        return scan(expr.expression(), p);
+        return scan(expr.expression, p);
     }
 
     @Override
     public R visitNeg(Neg expr, P p) {
-        return scan(expr.expression(), p);
+        return scan(expr.expression, p);
     }
 
     @Override

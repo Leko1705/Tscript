@@ -12,6 +12,7 @@ import com.tscript.runtime.jit.graph.expr.Type;
 import com.tscript.runtime.jit.graph.traversal.Traverser;
 import com.tscript.runtime.jit.graph.traversal.TreeTraverseStrategy;
 import com.tscript.runtime.jit.lower.MaxLocalAddProvider;
+import com.tscript.runtime.jit.tracing.ImageFrame;
 import com.tscript.runtime.typing.*;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
@@ -55,27 +56,6 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     public void generate(Node graph) {
         clinit.visitCode();
 
-        int maxLocals = MaxLocalAddProvider.calculate(graph);
-
-        mv.visitVarInsn(ALOAD, 3);
-
-        mv.visitIntInsn(BIPUSH, maxLocals + 1);
-        mv.visitTypeInsn(ANEWARRAY, TOBJECT_INTERNAL);
-
-        mv.visitMethodInsn(
-                INVOKESTATIC,
-                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
-                "copyArray",
-                "("
-                        + org.objectweb.asm.Type.getDescriptor(TObject[].class)
-                        + org.objectweb.asm.Type.getDescriptor(TObject[].class)
-                        + ")" + org.objectweb.asm.Type.getDescriptor(TObject[].class),
-                false
-        );
-
-        mv.visitVarInsn(ASTORE, 3);
-
-
         Traverser.traverse(this, this, graph);
 
         // finish static initializer block
@@ -97,13 +77,39 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitPushFrame(PushFrame expr, Void unused) {
-        // TODO impl me
+
+        expr.called.accept(this);
+        genLoadFrame();
+        pushJBCInt(mv, expr.extraLocals);
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "pushFrame",
+                "("
+                        + TOBJECT_DESC
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + "I)"
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class),
+                false
+        );
+        genStoreFrame();
+
         return null;
     }
 
     @Override
     public Void visitPopFrame(PopFrame expr, Void unused) {
-        // TODO impl me
+        genLoadFrame();
+
+        mv.visitFieldInsn(
+                GETFIELD,
+                org.objectweb.asm.Type.getInternalName(ImageFrame.class),
+                "next",
+                org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+        );
+
+        genStoreFrame();
         return null;
     }
 
@@ -133,7 +139,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 expr.value,
                 TInteger.class,
                 "(I)V",
-                () -> pushJBCInt(expr.value)
+                () -> pushJBCInt(clinit, expr.value)
         );
 
         mv.visitFieldInsn(
@@ -288,7 +294,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     public Void visitVirtual(Virtual expr, Void unused) {
 
         genLoadThread();
-        mv.visitIntInsn(SIPUSH, expr.index());
+        pushJBCInt(mv, expr.index());
 
         mv.visitMethodInsn(
                 INVOKESTATIC,
@@ -301,9 +307,6 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-
-        genFailureReturnIfNull();
-
         sp++;
         return null;
     }
@@ -311,7 +314,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitNative(Native expr, Void unused) {
 
-        mv.visitLdcInsn(expr.name());
+        mv.visitLdcInsn(expr.name);
 
         mv.visitMethodInsn(
                 INVOKESTATIC,
@@ -325,7 +328,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        genFailureReturnIfNull();
+        if (expr.canFail)
+            genFailureReturnIfNull();
 
         sp++;
         return null;
@@ -333,7 +337,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitBuiltin(Builtin expr, Void unused) {
-        mv.visitIntInsn(BIPUSH, expr.index());
+        pushJBCInt(mv, expr.index());
 
         mv.visitMethodInsn(
                 INVOKESTATIC,
@@ -364,7 +368,9 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                             + ")" + TOBJECT_DESC,
                     false
             );
-            genFailureReturnIfNull();
+
+            if (expr.calFail)
+                genFailureReturnIfNull();
         }
 
         sp++;
@@ -390,7 +396,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        genFailureReturnIfNull();
+        if (expr.canFail)
+            genFailureReturnIfNull();
 
         sp -= expr.args.size();
 
@@ -400,7 +407,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitType(Type expr, Void unused) {
         genLoadThread();
-        mv.visitIntInsn(SIPUSH, expr.index());
+        pushJBCInt(mv, expr.index());
 
         mv.visitMethodInsn(
                 INVOKESTATIC,
@@ -414,7 +421,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         );
 
 
-        genFailureReturnIfNull();
+        if (expr.canFail())
+            genFailureReturnIfNull();
         return null;
     }
 
@@ -437,13 +445,13 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
         genLoadThread();
 
-        expr.underlying().accept(this);
+        expr.underlying.accept(this);
 
-        if (expr.underlying() == expr.owner()){
+        if (expr.underlying == expr.owner){
             mv.visitInsn(DUP);
         }
         else {
-            expr.owner().accept(this);
+            expr.owner.accept(this);
         }
 
         mv.visitMethodInsn(
@@ -458,7 +466,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        genFailureReturnIfNull();
+        if (expr.canFail)
+            genFailureReturnIfNull();
         sp--;
 
         return null;
@@ -469,7 +478,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         genLoadThread();
         expr.lhs.accept(this);
         expr.rhs.accept(this);
-        mv.visitIntInsn(BIPUSH, expr.opcode.b);
+        pushJBCInt(mv, expr.opcode.b);
 
         mv.visitMethodInsn(
                 INVOKESTATIC,
@@ -484,7 +493,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        genFailureReturnIfNull();
+        if (expr.canFail)
+            genFailureReturnIfNull();
 
         sp--;
         return null;
@@ -492,17 +502,17 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitNot(Not expr, Void unused) {
-        genUnaryOp(expr.expression(), "not");
+        genUnaryOp(expr.expression, "not", expr.canFail);
         return null;
     }
 
     @Override
     public Void visitNeg(Neg expr, Void unused) {
-        genUnaryOp(expr.expression(), "neg");
+        genUnaryOp(expr.expression, "neg", expr.canFail);
         return null;
     }
 
-    private void genUnaryOp(Expression exp, String jbcUtilMethodName){
+    private void genUnaryOp(Expression exp, String jbcUtilMethodName, boolean calFail){
         genLoadThread();
         exp.accept(this);
 
@@ -517,7 +527,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        genFailureReturnIfNull();
+        if (calFail)
+            genFailureReturnIfNull();
 
     }
 
@@ -567,7 +578,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        genFailureReturnIfNull();
+        if (expr.canFail)
+            genFailureReturnIfNull();
 
         return null;
     }
@@ -588,26 +600,64 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitNewLine(NewLine expr, Void unused) {
+        genLoadFrame();
+        pushJBCInt(mv, expr.line());
+
+        mv.visitFieldInsn(
+                PUTFIELD,
+                org.objectweb.asm.Type.getInternalName(ImageFrame.class),
+                "line",
+                "I"
+        );
+
         return null;
     }
 
     @Override
     public Void visitLoadGlobal(LoadGlobal expr, Void unused) {
+        genLoadFrame();
+        pushJBCInt(mv, expr.index());
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "loadGlobal",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + "I)" + TOBJECT_DESC,
+                false
+        );
+
         return null;
     }
 
     @Override
     public Void visitStoreGlobal(StoreGlobal expr, Void unused) {
+        genLoadThread();
+        genLoadFrame();
+        expr.what.accept(this);
+        pushJBCInt(mv, expr.index);
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "storeGlobal",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + TOBJECT_DESC
+                        + "I)V",
+                false
+        );
+
         return null;
     }
 
     @Override
     public Void visitLoadLocal(LoadLocal expr, Void unused) {
 
-        // TODO change to frame access
-
         genLocalsArray();
-        mv.visitIntInsn(BIPUSH, expr.index());
+        pushJBCInt(mv, expr.index());
         mv.visitInsn(AALOAD);
 
         sp++;
@@ -617,10 +667,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitStoreLocal(StoreLocal expr, Void unused) {
 
-        // TODO change to frame access
-
         genLocalsArray();
-        mv.visitIntInsn(BIPUSH, expr.index);
+        pushJBCInt(mv, expr.index);
         expr.what.accept(this);
         mv.visitInsn(AASTORE);
 
@@ -741,7 +789,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        genFailureReturnIfNull();
+        if (expr.canFail)
+            genFailureReturnIfNull();
 
         sp--;
 
@@ -795,19 +844,25 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitItrNextGuard(ItrNextGuard expr, Void unused) {
+
+
+
         return null;
     }
 
 
 
-    private void pushJBCInt(int value){
-        if (value == 0) clinit.visitInsn(ICONST_0);
-        else if (value == 1) clinit.visitInsn(ICONST_1);
-        else if (value == 2) clinit.visitInsn(ICONST_2);
-        else if (value == 3) clinit.visitInsn(ICONST_3);
-        else if (value == 4) clinit.visitInsn(ICONST_4);
-        else if (value == 5) clinit.visitInsn(ICONST_5);
-        else clinit.visitIntInsn(BIPUSH, value);
+    private void pushJBCInt(MethodVisitor mv, int value){
+        if (value == 0) mv.visitInsn(ICONST_0);
+        else if (value == 1) mv.visitInsn(ICONST_1);
+        else if (value == 2) mv.visitInsn(ICONST_2);
+        else if (value == 3) mv.visitInsn(ICONST_3);
+        else if (value == 4) mv.visitInsn(ICONST_4);
+        else if (value == 5) mv.visitInsn(ICONST_5);
+        else if (value == -1) mv.visitInsn(ICONST_M1);
+        else if (value >= -128 && value <= 127) mv.visitIntInsn(BIPUSH, value);
+        else if (value >= -32768 && value <= 32767) mv.visitIntInsn(SIPUSH, value);
+        else mv.visitIntInsn(SIPUSH, 30000);
     }
 
     private String loadConstant(Object value, Class<?> type, String constructorDesc, Runnable loader){
@@ -872,11 +927,23 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     }
 
     private void genLoadOwner(){
-        mv.visitVarInsn(ALOAD, 2);
+        genLoadFrame();
+        mv.visitFieldInsn(
+                GETFIELD,
+                org.objectweb.asm.Type.getInternalName(ImageFrame.class),
+                "owner",
+                TOBJECT_DESC
+        );
     }
 
     private void genLocalsArray(){
-        mv.visitVarInsn(ALOAD, 3);
+        genLoadFrame();
+        mv.visitFieldInsn(
+                GETFIELD,
+                org.objectweb.asm.Type.getInternalName(ImageFrame.class),
+                "locals",
+                org.objectweb.asm.Type.getDescriptor(TObject[].class)
+        );
     }
 
     private void storeFast(Expression expr, int address, int layer, boolean staticAccess, Runnable accessGenerator){
@@ -884,7 +951,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         genLoadThread();
         accessGenerator.run();
         expr.accept(this);
-        mv.visitIntInsn(BIPUSH, address);
+        pushJBCInt(mv, address);
 
         String desc = "("
                 + org.objectweb.asm.Type.getDescriptor(TThread.class)
@@ -894,7 +961,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
 
         if (layer > 0) {
-            mv.visitIntInsn(BIPUSH, layer);
+            pushJBCInt(mv, layer);
             desc += "I";
         }
 
@@ -917,14 +984,14 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     private void loadFast(int address, int layer, boolean staticAccess, Runnable accessedGenerator){
         accessedGenerator.run();
-        mv.visitIntInsn(BIPUSH, address);
+        pushJBCInt(mv, address);
 
         String desc = "("
                 + TOBJECT_DESC
                 + "I";
 
         if (layer > 0) {
-            mv.visitIntInsn(BIPUSH, layer);
+            pushJBCInt(mv, layer);
             desc += "I";
         }
 
@@ -959,7 +1026,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
 
         if (layer > 0) {
-            mv.visitIntInsn(BIPUSH, layer);
+            pushJBCInt(mv, layer);
             desc += "I";
         }
 
@@ -989,7 +1056,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 + org.objectweb.asm.Type.getDescriptor(String.class);
 
         if (layer > 0) {
-            mv.visitIntInsn(BIPUSH, layer);
+            pushJBCInt(mv, layer);
             desc += "I";
         }
 
@@ -1009,14 +1076,22 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     }
 
     private void genNewTObjectArray(List<Expression> values){
-        mv.visitIntInsn(BIPUSH, values.size());
+        pushJBCInt(mv, values.size());
         mv.visitTypeInsn(ANEWARRAY, TOBJECT_INTERNAL);
 
         for (int i = 0; i < values.size(); i++) {
             mv.visitInsn(DUP);
-            mv.visitIntInsn(BIPUSH, i);
+            pushJBCInt(mv, i);
             values.get(i).accept(this);
             mv.visitInsn(AASTORE);
         }
+    }
+
+    private void genLoadFrame(){
+        mv.visitVarInsn(ALOAD, 2);
+    }
+
+    private void genStoreFrame(){
+        mv.visitVarInsn(ASTORE, 2);
     }
 }

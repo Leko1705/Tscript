@@ -5,9 +5,11 @@ public class Abstract implements Expression {
     public final String name;
     public int index = -1;
     public int layer = 0;
+    public boolean calFail = false;
 
-    public Abstract(String name) {
+    public Abstract(String name, boolean calFail) {
         this.name = name;
+        this.calFail = calFail;
     }
 
     @Override

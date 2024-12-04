@@ -6,6 +6,7 @@ public class CallInp implements Expression {
 
     public Expression called;
     public final List<Expression> args;
+    public boolean canFail = true;
 
     public CallInp(Expression called, List<Expression> args) {
         this.called = called;

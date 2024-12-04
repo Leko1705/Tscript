@@ -32,6 +32,10 @@ public class Frame {
 
     public final Map<String, TObject> names = new HashMap<>();
 
+    public Frame(VirtualFunction f){
+        this(f.getOwner(), f.getName(), f.getInstructions(), f.getStackSize(), f.getLocals(), f.getModule());
+    }
+
     public Frame(TObject owner, String name, byte[][] instructions, int stackSize, int locals, Module module) {
         this.owner = owner;
         this.name = name;

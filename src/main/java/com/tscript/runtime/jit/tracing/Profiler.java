@@ -63,9 +63,10 @@ public class Profiler extends InterpreterDecorator {
 
         if (value.image != null){
             try {
-                TObject result = value.image.run(thread, vfunc.getOwner(), args, new ImageFrame(frame));
-                if (result != null)
+                TObject result = value.image.run(thread, new ImageFrame(new Frame(vfunc)));
+                if (result != null) {
                     frame.push(result);
+                }
             }
             catch (FallbackException ignored){}
             return;
@@ -92,7 +93,7 @@ public class Profiler extends InterpreterDecorator {
 
             if (value.image != null) {
                 try {
-                    return value.image.run(thread, vfunc.getOwner(), arguments.toArray(new TObject[0]), new ImageFrame(frame));
+                    return value.image.run(thread, new ImageFrame(frame));
                 }
                 catch (FallbackException ignored){}
             }

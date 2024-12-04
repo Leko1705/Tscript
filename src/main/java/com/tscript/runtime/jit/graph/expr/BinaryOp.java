@@ -5,6 +5,7 @@ import com.tscript.runtime.core.Opcode;
 public class BinaryOp extends Binary {
 
     public Opcode opcode;
+    public boolean canFail = true;
 
     public BinaryOp(Expression lhs, Expression rhs, Opcode opcode) {
         super(lhs, rhs);
