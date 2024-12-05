@@ -2,9 +2,9 @@ module test;
 
 
 function foo(x){
-    return Integer(value=x);
+    return Integer(value=x.size());
 }
 
 for 0:1 do {
-    print(foo(1));
+    print(foo(1:10));
 }
