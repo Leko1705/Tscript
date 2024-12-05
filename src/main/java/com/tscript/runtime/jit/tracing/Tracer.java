@@ -173,25 +173,71 @@ public class Tracer extends InterpreterDecorator {
 
     @Override
     public void callInplace(byte argCount) {
-        super.callInplace(argCount);
-        Expression func = stack.remove();
 
-        if (func instanceof Native){
-            List<Expression> args = new ArrayList<>();
-            for (int i = 0; i < argCount; i++) args.add(stack.remove());
-            stack.push(new CallInp(func, args));
+        Frame frame = getCurrentThread().frameStack.element();
+        TObject top = frame.pop();
+        frame.push(top);
+
+        super.callInplace(argCount);
+
+        if (top instanceof Callable callable) {
+            Expression func = stack.remove();
+
+            if (callable.isVirtual()) {
+                stack.push(Expression.EMPTY);
+                extendFlow(new PushFrame(func));
+                Expression[] args = new Expression[argCount];
+                for (int i = 0; i < argCount; i++) args[i] = stack.remove();
+                for (int i = argCount - 1; i >= 0; i--) stack.push(args[i]);
+            } else {
+                List<Expression> args = new ArrayList<>();
+                for (int i = 0; i < argCount; i++) args.add(stack.remove());
+                stack.push(new CallInp(func, args));
+            }
         }
-        else {
-            extendFlow(new PushFrame(func));
-            Expression[] args = new Expression[argCount];
-            for (int i = 0; i < argCount; i++) args[i] = stack.remove();
-            for (int i = argCount-1; i >= 0; i--) stack.push(args[i]);
+    }
+
+    @Override
+    public void callMapped(byte argCount) {
+        Frame frame = getCurrentThread().frameStack.element();
+        TObject top = frame.pop();
+        frame.push(top);
+
+        super.callMapped(argCount);
+
+        if (top instanceof Callable callable) {
+            Expression func = stack.remove();
+
+            if (callable.isVirtual()) {
+                stack.push(Expression.EMPTY);
+                extendFlow(new PushFrame(func));
+                Expression[] args = new Expression[argCount];
+                for (int i = 0; i < argCount; i++) args[i] = stack.remove();
+                for (int i = argCount - 1; i >= 0; i--) stack.push(args[i]);
+            } else {
+                List<Expression> args = new ArrayList<>();
+                for (int i = 0; i < argCount; i++) args.add(stack.remove());
+                stack.push(new CallMap(func, args));
+            }
         }
+    }
+
+    @Override
+    public void toInplaceArgument() {
+        super.toInplaceArgument();
+        stack.push(new ToInpArg(stack.remove()));
+    }
+
+    @Override
+    public void toMappedArgument(byte b1, byte b2) {
+        super.toMappedArgument(b1, b2);
+        stack.push(new ToMapArg(getUtf8Constant(b1, b2), stack.remove()));
     }
 
     @Override
     public void returnFunction() {
         super.returnFunction();
+
         if (traceComplete()) {
             completeTrace(stack.remove());
         }

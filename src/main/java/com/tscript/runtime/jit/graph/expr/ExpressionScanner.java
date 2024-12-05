@@ -103,6 +103,22 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
     }
 
     @Override
+    public R visitCallMap(CallMap expr, P p) {
+        scan(expr.called, p);
+        return scan(expr.args, p);
+    }
+
+    @Override
+    public R visitToInpArg(ToInpArg expr, P p) {
+        return scan(expr.arg, p);
+    }
+
+    @Override
+    public R visitToMapArg(ToMapArg expr, P p) {
+        return scan(expr.arg, p);
+    }
+
+    @Override
     public R visitType(Type expr, P p) {
         return null;
     }

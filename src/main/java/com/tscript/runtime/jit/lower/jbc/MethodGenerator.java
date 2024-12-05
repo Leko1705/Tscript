@@ -1,5 +1,6 @@
 package com.tscript.runtime.jit.lower.jbc;
 
+import com.tscript.runtime.core.Argument;
 import com.tscript.runtime.core.Builtins;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.jit.graph.BranchNode;
@@ -11,20 +12,18 @@ import com.tscript.runtime.jit.graph.expr.Range;
 import com.tscript.runtime.jit.graph.expr.Type;
 import com.tscript.runtime.jit.graph.traversal.Traverser;
 import com.tscript.runtime.jit.graph.traversal.TreeTraverseStrategy;
-import com.tscript.runtime.jit.lower.MaxLocalAddProvider;
 import com.tscript.runtime.jit.tracing.ImageFrame;
 import com.tscript.runtime.typing.*;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.objectweb.asm.Opcodes.*;
-
-public class MethodGenerator extends TreeTraverseStrategy implements ExpressionVisitor<Void, Void> {
+public class MethodGenerator extends TreeTraverseStrategy implements ExpressionVisitor<Void, Void>, Opcodes {
 
     private static final String TOBJECT_DESC = org.objectweb.asm.Type.getDescriptor(TObject.class);
     private static final String TOBJECT_INTERNAL = org.objectweb.asm.Type.getInternalName(TObject.class);
@@ -52,6 +51,17 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 null  // Exceptions)
         );
     }
+    
+    private void decSp(){
+        decSp(1);
+    }
+    
+    private void decSp(int delta){
+        sp -= delta;
+        if (sp < 0){
+            throw new IllegalStateException("sp < 0");
+        }
+    }
 
     public void generate(Node graph) {
         clinit.visitCode();
@@ -65,7 +75,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
         // finish actual method
         mv.visitInsn(ARETURN);
-        sp--;
+        decSp();
 
         if (sp != 0) throw new AssertionError("sp != 0: is " + sp);
     }
@@ -95,6 +105,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         );
         genStoreFrame();
 
+        decSp();
         return null;
     }
 
@@ -118,7 +129,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         if (expr.expression() != null)
             expr.expression().accept(this);
         mv.visitInsn(POP);
-        sp--;
+        decSp();
         return null;
     }
 
@@ -236,7 +247,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        sp--;
+        decSp();
         return null;
     }
 
@@ -257,7 +268,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        sp -= expr.contents().size()-1;
+        decSp(expr.contents().size()-1);
         return null;
     }
 
@@ -279,7 +290,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        sp -= expr.values.size() + expr.keys.size()-1;
+        decSp(expr.values.size() + expr.keys.size()-1);
         return null;
     }
 
@@ -387,7 +398,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         mv.visitMethodInsn(
                 INVOKESTATIC,
                 org.objectweb.asm.Type.getInternalName(JBCUtils.class),
-                "call",
+                "callInp",
                 "("
                         + org.objectweb.asm.Type.getDescriptor(TThread.class)
                         + TOBJECT_DESC
@@ -399,7 +410,76 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         if (expr.canFail)
             genFailureReturnIfNull();
 
-        sp -= expr.args.size();
+        decSp(expr.args.size());
+
+        return null;
+    }
+
+    @Override
+    public Void visitCallMap(CallMap expr, Void unused) {
+        genLoadThread();
+        expr.called.accept(this);
+
+        genNewTObjectArray(expr.args);
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "callMap",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + TOBJECT_DESC
+                        + org.objectweb.asm.Type.getDescriptor(TObject[].class)
+                        + ")" + TOBJECT_DESC,
+                false
+        );
+
+        if (expr.canFail)
+            genFailureReturnIfNull();
+
+        decSp(expr.args.size());
+
+        return null;
+    }
+
+    @Override
+    public Void visitToInpArg(ToInpArg expr, Void unused) {
+        mv.visitTypeInsn(NEW, org.objectweb.asm.Type.getInternalName(Argument.class));
+        mv.visitInsn(DUP);
+
+        expr.arg.accept(this);
+
+        mv.visitMethodInsn(
+                INVOKESPECIAL,
+                org.objectweb.asm.Type.getInternalName(Argument.class),
+                "<init>",
+                "("
+                        + TOBJECT_DESC
+                        + ")V",
+                false
+        );
+
+        return null;
+    }
+
+    @Override
+    public Void visitToMapArg(ToMapArg expr, Void unused) {
+        mv.visitTypeInsn(NEW, org.objectweb.asm.Type.getInternalName(Argument.class));
+        mv.visitInsn(DUP);
+
+        mv.visitLdcInsn(expr.name);
+        expr.arg.accept(this);
+
+        mv.visitMethodInsn(
+                INVOKESPECIAL,
+                org.objectweb.asm.Type.getInternalName(Argument.class),
+                "<init>",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(String.class)
+                        + TOBJECT_DESC
+                        + ")V",
+                false
+        );
 
         return null;
     }
@@ -423,6 +503,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
         if (expr.canFail())
             genFailureReturnIfNull();
+        sp++;
         return null;
     }
 
@@ -468,7 +549,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
         if (expr.canFail)
             genFailureReturnIfNull();
-        sp--;
+        decSp();
 
         return null;
     }
@@ -496,7 +577,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         if (expr.canFail)
             genFailureReturnIfNull();
 
-        sp--;
+        decSp();
         return null;
     }
 
@@ -558,7 +639,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
-        sp--;
+        decSp();
         return null;
     }
 
@@ -628,6 +709,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
+        sp++;
         return null;
     }
 
@@ -650,6 +732,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 false
         );
 
+        decSp();
         return null;
     }
 
@@ -672,7 +755,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         expr.what.accept(this);
         mv.visitInsn(AASTORE);
 
-        sp--;
+        decSp();
         return null;
     }
 
@@ -698,7 +781,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
             store(expr.what, expr.name, expr.layer, expr.isStaticAccess, () -> expr.where.accept(this));
         }
 
-        sp -= 2;
+        decSp(2);
         return null;
     }
 
@@ -712,7 +795,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitStoreInternal(StoreInternal expr, Void unused) {
         storeFast(expr.what, expr.index, 0, false, this::genLoadOwner);
-        sp--;
+        decSp();
         return null;
     }
 
@@ -739,7 +822,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
             store(expr.what, expr.name, expr.layer, false, this::genLoadOwner);
         }
 
-        sp--;
+        decSp();
         return null;
     }
 
@@ -766,7 +849,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
             store(expr.what, expr.name, expr.layer, true, this::genLoadOwner);
         }
 
-        sp--;
+        decSp();
         return null;
     }
 
@@ -792,7 +875,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         if (expr.canFail)
             genFailureReturnIfNull();
 
-        sp--;
+        decSp();
 
         return null;
     }
@@ -820,7 +903,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
         genFailureReturnIfFalse();
 
-        sp -= 3;
+        decSp(3);
 
         return null;
     }
@@ -833,6 +916,29 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitBoolGuard(BoolGuard expr, Void unused) {
         expr.expression.accept(this);
+
+        mv.visitInsn(DUP);
+        genLoadThread();
+        genLoadFrame();
+        if (expr.required){
+            mv.visitInsn(ICONST_1);
+        }
+        else {
+            mv.visitInsn(ICONST_0);
+        }
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "guardBool",
+                "("
+                        + TOBJECT_DESC
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + "Z)V",
+                false
+        );
+
         return null;
     }
 
@@ -844,8 +950,27 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitItrNextGuard(ItrNextGuard expr, Void unused) {
+        mv.visitInsn(DUP);
+        genLoadThread();
+        genLoadFrame();
+        if (expr.shouldHaveNext){
+            mv.visitInsn(ICONST_1);
+        }
+        else {
+            mv.visitInsn(ICONST_0);
+        }
 
-
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "guardItrHasNext",
+                "("
+                        + TOBJECT_DESC
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + "Z)V",
+                false
+        );
 
         return null;
     }

@@ -1,17 +1,10 @@
 module test;
 
-function foo(){
-    return bar();
+
+function foo(x){
+    return Integer(value=x);
 }
 
-function bar(){
-    return eggs();
-}
-
-function eggs(){
-    return "Hi";
-}
-
-for 0:100000 do {
-    print(foo());
+for 0:1 do {
+    print(foo(1));
 }
