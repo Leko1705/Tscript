@@ -949,16 +949,90 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitUse(Use expr, Void unused) {
-        return expr.used.accept(this);
+        genLoadThread();
+        genLoadFrame();
+        expr.used.accept(this);
+        mv.visitLdcInsn(expr.name);
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "use",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + TOBJECT_DESC
+                        + org.objectweb.asm.Type.getDescriptor(String.class)
+                        + ")Z",
+                false
+        );
+
+        if (expr.canFail){
+            genFailureReturnIfFalse();
+        }
+        else {
+            mv.visitInsn(POP);
+        }
+
+        decSp();
+        return null;
     }
 
     @Override
     public Void visitUseMembers(UseMembers expr, Void unused) {
+        genLoadThread();
+        genLoadFrame();
+        expr.used.accept(this);
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "useMembers",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + TOBJECT_DESC
+                        + ")Z",
+                false
+        );
+
+        if (expr.canFail){
+            genFailureReturnIfFalse();
+        }
+        else {
+            mv.visitInsn(POP);
+        }
+
+        decSp();
         return null;
     }
 
     @Override
     public Void visitLoadName(LoadName expr, Void unused) {
+        genLoadThread();
+        genLoadFrame();
+        mv.visitLdcInsn(expr.name());
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "loadName",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + org.objectweb.asm.Type.getDescriptor(String.class)
+                        + ")" + TOBJECT_DESC,
+                false
+        );
+
+        if (expr.canFail()){
+            genFailureReturnIfFalse();
+        }
+        else {
+            mv.visitInsn(POP);
+        }
+
+        sp++;
         return null;
     }
 

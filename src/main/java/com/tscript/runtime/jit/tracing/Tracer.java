@@ -222,6 +222,12 @@ public class Tracer extends InterpreterDecorator {
         }
     }
 
+
+    @Override
+    public void callSuper(byte argCount) {
+        super.callSuper(argCount);
+    }
+
     @Override
     public void toInplaceArgument() {
         super.toInplaceArgument();

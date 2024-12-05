@@ -4,6 +4,7 @@ public class Use implements Expression {
 
     public String name;
     public Expression used;
+    public boolean canFail = true;
 
     public Use(String name, Expression used) {
         this.name = name;

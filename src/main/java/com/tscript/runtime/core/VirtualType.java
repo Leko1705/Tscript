@@ -119,10 +119,7 @@ public class VirtualType implements Type {
             }
         }
 
-        Member[] members = new Member[instanceMembers.length];
-        for (int i = 0; i < instanceMembers.length; i++)
-            members[i] = Member.copy(instanceMembers[i]);
-        VirtualObject object = new VirtualObject(this, members);
+        VirtualObject object = newInstance();
 
         if (constructor != null) {
             Function copy = constructor.dup();
@@ -131,6 +128,13 @@ public class VirtualType implements Type {
         }
 
         return null;
+    }
+
+    public VirtualObject newInstance() {
+        Member[] members = new Member[instanceMembers.length];
+        for (int i = 0; i < instanceMembers.length; i++)
+            members[i] = Member.copy(instanceMembers[i]);
+        return new VirtualObject(this, members);
     }
 
     @Override

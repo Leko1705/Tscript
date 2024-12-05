@@ -1,11 +1,15 @@
 module test;
 
+import std.turtle;
+
+class X {
+}
+
 function foo(){
-    var f = function[x=3](){print(1);};
-    return f;
+    return X();
 }
 
 
 for 0:200 do {
-    foo()();
+    print(foo());
 }

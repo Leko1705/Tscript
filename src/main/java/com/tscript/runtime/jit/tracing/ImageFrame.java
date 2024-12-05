@@ -2,10 +2,14 @@ package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.Frame;
 import com.tscript.runtime.core.VirtualFunction;
+import com.tscript.runtime.core.VirtualType;
 import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.typing.Callable;
+import com.tscript.runtime.typing.Function;
 import com.tscript.runtime.typing.TObject;
+
+import java.util.Map;
 
 public class ImageFrame {
 
@@ -24,6 +28,7 @@ public class ImageFrame {
     @JITSensitive public TObject owner;
     public int nextSafeSpot = -1;
     public ImageFrame next;
+    public Map<String, TObject> names = null;
 
 
     private ImageFrame(String name, ImageFrame prevFrame) {
