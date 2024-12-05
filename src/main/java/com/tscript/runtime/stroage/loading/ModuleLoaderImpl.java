@@ -10,18 +10,25 @@ import com.tscript.runtime.utils.Tuple;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
 public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
     private final FilePathResolver resolver;
-    private final Map<String, Module> cache;
+    private final HashMap<String, Module> cache;
+
+    private final HashMap<String, Integer> moduleIndices;
+    private final ArrayList<Module> modules;
 
     public ModuleLoaderImpl(FilePathResolver resolver) {
         this.resolver = resolver;
         this.cache = new HashMap<>();
+        this.modules = new ArrayList<>();
+        this.moduleIndices = new HashMap<>();
     }
+
 
     @Override
     public synchronized Module loadModule(File[] rootPaths, String[] moduleName) throws ModuleLoadingException {
@@ -32,7 +39,28 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         if (file == null) throw new ModuleLoadingException(InternalRuntimeErrorMessages.canNotFindModule(canonicalPath));
         module = loadModule(file);
         cache.put(canonicalPath, module);
+
+        int index = modules.size();
+        modules.add(module);
+        moduleIndices.put(canonicalPath, index);
+
         return module;
+    }
+
+    @Override
+    public Module loadModule(int index) throws ModuleLoadingException {
+        try {
+            return modules.get(index);
+        }
+        catch (Exception e) {
+            throw new ModuleLoadingException(InternalRuntimeErrorMessages.canNotFindModule(String.valueOf(index)));
+        }
+    }
+
+    @Override
+    public int indexOf(String[] moduleName) {
+        String canonicalPath = makeCanonicalFilePath(moduleName);
+        return moduleIndices.get(canonicalPath);
     }
 
     private static String makeCanonicalFilePath(String[] path){

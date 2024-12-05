@@ -914,6 +914,44 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     }
 
     @Override
+    public Void visitImportModule(ImportModule expr, Void unused) {
+        genLoadThread();
+
+        if (expr.index != -1){
+            pushJBCInt(mv, expr.index);
+
+            mv.visitMethodInsn(
+                    INVOKESTATIC,
+                    org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                    "importModule",
+                    "("
+                            + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                            + "I)" + TOBJECT_DESC,
+                    false
+            );
+        }
+        else {
+            mv.visitLdcInsn(expr.name);
+
+            mv.visitMethodInsn(
+                    INVOKESTATIC,
+                    org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                    "importModule",
+                    "("
+                            + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                            + org.objectweb.asm.Type.getDescriptor(String.class)
+                            + ")" + TOBJECT_DESC,
+                    false
+            );
+
+            genFailureReturnIfNull();
+        }
+
+        sp++;
+        return null;
+    }
+
+    @Override
     public Void visitBoolGuard(BoolGuard expr, Void unused) {
         expr.expression.accept(this);
 

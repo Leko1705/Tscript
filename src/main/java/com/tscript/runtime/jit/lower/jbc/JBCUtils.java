@@ -8,10 +8,13 @@ import com.tscript.runtime.jit.tracing.ImageFrame;
 import com.tscript.runtime.stroage.FunctionArea;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.TypeArea;
+import com.tscript.runtime.stroage.loading.ModuleLoader;
+import com.tscript.runtime.stroage.loading.ModuleLoadingException;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.tni.TNIUtils;
 import com.tscript.runtime.typing.*;
 
+import java.io.File;
 import java.util.*;
 
 @SuppressWarnings("unused")
@@ -291,7 +294,28 @@ public class JBCUtils {
         return obj.getType().loadMember(address).set(what, thread);
     }
 
+    @JITSensitive
+    public static TObject importModule(TThread thread, String name){
+        try {
+            File[] rootPaths = thread.getVM().getRootPaths();
+            ModuleLoader loader = thread.getVM().getSharedModuleLoader();
+            return loader.loadModule(rootPaths, name.split("[.]"));
+        }
+        catch (ModuleLoadingException ex) {
+            thread.reportRuntimeError(ex.getMessage());
+            return null;
+        }
+    }
 
+    @JITSensitive
+    public static TObject importModule(TThread thread, int index){
+        try {
+            return thread.getVM().getSharedModuleLoader().loadModule(index);
+        }
+        catch (ModuleLoadingException e) {
+            throw new AssertionError(e);
+        }
+    }
 
 
 

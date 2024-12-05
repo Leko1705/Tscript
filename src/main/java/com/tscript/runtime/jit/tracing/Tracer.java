@@ -474,6 +474,18 @@ public class Tracer extends InterpreterDecorator {
         stack.push(new Neg(new TypeGuard(stack.remove(), TInteger.TYPE, TReal.TYPE)));
     }
 
+    @Override
+    public void importModule(byte b1, byte b2) {
+        super.importModule(b1, b2);
+
+        String[] modulePath = getUtf8Constant(b1, b2).split("[.]");
+        int index = getCurrentThread().getVM().getSharedModuleLoader().indexOf(modulePath);
+        if (index != -1) {
+            stack.push(new ImportModule(index));
+        }
+
+    }
+
     private void extendFlow(Expression exp) {
         TThread thread = getCurrentThread();
 

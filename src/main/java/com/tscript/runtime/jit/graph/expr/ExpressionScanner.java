@@ -249,6 +249,11 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
     }
 
     @Override
+    public R visitImportModule(ImportModule expr, P p) {
+        return null;
+    }
+
+    @Override
     public R visitBoolGuard(BoolGuard expr, P p) {
         return scan(expr.expression, p);
     }
