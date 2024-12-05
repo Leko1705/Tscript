@@ -1,11 +1,9 @@
 package com.tscript.compiler.impl.generation.gen;
 
 import com.tscript.compiler.impl.generation.compiled.instruction.*;
-import com.tscript.compiler.impl.utils.Scope;
 import com.tscript.compiler.impl.utils.Symbol;
 import com.tscript.compiler.impl.utils.TCTree;
 import com.tscript.compiler.source.tree.ArgumentTree;
-import com.tscript.compiler.source.tree.Modifier;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -13,18 +11,16 @@ import java.util.List;
 
 public class GenUtils {
 
-    public static List<Instruction> genCall(Context context,
-                                            List<? extends TCTree.TCArgumentTree> args,
-                                            Runnable genCalled,
-                                            FunctionGenerator gen){
+    public static void genCall(Context context,
+                               List<? extends TCTree.TCArgumentTree> args,
+                               Runnable genCalled,
+                               FunctionGenerator gen){
         boolean isMapped = isMappedCall(args);
 
-        List<Instruction> instructions = List.of();
-
         if (isMapped) {
-            instructions = genMappedArgs(context, args, gen);
+            gen.func.getInstructions().addAll(genMappedArgs(context, args, gen));
             genCalled.run();
-            instructions.add(new CallMapped(args.size()));
+            gen.func.getInstructions().add(new CallMapped(args.size()));
             gen.stackShrinks(args.size());
         }
         else {
@@ -34,7 +30,6 @@ public class GenUtils {
             gen.stackShrinks(args.size());
         }
 
-        return instructions;
     }
 
     public static List<Instruction> genArgFetch(Context context,
