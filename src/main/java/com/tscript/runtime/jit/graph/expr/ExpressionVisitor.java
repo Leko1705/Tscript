@@ -94,6 +94,12 @@ public interface ExpressionVisitor<P, R> {
 
      R visitImportModule(ImportModule expr, P p);
 
+     R visitUse(Use expr, P p);
+
+     R visitUseMembers(UseMembers expr, P p);
+
+     R visitExtended(Extended expr, P p);
+
      R visitBoolGuard(BoolGuard expr, P p);
 
      R visitTypeGuard(TypeGuard expr, P p);

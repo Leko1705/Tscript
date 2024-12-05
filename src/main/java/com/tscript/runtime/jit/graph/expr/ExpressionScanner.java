@@ -254,6 +254,22 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
     }
 
     @Override
+    public R visitUse(Use expr, P p) {
+        return expr.used.accept(this, p);
+    }
+
+    @Override
+    public R visitUseMembers(UseMembers expr, P p) {
+        return expr.used.accept(this, p);
+    }
+
+    @Override
+    public R visitExtended(Extended expr, P p) {
+        scan(expr.owner, p);
+        return scan(expr.content, p);
+    }
+
+    @Override
     public R visitBoolGuard(BoolGuard expr, P p) {
         return scan(expr.expression, p);
     }

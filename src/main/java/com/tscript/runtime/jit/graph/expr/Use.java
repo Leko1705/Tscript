@@ -1,0 +1,17 @@
+package com.tscript.runtime.jit.graph.expr;
+
+public class Use implements Expression {
+
+    public String name;
+    public Expression used;
+
+    public Use(String name, Expression used) {
+        this.name = name;
+        this.used = used;
+    }
+
+    @Override
+    public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
+        return visitor.visitUse(this, p);
+    }
+}

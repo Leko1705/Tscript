@@ -10,6 +10,6 @@ public class ToInpArg implements Expression {
 
     @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitToInpArg(this, p);
     }
 }

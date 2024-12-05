@@ -327,12 +327,6 @@ public class Tracer extends InterpreterDecorator {
     }
 
     @Override
-    public void loadName(byte b1, byte b2) {
-        super.loadName(b1, b2);
-        stack.push(new LoadName(getUtf8Constant(b1, b2)));
-    }
-
-    @Override
     public void loadType(byte b1, byte b2) {
         super.loadType(b1, b2);
         stack.push(new Type(Conversion.from2Bytes(b1, b2), false));
@@ -483,7 +477,38 @@ public class Tracer extends InterpreterDecorator {
         if (index != -1) {
             stack.push(new ImportModule(index));
         }
+    }
 
+    @Override
+    public void use(byte b1, byte b2) {
+        super.use(b1, b2);
+
+        String name = getUtf8Constant(b1, b2);
+        Expression expr = stack.remove();
+        extendFlow(new Use(name, expr));
+    }
+
+    @Override
+    public void useMembers() {
+        super.useMembers();
+        extendFlow(new UseMembers(stack.remove()));
+    }
+
+    @Override
+    public void extend(byte b1, byte b2) {
+        super.extend(b1, b2);
+
+        Expression what = stack.remove();
+        Expression top = stack.remove();
+        String name = getUtf8Constant(b1, b2);
+
+        stack.push(new Extended(top, name, what));
+    }
+
+    @Override
+    public void loadName(byte b1, byte b2) {
+        super.loadName(b1, b2);
+        stack.push(new LoadName(getUtf8Constant(b1, b2)));
     }
 
     private void extendFlow(Expression exp) {

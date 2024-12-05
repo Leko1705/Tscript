@@ -317,6 +317,19 @@ public class JBCUtils {
         }
     }
 
+    @JITSensitive
+    public static TObject extend(TThread thread, TObject obj, TObject what, String name) {
+        Member member = Member.of(Visibility.PRIVATE, true, name, what);
+
+        try {
+            obj.addMember(member);
+        }
+        catch (UnsupportedOperationException ex){
+            thread.reportRuntimeError("can not extend " + obj.getType().getDisplayName());
+            return null;
+        }
+        return obj;
+    }
 
 
     private static Member getStaticMember(TObject obj, String name, int layer){

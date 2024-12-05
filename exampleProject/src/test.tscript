@@ -1,9 +1,11 @@
 module test;
 
-function foo(x){
-    return Integer(value=x.size());
+function foo(){
+    var f = function[x=3](){print(1);};
+    return f;
 }
 
-for 0:1 do {
-    print(foo(1:10));
+
+for 0:200 do {
+    foo()();
 }

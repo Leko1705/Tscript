@@ -58,8 +58,6 @@ public class JBCGenerator implements Generator {
 
         byte[] b = cw.toByteArray();
 
-        // new ClassReader(b).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(System.out)), 0);
-
         Class<?> clazz = JBCGenClassLoader.getInstance()
                 .defineClass(b);
 
@@ -68,7 +66,8 @@ public class JBCGenerator implements Generator {
         try {
             image = (NativeImage) clazz.getConstructor().newInstance();
         }
-        catch (Exception e) {
+        catch (Error | Exception e) {
+            new ClassReader(b).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(System.err)), 0);
             throw new RuntimeException(e);
         }
 

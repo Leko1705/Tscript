@@ -530,6 +530,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
         if (expr.underlying == expr.owner){
             mv.visitInsn(DUP);
+            sp++;
         }
         else {
             expr.owner.accept(this);
@@ -909,11 +910,6 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     }
 
     @Override
-    public Void visitLoadName(LoadName expr, Void unused) {
-        return null;
-    }
-
-    @Override
     public Void visitImportModule(ImportModule expr, Void unused) {
         genLoadThread();
 
@@ -948,6 +944,51 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         }
 
         sp++;
+        return null;
+    }
+
+    @Override
+    public Void visitUse(Use expr, Void unused) {
+        return expr.used.accept(this);
+    }
+
+    @Override
+    public Void visitUseMembers(UseMembers expr, Void unused) {
+        return null;
+    }
+
+    @Override
+    public Void visitLoadName(LoadName expr, Void unused) {
+        return null;
+    }
+
+
+    @Override
+    public Void visitExtended(Extended expr, Void unused) {
+        genLoadThread();
+        expr.owner.accept(this);
+        expr.content.accept(this);
+        mv.visitLdcInsn(expr.name);
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "extend",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + TOBJECT_DESC
+                        + TOBJECT_DESC
+                        + org.objectweb.asm.Type.getDescriptor(String.class)
+                        + ")" + TOBJECT_DESC,
+                false
+        );
+
+        if (expr.canFail) {
+            genFailureReturnIfNull();
+        }
+
+        decSp(1);
+
         return null;
     }
 
