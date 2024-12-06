@@ -1,15 +1,13 @@
 module test;
 
-import std.turtle;
-
-class X {
+class Y {
+    public:
+    function __str__(){
+        return "hi";
+    }
 }
 
-function foo(){
-    return X();
-}
+class X: Y {}
 
-
-for 0:200 do {
-    print(foo());
-}
+var x = X();
+print(x);
