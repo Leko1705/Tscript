@@ -23,8 +23,8 @@ public class TNIUtils {
     private static Member lookupStrMethod(TObject object) {
         Member definedFunction = object.loadMember("__str__");
         if (definedFunction != null) return definedFunction;
-        if (!(object instanceof VirtualObject vobj)) return null;
-        return lookupStrMethod(vobj.getSuper());
+        if (object.getSuper() == null) return null;
+        return lookupStrMethod(object.getSuper());
     }
 
     private static String getDefinedPrintable(TThread thread,
