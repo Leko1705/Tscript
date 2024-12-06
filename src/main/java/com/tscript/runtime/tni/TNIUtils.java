@@ -2,6 +2,7 @@ package com.tscript.runtime.tni;
 
 import com.tscript.runtime.core.Frame;
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.core.VirtualObject;
 import com.tscript.runtime.typing.*;
 
 import java.util.List;
@@ -12,11 +13,18 @@ import java.util.function.Supplier;
 public class TNIUtils {
 
     public static String toString(Environment env, TObject object) {
-        Member definedFunction = object.loadMember("__str__");
+        Member definedFunction = lookupStrMethod(object);
         if (definedFunction == null)
             return object.getDisplayName();
         else
             return getDefinedPrintable((TThread) env, object, definedFunction);
+    }
+
+    private static Member lookupStrMethod(TObject object) {
+        Member definedFunction = object.loadMember("__str__");
+        if (definedFunction != null) return definedFunction;
+        if (!(object instanceof VirtualObject vobj)) return null;
+        return lookupStrMethod(vobj.getSuper());
     }
 
     private static String getDefinedPrintable(TThread thread,
