@@ -1,13 +1,12 @@
 module test;
 
-class Y {
-    public:
-    function __str__(){
-        return "hi";
-    }
+function bar(x, y=3){
+    print(x);
 }
 
-class X: Y {}
+function foo(){
+    bar(2);
+}
 
-var x = X();
-print(x);
+for 0:200 do foo();
+

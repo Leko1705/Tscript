@@ -110,6 +110,10 @@ public class InternalRuntimeErrorMessages {
         return "too many arguments for function '" + callable.getName() + "'";
     }
 
+    public static String tooFewParameters(Callable callable) {
+        return "too few arguments for function '" + callable.getName() + "'";
+    }
+
     public static String stackOverflowError(){
         return "stackOverflowError";
     }
@@ -123,7 +127,7 @@ public class InternalRuntimeErrorMessages {
     }
 
     public static String parameterAlreadyAssigned(String parameterName){
-        return "'" + parameterName + "' is already assigned";
+        return "parameter '" + parameterName + "' is already assigned";
     }
 
     public static String typeExpected(String expectedType, String actualType){

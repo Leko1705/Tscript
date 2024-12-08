@@ -1,5 +1,6 @@
 package com.tscript.runtime.typing;
 
+import com.tscript.runtime.core.Argument;
 import com.tscript.runtime.core.ExecutionException;
 import com.tscript.runtime.core.InternalRuntimeErrorMessages;
 import com.tscript.runtime.core.TThread;
@@ -58,36 +59,46 @@ public interface Callable extends TObject {
             return null;
         }
 
-        // flatten is an ArrayList with parameters.count() elements by default
-        List<TObject> flatten = Arrays.asList(new TObject[parameters.count()]);
+        LinkedHashMap<String, TObject> finals = new LinkedHashMap<>();
 
         int index = 0;
+
         Iterator<TObject> valueItr = arguments.iterator();
-        for (String givenName : names){
-
-            if (!parameters.hasName(givenName)){
-                thread.reportRuntimeError(InternalRuntimeErrorMessages.hasNoParameters(this, givenName));
-                return null;
-            }
-
-            TObject givenValue = valueItr.next();
-            if (givenValue == null) {
-                givenValue = parameters.getDefaultValue(givenName);
-                if (givenValue == null) {
-                    thread.reportRuntimeError(InternalRuntimeErrorMessages.missingParameter(givenName));
+        for (String name : names){
+            if (name != null){
+                if (!parameters.hasName(name)){
+                    thread.reportRuntimeError(InternalRuntimeErrorMessages.hasNoParameters(this, name));
+                    return null;
+                }
+                boolean success = finals.put(name, valueItr.next()) == null;
+                if (!success) {
+                    thread.reportRuntimeError(InternalRuntimeErrorMessages.parameterAlreadyAssigned(name));
                     return null;
                 }
             }
-
-            if (flatten.get(index) != null){
-                thread.reportRuntimeError(InternalRuntimeErrorMessages.parameterAlreadyAssigned(givenName));
-                return null;
+            else {
+                String nextParam = parameters.getNames().get(index);
+                boolean success = finals.put(nextParam, valueItr.next()) == null;
+                if (!success) {
+                    thread.reportRuntimeError(InternalRuntimeErrorMessages.parameterAlreadyAssigned(nextParam));
+                    return null;
+                }
             }
-
-            flatten.set(index, givenValue);
+            index++;
         }
 
-        return eval(thread, flatten);
+        for (Map.Entry<String, TObject> defaultParam : parameters.toMap().entrySet()){
+            if (!finals.containsKey(defaultParam.getKey()) && defaultParam.getValue() != null)
+                finals.put(defaultParam.getKey(), defaultParam.getValue());
+        }
+
+        if (finals.size() < parameters.count()){
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.tooFewParameters(this));
+            return null;
+        }
+
+        TObject[] flatten = finals.values().toArray(new TObject[0]);
+        return eval(thread, Arrays.asList(flatten));
     }
 
     

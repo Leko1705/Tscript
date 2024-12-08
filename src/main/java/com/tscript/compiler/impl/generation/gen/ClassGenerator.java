@@ -143,7 +143,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
 
         if (handled.superName != null && !handled.superName.isEmpty()) {
             constructorGens.add(0, () -> {
-                constructorGenerator.addInstructions(GenUtils.genArgFetch(context, node.superArgs, constructorGenerator));
+                GenUtils.genArgFetch(context, node.superArgs, constructorGenerator);
                 constructorGenerator.addInstructions(List.of(new CallSuper(node.superArgs.size())));
                 constructorGenerator.stackShrinks(node.superArgs.size());
             });

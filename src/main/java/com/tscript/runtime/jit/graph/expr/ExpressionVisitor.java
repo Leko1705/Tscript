@@ -4,7 +4,13 @@ public interface ExpressionVisitor<P, R> {
 
     R visitPushFrame(PushFrame expr, P p);
 
+    R visitPushSuperFrame(PushSuperFrame expr, P p);
+
     R visitPopFrame(PopFrame expr, P p);
+
+    R visitLoadTemp(LoadTemp expr, P p);
+
+    R visitStoreTemp(StoreTemp expr, P p);
 
     R visitPop(Pop expr, P p);
 

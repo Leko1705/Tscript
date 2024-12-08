@@ -172,6 +172,13 @@ public class Tracer extends InterpreterDecorator {
     }
 
     @Override
+    public TObject call(Callable called, List<TObject> arguments) {
+        // method is called from native context
+        // ensure the optimized version is called
+        return profiler.call(called, arguments);
+    }
+
+    @Override
     public void callInplace(byte argCount) {
 
         Frame frame = getCurrentThread().frameStack.element();
@@ -180,18 +187,36 @@ public class Tracer extends InterpreterDecorator {
 
         super.callInplace(argCount);
 
-        if (top instanceof Callable callable) {
+        if (top instanceof Callable callable && callable.isVirtual()) {
             Expression func = stack.remove();
 
+            Parameters parameters = callable.getParameters(getCurrentThread());
+            int lastNonDefined = parameters.getLastNonDefinedParameterIndex();
+
+            if (argCount <= lastNonDefined) return;
+
+            List<TObject> missingDefaults = parameters.getTail(argCount);
+
             if (callable.isVirtual()) {
-                stack.push(Expression.EMPTY);
+
+                for (int i = 0; i < argCount; i++)
+                    extendFlow(new StoreTemp(stack.remove(), i));
+
+                int j = 0;
+                for (TObject missing : missingDefaults) {
+                    extendFlow(new StoreTemp(fromObject(missing), argCount + j));
+                    j++;
+                }
+
                 extendFlow(new PushFrame(func));
-                Expression[] args = new Expression[argCount];
-                for (int i = 0; i < argCount; i++) args[i] = stack.remove();
-                for (int i = argCount - 1; i >= 0; i--) stack.push(args[i]);
-            } else {
+
+                for (int i = 0; i < argCount + missingDefaults.size(); i++)
+                    stack.push(new LoadTemp(i));
+            }
+            else {
                 List<Expression> args = new ArrayList<>();
                 for (int i = 0; i < argCount; i++) args.add(stack.remove());
+                for (TObject missing : missingDefaults) args.add(fromObject(missing));
                 stack.push(new CallInp(func, args));
             }
         }
@@ -205,26 +230,98 @@ public class Tracer extends InterpreterDecorator {
 
         super.callMapped(argCount);
 
-        if (top instanceof Callable callable) {
+        if (top instanceof Callable callable && callable.isVirtual()) {
             Expression func = stack.remove();
 
+            List<String> names = new ArrayList<>(argCount);
+            List<Expression> values = new ArrayList<>(argCount);
+
+            for (int i = 0; i < argCount; i++) {
+                Expression exp = stack.pop();
+                if (exp instanceof ToInpArg t){
+                    names.add(null);
+                    values.add(t.arg);
+                }
+                else {
+                    ToMapArg m = (ToMapArg) exp;
+                    names.add(m.name);
+                    values.add(m.arg);
+                }
+            }
+
+            Parameters parameters = callable.getParameters(getCurrentThread());
+
+            if (names.size() > parameters.count()) return;
+
+            LinkedHashMap<String, Expression> finals = new LinkedHashMap<>();
+
+            int index = 0;
+
+            Iterator<Expression> valueItr = values.iterator();
+            for (String name : names){
+                if (name != null){
+                    if (!parameters.hasName(name)) return;
+                    boolean success = finals.put(name, valueItr.next()) == null;
+                    if (!success) return;
+                }
+                else {
+                    String nextParam = parameters.getNames().get(index);
+                    boolean success = finals.put(nextParam, valueItr.next()) == null;
+                    if (!success) return;
+                }
+                index++;
+            }
+
+            for (Map.Entry<String, TObject> defaultParam : parameters.toMap().entrySet()){
+                if (!finals.containsKey(defaultParam.getKey()) && defaultParam.getValue() != null)
+                    finals.put(defaultParam.getKey(), fromObject(defaultParam.getValue()));
+            }
+
+            if (finals.size() < parameters.count()) return;
+
+            Expression[] flatten = finals.values().toArray(new Expression[0]);
+
+
             if (callable.isVirtual()) {
-                stack.push(Expression.EMPTY);
+
+                for (int i = 0; i < flatten.length; i++) {
+                    Expression exp = flatten[i];
+                    extendFlow(new StoreTemp(exp, i));
+                }
+
                 extendFlow(new PushFrame(func));
-                Expression[] args = new Expression[argCount];
-                for (int i = 0; i < argCount; i++) args[i] = stack.remove();
-                for (int i = argCount - 1; i >= 0; i--) stack.push(args[i]);
-            } else {
+
+                for (int i = 0; i < flatten.length; i++)
+                    stack.push(new LoadTemp(i));
+            }
+            else {
                 List<Expression> args = new ArrayList<>();
                 for (int i = 0; i < argCount; i++) args.add(stack.remove());
-                stack.push(new CallMap(func, args));
+                stack.push(new CallInp(func, args));
             }
         }
+
     }
 
 
     @Override
     public void callSuper(byte argCount) {
+        com.tscript.runtime.typing.Type superType =
+                getCurrentThread().frameStack.element().getOwner().getType().getSuperType();
+
+        if (superType.isVirtual()){
+            for (int i = 0; i < argCount; i++)
+                extendFlow(new StoreTemp(stack.remove(), i));
+
+            extendFlow(new PushSuperFrame());
+
+            for (int i = 0; i < argCount; i++)
+                stack.push(new LoadTemp(i));
+        }
+        else {
+            throw new UnsupportedOperationException("not implemented yet");
+        }
+
         super.callSuper(argCount);
     }
 
@@ -248,9 +345,9 @@ public class Tracer extends InterpreterDecorator {
             completeTrace(stack.remove());
         }
         else {
-            extendFlow(stack.remove());
-            stack.push(Expression.EMPTY);
+            extendFlow(new StoreTemp(stack.remove(), 0));
             extendFlow(PopFrame.INSTANCE);
+            stack.push(new LoadTemp(0));
         }
     }
 

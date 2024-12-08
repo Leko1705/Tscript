@@ -66,6 +66,10 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     public void generate(Node graph) {
         clinit.visitCode();
 
+        pushJBCInt(mv, MaxTempRegComputer.compute(graph));
+        mv.visitTypeInsn(ANEWARRAY, TOBJECT_INTERNAL);
+        mv.visitVarInsn(ASTORE, 3);
+
         Traverser.traverse(this, this, graph);
 
         // finish static initializer block
@@ -110,6 +114,25 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     }
 
     @Override
+    public Void visitPushSuperFrame(PushSuperFrame expr, Void unused) {
+        genLoadFrame();
+        pushJBCInt(mv, expr.extraLocals);
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "pushSuperFrame",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + "I)"
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class),
+                false
+        );
+        genStoreFrame();
+        return null;
+    }
+
+    @Override
     public Void visitPopFrame(PopFrame expr, Void unused) {
         genLoadFrame();
 
@@ -121,6 +144,27 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         );
 
         genStoreFrame();
+        return null;
+    }
+
+    @Override
+    public Void visitLoadTemp(LoadTemp expr, Void unused) {
+        genLoadTemps();
+        pushJBCInt(mv, expr.index);
+        mv.visitInsn(AALOAD);
+
+        sp++;
+        return null;
+    }
+
+    @Override
+    public Void visitStoreTemp(StoreTemp expr, Void unused) {
+        genLoadTemps();
+        pushJBCInt(mv, expr.index);
+        expr.what.accept(this);
+        mv.visitInsn(AASTORE);
+
+        decSp();
         return null;
     }
 
@@ -1202,6 +1246,10 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     private void genLoadThread(){
         mv.visitVarInsn(ALOAD, 1);
+    }
+
+    private void genLoadTemps(){
+        mv.visitVarInsn(ALOAD, 3);
     }
 
     private void genLoadOwner(){

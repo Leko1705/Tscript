@@ -22,8 +22,23 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
     }
 
     @Override
+    public R visitPushSuperFrame(PushSuperFrame expr, P p) {
+        return null;
+    }
+
+    @Override
     public R visitPopFrame(PopFrame expr, P p) {
         return null;
+    }
+
+    @Override
+    public R visitLoadTemp(LoadTemp expr, P p) {
+        return null;
+    }
+
+    @Override
+    public R visitStoreTemp(StoreTemp expr, P p) {
+        return expr.what.accept(this, p);
     }
 
     @Override

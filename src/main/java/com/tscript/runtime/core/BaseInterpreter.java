@@ -35,7 +35,7 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public TObject call(Callable called, List<TObject> arguments) {
-        return thread.call(called, arguments);
+        return thread.call0(called, arguments);
     }
 
     @Override

@@ -278,6 +278,10 @@ public class TThread extends Thread implements Environment, TObject {
 
     @Override
     public TObject call(Callable called, List<TObject> arguments) {
+        return interpreter.call(called, arguments);
+    }
+
+    protected TObject call0(Callable called, List<TObject> arguments) {
         return invokeFromUnknownContext(called, arguments);
     }
 
