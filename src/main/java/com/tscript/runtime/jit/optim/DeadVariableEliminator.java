@@ -80,21 +80,19 @@ public class DeadVariableEliminator implements Optimizer {
 
         @Override
         public Void visitPushFrame(PushFrame expr, Void unused) {
-            super.visitPushFrame(expr, unused);
+            scan(expr.called, null);
             removalCandidates.storeAndSet(new HashMap<>());
             return null;
         }
 
         @Override
         public Void visitPushSuperFrame(PushSuperFrame expr, Void unused) {
-            super.visitPushSuperFrame(expr, unused);
             removalCandidates.storeAndSet(new HashMap<>());
             return null;
         }
 
         @Override
         public Void visitPopFrame(PopFrame expr, Void unused) {
-            super.visitPopFrame(expr, unused);
             removeUnusedLocals();
             removalCandidates.restore();
             return null;

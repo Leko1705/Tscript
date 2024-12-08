@@ -152,19 +152,19 @@ public class ConstantFolder implements Optimizer {
         public Void visitPushFrame(PushFrame expr, Expression unused) {
             scan(expr.called, expr);
             locals.storeAndSet(new HashMap<>());
-            return super.visitPushFrame(expr, unused);
+            return null;
         }
 
         @Override
         public Void visitPushSuperFrame(PushSuperFrame expr, Expression unused) {
             locals.storeAndSet(new HashMap<>());
-            return super.visitPushSuperFrame(expr, unused);
+            return null;
         }
 
         @Override
         public Void visitPopFrame(PopFrame expr, Expression expression) {
             locals.restore();
-            return super.visitPopFrame(expr, expression);
+            return null;
         }
 
         @Override

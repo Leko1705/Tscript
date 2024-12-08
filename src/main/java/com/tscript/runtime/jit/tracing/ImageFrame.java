@@ -75,7 +75,6 @@ public class ImageFrame {
         this.instructions = function.getInstructions();
         this.locals = new TObject[function.getLocals() + extraLocals];
         this.stack = new TObject[function.getStackSize()];
-        System.arraycopy(frame.locals, 0, locals, 0, frame.locals.length);
         this.owner = function.getOwner();
         this.nextSafeSpot = frame.nextSafeSpot;
 

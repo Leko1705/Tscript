@@ -1,10 +1,13 @@
 module test;
 
+function bar(z) {
+    return z;
+}
 
 function foo(y){
     var x = y;
     x = 4;
-    return x;
+    return bar(x);
 }
 
 for var i in 0:100000 do print(foo(i));

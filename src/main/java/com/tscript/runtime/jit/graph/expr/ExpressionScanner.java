@@ -25,7 +25,7 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitPushFrame(PushFrame expr, P p) {
-        return expr.accept(this, p);
+        return expr.called.accept(this, p);
     }
 
     @Override
