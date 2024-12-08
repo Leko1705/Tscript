@@ -429,7 +429,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                     false
             );
 
-            if (expr.calFail)
+            if (expr.canFail)
                 genFailureReturnIfNull();
         }
 

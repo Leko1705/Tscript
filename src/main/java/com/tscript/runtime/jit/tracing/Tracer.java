@@ -85,7 +85,7 @@ public class Tracer extends InterpreterDecorator {
         else if (obj instanceof TBoolean b) return new Bool(b.getValue());
         else if (obj instanceof TInteger i) return new Int(i.getValue());
         else if (obj == com.tscript.runtime.typing.Null.INSTANCE) return Null.INSTANCE;
-        else if (obj instanceof com.tscript.runtime.typing.Range r) return new Range(new Int(r.getFrom()), new Int(r.getTo()));
+        else if (obj instanceof com.tscript.runtime.typing.Range r) return new Range(new Int(r.getFrom()), new Int(r.getTo()), false);
         else if (obj instanceof TArray a) {
             List<Expression> exps = new ArrayList<>();
             for (TObject entry : a.getValue()){
@@ -113,7 +113,7 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void makeRange() {
         super.makeRange();
-        stack.push(new Range(stack.remove(), stack.remove()));
+        stack.push(new Range(stack.remove(), stack.remove(), false));
     }
 
     @Override
@@ -459,7 +459,7 @@ public class Tracer extends InterpreterDecorator {
         Expression container = stack.remove();
         Expression key = stack.remove();
         Expression value = stack.remove();
-        extendFlow(new ContainerWrite(container, key, value));
+        extendFlow(new ContainerWrite(container, key, value, false));
     }
 
     @Override

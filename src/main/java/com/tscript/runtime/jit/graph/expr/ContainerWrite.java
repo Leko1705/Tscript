@@ -4,10 +4,13 @@ public class ContainerWrite implements Expression {
 
     public Expression container, key, value;
 
-    public ContainerWrite(Expression container, Expression key, Expression value) {
+    public boolean canFail;
+
+    public ContainerWrite(Expression container, Expression key, Expression value, boolean canFail) {
         this.container = container;
         this.key = key;
         this.value = value;
+        this.canFail = canFail;
     }
 
     @Override

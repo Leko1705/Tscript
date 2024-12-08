@@ -5,9 +5,7 @@ import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.jit.lower.Generator;
 import com.tscript.runtime.jit.lower.jbc.JBCGenerator;
-import com.tscript.runtime.jit.optim.ConstantFolder;
-import com.tscript.runtime.jit.optim.DeadVariableEliminator;
-import com.tscript.runtime.jit.optim.Optimizer;
+import com.tscript.runtime.jit.optim.*;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -44,7 +42,8 @@ public class JITCompilerImpl implements JITCompiler {
 
     private List<Optimizer> getOptimizers() {
         return List.of(
-                new ConstantFolder(false), new DeadVariableEliminator());
+                new ConstantFolder(false), new DeadVariableEliminator(),
+                new UnsafeReducer(), new TrivialCallRemover());
     }
 
     private NativeImage lower(Node graph) {
