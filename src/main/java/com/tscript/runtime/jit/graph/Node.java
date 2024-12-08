@@ -9,5 +9,7 @@ public interface Node {
 
     void setNext(Node next);
 
+    Node getNext();
+
     void step(TraversingStrategy walker, Context context);
 }

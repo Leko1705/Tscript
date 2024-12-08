@@ -23,6 +23,11 @@ public class FlowNode implements Node {
     }
 
     @Override
+    public Node getNext() {
+        return next;
+    }
+
+    @Override
     public void step(TraversingStrategy walker, Context context) {
         walker.onFlowNode(this, context);
     }

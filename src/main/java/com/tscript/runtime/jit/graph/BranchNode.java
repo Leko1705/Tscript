@@ -28,6 +28,11 @@ public class BranchNode implements Node {
     public void setNext(Node next) {
     }
 
+    @Override
+    public Node getNext() {
+        return null;
+    }
+
     public boolean requireTrue() {
         return requireTrue;
     }

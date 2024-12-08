@@ -21,6 +21,11 @@ public class EndNode implements Node {
     }
 
     @Override
+    public Node getNext() {
+        return null;
+    }
+
+    @Override
     public void step(TraversingStrategy walker, Context context) {
         walker.onEndNode(this, context);
     }
