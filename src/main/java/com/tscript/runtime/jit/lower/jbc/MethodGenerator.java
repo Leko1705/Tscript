@@ -90,6 +90,11 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     }
 
     @Override
+    public Void visitWrapper(Wrapper wrapper, Void unused) {
+        return wrapper.expression.accept(this);
+    }
+
+    @Override
     public Void visitPushFrame(PushFrame expr, Void unused) {
 
         expr.called.accept(this);
@@ -170,8 +175,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitPop(Pop expr, Void unused) {
-        if (expr.expression() != null)
-            expr.expression().accept(this);
+        if (expr.expression != null)
+            expr.expression.accept(this);
         mv.visitInsn(POP);
         decSp();
         return null;

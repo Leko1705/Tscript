@@ -187,15 +187,14 @@ public class Tracer extends InterpreterDecorator {
 
         super.callInplace(argCount);
 
-        if (top instanceof Callable callable && callable.isVirtual()) {
-            Expression func = stack.remove();
+        if (top instanceof Callable callable) {
 
+            Expression func = stack.remove();
             Parameters parameters = callable.getParameters(getCurrentThread());
             int lastNonDefined = parameters.getLastNonDefinedParameterIndex();
-
             if (argCount <= lastNonDefined) return;
-
             List<TObject> missingDefaults = parameters.getTail(argCount);
+
 
             if (callable.isVirtual()) {
 
@@ -218,6 +217,7 @@ public class Tracer extends InterpreterDecorator {
                 for (int i = 0; i < argCount; i++) args.add(stack.remove());
                 for (TObject missing : missingDefaults) args.add(fromObject(missing));
                 stack.push(new CallInp(func, args));
+
             }
         }
     }
@@ -233,56 +233,53 @@ public class Tracer extends InterpreterDecorator {
         if (top instanceof Callable callable && callable.isVirtual()) {
             Expression func = stack.remove();
 
-            List<String> names = new ArrayList<>(argCount);
-            List<Expression> values = new ArrayList<>(argCount);
-
-            for (int i = 0; i < argCount; i++) {
-                Expression exp = stack.pop();
-                if (exp instanceof ToInpArg t){
-                    names.add(null);
-                    values.add(t.arg);
-                }
-                else {
-                    ToMapArg m = (ToMapArg) exp;
-                    names.add(m.name);
-                    values.add(m.arg);
-                }
-            }
-
-            Parameters parameters = callable.getParameters(getCurrentThread());
-
-            if (names.size() > parameters.count()) return;
-
-            LinkedHashMap<String, Expression> finals = new LinkedHashMap<>();
-
-            int index = 0;
-
-            Iterator<Expression> valueItr = values.iterator();
-            for (String name : names){
-                if (name != null){
-                    if (!parameters.hasName(name)) return;
-                    boolean success = finals.put(name, valueItr.next()) == null;
-                    if (!success) return;
-                }
-                else {
-                    String nextParam = parameters.getNames().get(index);
-                    boolean success = finals.put(nextParam, valueItr.next()) == null;
-                    if (!success) return;
-                }
-                index++;
-            }
-
-            for (Map.Entry<String, TObject> defaultParam : parameters.toMap().entrySet()){
-                if (!finals.containsKey(defaultParam.getKey()) && defaultParam.getValue() != null)
-                    finals.put(defaultParam.getKey(), fromObject(defaultParam.getValue()));
-            }
-
-            if (finals.size() < parameters.count()) return;
-
-            Expression[] flatten = finals.values().toArray(new Expression[0]);
-
-
             if (callable.isVirtual()) {
+
+                List<String> names = new ArrayList<>(argCount);
+                List<Expression> values = new ArrayList<>(argCount);
+
+                for (int i = 0; i < argCount; i++) {
+                    Expression exp = stack.pop();
+                    if (exp instanceof ToInpArg t) {
+                        names.add(null);
+                        values.add(t.arg);
+                    } else {
+                        ToMapArg m = (ToMapArg) exp;
+                        names.add(m.name);
+                        values.add(m.arg);
+                    }
+                }
+
+                Parameters parameters = callable.getParameters(getCurrentThread());
+
+                if (names.size() > parameters.count()) return;
+
+                LinkedHashMap<String, Expression> finals = new LinkedHashMap<>();
+
+                int index = 0;
+
+                Iterator<Expression> valueItr = values.iterator();
+                for (String name : names) {
+                    if (name != null) {
+                        if (!parameters.hasName(name)) return;
+                        boolean success = finals.put(name, valueItr.next()) == null;
+                        if (!success) return;
+                    } else {
+                        String nextParam = parameters.getNames().get(index);
+                        boolean success = finals.put(nextParam, valueItr.next()) == null;
+                        if (!success) return;
+                    }
+                    index++;
+                }
+
+                for (Map.Entry<String, TObject> defaultParam : parameters.toMap().entrySet()) {
+                    if (!finals.containsKey(defaultParam.getKey()) && defaultParam.getValue() != null)
+                        finals.put(defaultParam.getKey(), fromObject(defaultParam.getValue()));
+                }
+
+                if (finals.size() < parameters.count()) return;
+
+                Expression[] flatten = finals.values().toArray(new Expression[0]);
 
                 for (int i = 0; i < flatten.length; i++) {
                     Expression exp = flatten[i];
@@ -640,7 +637,7 @@ public class Tracer extends InterpreterDecorator {
     }
 
     private void completeTrace(Expression exp) {
-        current.setNext(new EndNode(exp));
+        current.setNext(new EndNode(new Wrapper(exp)));
         TThread thread = getCurrentThread();
         JITCompiler jit = thread.getVM().getJitCompiler();
         CompletableFuture<NativeImage> future = jit.compile(root);

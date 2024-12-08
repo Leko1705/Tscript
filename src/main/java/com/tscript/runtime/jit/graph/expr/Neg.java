@@ -10,6 +10,13 @@ public class Neg implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (toReplace == expression) {
+            expression = tree;
+        }
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitNeg(this, p);
     }

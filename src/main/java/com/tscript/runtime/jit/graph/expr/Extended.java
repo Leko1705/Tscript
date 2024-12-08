@@ -14,6 +14,16 @@ public class Extended implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (owner == tree) {
+            owner = toReplace;
+        }
+        if (content == tree) {
+            content = toReplace;
+        }
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitExtended(this, p);
     }

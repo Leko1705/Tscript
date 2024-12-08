@@ -10,6 +10,13 @@ public class PushFrame implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (toReplace == called) {
+            called = tree;
+        }
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitPushFrame(this, p);
     }

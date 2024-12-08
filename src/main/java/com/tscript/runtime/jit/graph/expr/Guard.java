@@ -7,4 +7,11 @@ public abstract class Guard implements Expression {
     public Guard(Expression expression) {
         this.expression = expression;
     }
+
+    @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (toReplace == expression) {
+            expression = tree;
+        }
+    }
 }

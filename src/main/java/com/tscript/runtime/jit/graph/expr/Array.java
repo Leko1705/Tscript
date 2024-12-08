@@ -8,4 +8,8 @@ public record Array(List<Expression> contents) implements Expression {
         return visitor.visitArray(this, p);
     }
 
+    @Override
+    public void replace(Expression toReplace, Expression tree) {
+        contents.replaceAll(candidate -> candidate == toReplace ? tree : candidate);
+    }
 }

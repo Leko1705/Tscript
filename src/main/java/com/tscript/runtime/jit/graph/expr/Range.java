@@ -10,6 +10,16 @@ public class Range implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (toReplace == from) {
+            from = tree;
+        }
+        if (toReplace == to) {
+            to = tree;
+        }
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitRange(this, p);
     }

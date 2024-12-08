@@ -8,6 +8,9 @@ public interface Expression {
     };
 
 
+
+    default void replace(Expression toReplace, Expression tree) {}
+
     <P, R> R accept(ExpressionVisitor<P, R> visitor, P p);
 
     default <P, R> R accept(ExpressionVisitor<P, R> visitor) {

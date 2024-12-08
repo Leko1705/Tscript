@@ -10,6 +10,13 @@ public class Itr implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (toReplace == iterable) {
+            iterable = tree;
+        }
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitItr(this, p);
     }

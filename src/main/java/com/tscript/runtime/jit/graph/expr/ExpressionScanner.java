@@ -1,14 +1,16 @@
 package com.tscript.runtime.jit.graph.expr;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
-    private R scan(Expression exp, P p){
+    public R scan(Expression exp, P p){
         return exp != null ? exp.accept(this, p) : null;
     }
 
-    private R scan(List<Expression> exps, P p){
+    public R scan(List<Expression> exps, P p){
         R r = null;
         for (Expression e : exps){
             r = scan(e, p);
@@ -17,8 +19,13 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
     }
 
     @Override
+    public R visitWrapper(Wrapper wrapper, P p) {
+        return scan(wrapper.expression, p);
+    }
+
+    @Override
     public R visitPushFrame(PushFrame expr, P p) {
-        return null;
+        return expr.accept(this, p);
     }
 
     @Override
@@ -43,7 +50,7 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitPop(Pop expr, P p) {
-        return null;
+        return expr.expression.accept(this, p);
     }
 
     @Override
@@ -73,7 +80,8 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitRange(Range expr, P p) {
-        return null;
+        scan(expr.from, p);
+        return scan(expr.to, p);
     }
 
     @Override
@@ -83,6 +91,14 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitDict(Dict expr, P p) {
+        Iterator<Expression> keyItr = new ArrayList<>(expr.keys).iterator();
+        Iterator<Expression> valueItr = new ArrayList<>(expr.values).iterator();
+
+        while (keyItr.hasNext() && valueItr.hasNext()) {
+            keyItr.next().accept(this, p);
+            valueItr.next().accept(this, p);
+        }
+
         return null;
     }
 
@@ -145,7 +161,8 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitMethod(Method expr, P p) {
-        return null;
+        expr.underlying.accept(this, p);
+        return expr.owner.accept(this, p);
     }
 
     @Override

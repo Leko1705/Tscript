@@ -11,6 +11,19 @@ public class ContainerWrite implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (container == toReplace) {
+            container = tree;
+        }
+        if (key == toReplace) {
+            key = tree;
+        }
+        if (value == toReplace) {
+            value = tree;
+        }
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitContainerWrite(this, p);
     }

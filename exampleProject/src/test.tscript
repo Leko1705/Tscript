@@ -1,12 +1,12 @@
 module test;
 
-function bar(x, y=3){
+function bar(x){
     print(x);
 }
 
-function foo(){
-    bar(2);
+function foo(x){
+    return 3 + 4;
 }
 
-for 0:200 do foo();
+for var i in 0:200 do foo(i);
 

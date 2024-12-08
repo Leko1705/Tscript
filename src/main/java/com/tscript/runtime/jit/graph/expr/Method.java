@@ -12,6 +12,16 @@ public class Method implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (toReplace == underlying) {
+            underlying = tree;
+        }
+        if (toReplace == owner) {
+            owner = tree;
+        }
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitMethod(this, p);
     }

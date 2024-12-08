@@ -11,6 +11,13 @@ public class StoreGlobal implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (toReplace == what) {
+            what = tree;
+        }
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitStoreGlobal(this, p);
     }

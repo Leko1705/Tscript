@@ -10,4 +10,13 @@ public abstract class Binary implements Expression {
         this.rhs = rhs;
     }
 
+    @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (toReplace == lhs) {
+            lhs = tree;
+        }
+        if (toReplace == rhs) {
+            rhs = tree;
+        }
+    }
 }

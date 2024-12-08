@@ -13,4 +13,5 @@ public class BoolGuard extends Guard {
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitBoolGuard(this, p);
     }
+
 }

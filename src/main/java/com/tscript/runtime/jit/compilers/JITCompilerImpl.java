@@ -5,6 +5,7 @@ import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.jit.lower.Generator;
 import com.tscript.runtime.jit.lower.jbc.JBCGenerator;
+import com.tscript.runtime.jit.optim.ConstantFolder;
 import com.tscript.runtime.jit.optim.Optimizer;
 
 import java.util.List;
@@ -41,7 +42,8 @@ public class JITCompilerImpl implements JITCompiler {
     }
 
     private List<Optimizer> getOptimizers() {
-        return List.of();
+        return List.of(
+                new ConstantFolder(false));
     }
 
     private NativeImage lower(Node graph) {

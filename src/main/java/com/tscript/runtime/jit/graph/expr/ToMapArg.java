@@ -11,6 +11,13 @@ public class ToMapArg implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (toReplace == arg) {
+            arg = tree;
+        }
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitToMapArg(this, p);
     }

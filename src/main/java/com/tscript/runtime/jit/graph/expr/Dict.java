@@ -9,6 +9,12 @@ public class Dict implements Expression {
     public final List<Expression> values = new ArrayList<>();
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        keys.replaceAll(candidate -> candidate == toReplace ? tree : candidate);
+        values.replaceAll(candidate -> candidate == toReplace ? tree : candidate);
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitDict(this, p);
     }

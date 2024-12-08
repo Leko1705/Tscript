@@ -14,6 +14,14 @@ public class CallMap implements Expression {
     }
 
     @Override
+    public void replace(Expression toReplace, Expression tree) {
+        if (tree == called) {
+            called = toReplace;
+        }
+        args.replaceAll(candidate -> candidate == toReplace ? tree : candidate);
+    }
+
+    @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
         return visitor.visitCallMap(this, p);
     }

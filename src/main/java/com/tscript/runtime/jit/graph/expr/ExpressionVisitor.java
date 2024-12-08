@@ -2,6 +2,8 @@ package com.tscript.runtime.jit.graph.expr;
 
 public interface ExpressionVisitor<P, R> {
 
+    R visitWrapper(Wrapper wrapper, P p);
+
     R visitPushFrame(PushFrame expr, P p);
 
     R visitPushSuperFrame(PushSuperFrame expr, P p);
