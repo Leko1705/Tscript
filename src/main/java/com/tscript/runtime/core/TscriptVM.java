@@ -51,7 +51,7 @@ public class TscriptVM implements VirtualMachine {
         this.err = err;
         this.sharedModuleLoader = new ModuleLoaderImpl(new BruteForcePathResolver(new DirectoryPathResolver(new FileHierarchyPathResolver())));
         this.runningThreads = new ConcurrentHashMap<>();
-        this.jitCompiler = new JITCompilerImpl();
+        this.jitCompiler = getInitialJIT();
     }
 
     public int execute(String moduleName){
@@ -73,6 +73,8 @@ public class TscriptVM implements VirtualMachine {
         // run the main thread
         Callable entryPoint = module.getEntryPoint();
         TThread thread = spawnThread(entryPoint, List.of());
+
+        jitCompiler.boot();
         thread.begin();
 
         // wait for daemon threads
@@ -92,6 +94,7 @@ public class TscriptVM implements VirtualMachine {
             listener.onTermination(this);
         }
 
+        jitCompiler.shutdown();
         return exitCode;
     }
 
@@ -123,7 +126,7 @@ public class TscriptVM implements VirtualMachine {
 
     public void setJitEnabled(boolean jitEnabled) {
         if (jitEnabled) {
-            jitCompiler = new JITCompilerImpl();
+            jitCompiler = getInitialJIT();
             interpreterSupplier = t -> new Profiler(new BaseInterpreter(t));
         }
         else {
@@ -195,5 +198,9 @@ public class TscriptVM implements VirtualMachine {
 
     public JITCompiler getJitCompiler() {
         return jitCompiler;
+    }
+
+    private static JITCompiler getInitialJIT(){
+        return new ParallelJIT(new JITCompilerImpl());
     }
 }

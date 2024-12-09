@@ -1,7 +1,7 @@
 module test;
 
 function bar(z) {
-    return z;
+    return print(z);
 }
 
 function foo(y){
@@ -10,5 +10,5 @@ function foo(y){
     return bar(x);
 }
 
-for var i in 0:100000 do print(foo(i));
+for var i in 0:100000 do foo(i);
 

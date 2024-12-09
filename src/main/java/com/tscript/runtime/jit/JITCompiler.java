@@ -8,4 +8,10 @@ public interface JITCompiler {
 
     CompletableFuture<NativeImage> compile(Node instructions);
 
+    default void boot(){
+    }
+
+    default void shutdown(){
+    }
+
 }
