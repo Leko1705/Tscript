@@ -71,13 +71,19 @@ public class TrivialCallRemover implements Optimizer {
 
         @Override
         public Void visitPushFrame(PushFrame expr, Void unused) {
-            framePushPredecessorsStack.push(prev);
+            if (expr.isTypeInit){
+                framePushPredecessorsStack.push(null);
+            }
+            else {
+                framePushPredecessorsStack.push(prev);
+            }
             return null;
         }
 
         @Override
         public Void visitPushSuperFrame(PushSuperFrame expr, Void unused) {
-            framePushPredecessorsStack.push(prev);
+            // cannot optimize super call away due to super obj binding
+            framePushPredecessorsStack.push(null);
             return null;
         }
 

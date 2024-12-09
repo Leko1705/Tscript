@@ -201,6 +201,6 @@ public class TscriptVM implements VirtualMachine {
     }
 
     private static JITCompiler getInitialJIT(){
-        return new ParallelJIT(new JITCompilerImpl());
+        return new JITCompilerImpl();
     }
 }

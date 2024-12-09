@@ -1,14 +1,10 @@
 module test;
 
-function bar(z) {
-    return print(z);
-}
+class X {}
 
 function foo(y){
-    var x = y;
-    x = 4;
-    return bar(x);
+    return X();
 }
 
-for var i in 0:100000 do foo(i);
+for var i in 0:100000 do print(foo(i));
 

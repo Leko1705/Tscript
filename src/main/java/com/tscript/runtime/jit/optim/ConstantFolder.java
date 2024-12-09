@@ -164,6 +164,10 @@ public class ConstantFolder implements Optimizer {
         @Override
         public Void visitPopFrame(PopFrame expr, Expression expression) {
             locals.restore();
+            if (temps.get(0) != null && temps.get(0) == This.INSTANCE){
+                // can not fold 'this'
+                temps.put(0, null);
+            }
             return null;
         }
 

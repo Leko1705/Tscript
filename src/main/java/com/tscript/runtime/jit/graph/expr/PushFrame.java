@@ -3,10 +3,12 @@ package com.tscript.runtime.jit.graph.expr;
 public class PushFrame implements Expression {
 
     public Expression called;
+    public boolean isTypeInit;
     public int extraLocals = 0;
 
-    public PushFrame(Expression called) {
+    public PushFrame(Expression called, boolean isTypeInit) {
         this.called = called;
+        this.isTypeInit = isTypeInit;
     }
 
     @Override

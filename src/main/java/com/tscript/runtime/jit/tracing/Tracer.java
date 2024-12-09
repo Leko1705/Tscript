@@ -207,7 +207,7 @@ public class Tracer extends InterpreterDecorator {
                     j++;
                 }
 
-                extendFlow(new PushFrame(func));
+                extendFlow(new PushFrame(func, callable instanceof com.tscript.runtime.typing.Type));
 
                 for (int i = 0; i < argCount + missingDefaults.size(); i++)
                     stack.push(new LoadTemp(i));
@@ -286,7 +286,7 @@ public class Tracer extends InterpreterDecorator {
                     extendFlow(new StoreTemp(exp, i));
                 }
 
-                extendFlow(new PushFrame(func));
+                extendFlow(new PushFrame(func, callable instanceof com.tscript.runtime.typing.Type));
 
                 for (int i = 0; i < flatten.length; i++)
                     stack.push(new LoadTemp(i));

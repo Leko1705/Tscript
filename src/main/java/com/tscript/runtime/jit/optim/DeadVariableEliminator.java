@@ -6,10 +6,7 @@ import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.jit.graph.expr.*;
 import com.tscript.runtime.jit.graph.traversal.TreeTraverseStrategy;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class DeadVariableEliminator implements Optimizer {
 
@@ -18,6 +15,7 @@ public class DeadVariableEliminator implements Optimizer {
 
     private final State<Map<Integer, List<Node>>> removalCandidates = new State<>(new HashMap<>());
     private final Map<Integer, List<Node>> temps = new HashMap<>();
+    private final Deque<Boolean> canEliminate = new ArrayDeque<>();
 
     @Override
     public Node optimize(Node graph) {
@@ -82,12 +80,14 @@ public class DeadVariableEliminator implements Optimizer {
         public Void visitPushFrame(PushFrame expr, Void unused) {
             scan(expr.called, null);
             removalCandidates.storeAndSet(new HashMap<>());
+            canEliminate.push(!expr.isTypeInit);
             return null;
         }
 
         @Override
         public Void visitPushSuperFrame(PushSuperFrame expr, Void unused) {
             removalCandidates.storeAndSet(new HashMap<>());
+            canEliminate.push(true);
             return null;
         }
 
@@ -95,6 +95,7 @@ public class DeadVariableEliminator implements Optimizer {
         public Void visitPopFrame(PopFrame expr, Void unused) {
             removeUnusedLocals();
             removalCandidates.restore();
+            canEliminate.remove();
             return null;
         }
 
@@ -131,7 +132,7 @@ public class DeadVariableEliminator implements Optimizer {
             scan(expr.what, null);
 
             if (expr.what instanceof LoadTemp l){
-                if (expr.index == l.index){
+                if (expr.index == l.index && canEliminate.element()){
                     prev.setNext(prev.getNext().getNext());
                     optimized = true;
                 }
