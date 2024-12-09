@@ -71,11 +71,11 @@ public class ProjectFileRunner {
 
         TscriptVM vm = VMFactory.newRunnableTscriptVM(projectFile.getRoots(), System.out, System.err);
         vm.setBuildFile(projectFile);
+        vm.setJitEnabled(projectFile.isJitEnabled());
         if (debugger != null){
             vm.setDebugger(debugger);
             vm.setBreakPoints(breakPoints);
         }
-        vm.setJitEnabled(projectFile.isJitEnabled());
         return vm.execute(projectFile.getBootModule());
     }
 

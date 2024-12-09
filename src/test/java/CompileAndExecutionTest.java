@@ -19,7 +19,7 @@ public class CompileAndExecutionTest {
                 "./exampleProject/project.tsrt");
         int exitCode;
         //exitCode = ProjectFileRunner.runDebugTscriptProject(projectFile, new ConsoleDebugger(), Set.of(BreakPoint.of("test", 3)));
-        exitCode = ProjectFileRunner.runTscriptProject(projectFile);
+        exitCode = ProjectFileRunner.runDebugTscriptProject(projectFile, new ConsoleDebugger(), Set.of(BreakPoint.of("test", 4)));
         System.out.println("Finished in " + (System.currentTimeMillis() - startTime) + "ms");
         System.exit(exitCode);
     }
