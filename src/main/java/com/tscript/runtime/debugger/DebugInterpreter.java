@@ -104,7 +104,9 @@ public class DebugInterpreter extends InterpreterDecorator {
                 };
 
                 try {
-                    debugger.onHalt(getCurrentThread().getId(), getVMState(), observer);
+                    TThread thread = getCurrentThread();
+                    int line = thread.frameStack.element().line();
+                    debugger.onHalt(thread.getId(), getVMState(), line, observer);
                 }
                 catch (Exception e) {
                     e.printStackTrace(getCurrentThread().getVM().getErr());

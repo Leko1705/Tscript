@@ -12,14 +12,16 @@ public class ConsoleDebugger implements Debugger {
     private Deque<Object> stack;
 
     @Override
-    public void onHalt(long threadId, VMState state, DebugActionObserver observer) {
+    public void onHalt(long threadId, VMState state, int line, DebugActionObserver observer) {
 
         Scanner scanner = new Scanner(System.in);
         stack = new ArrayDeque<>(List.of(state));
 
         final String ANSI_YELLOW = "\u001B[33m";
         final String ANSI_RESET = "\u001B[0m";
-        System.out.println(ANSI_YELLOW + "debug mode entered (called from thread-id: " + threadId + ")\nType 'help' for more information.");
+        System.out.println(
+                ANSI_YELLOW + "debug mode entered (called from thread-id: " + threadId + ") in line "
+                + line + "\nType 'help' for more information.");
 
         label:
         while (true) {

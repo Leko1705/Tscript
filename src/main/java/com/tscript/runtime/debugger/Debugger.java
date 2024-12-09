@@ -11,6 +11,6 @@ public interface Debugger {
         QUIT
     }
 
-    void onHalt(long threadId, VMState state, DebugActionObserver observer);
+    void onHalt(long threadId, VMState state, int line, DebugActionObserver observer);
 
 }
