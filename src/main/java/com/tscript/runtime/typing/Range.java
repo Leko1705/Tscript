@@ -18,7 +18,8 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
                     .setParameters(Parameters.newInstance()
                             .add("begin", null)
                             .add("end", null))
-                    .setConstructor((thread, params) -> {
+                    .setInstanceMaker(() -> new Range(0, 0))
+                    .setConstructor((func, thread, params) -> {
                         TObject from = params.get(0);
                         TObject to = params.get(1);
 
@@ -46,7 +47,10 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
                             return null;
                         }
 
-                        return new Range(fromVal, toVal);
+                        Range range = (Range) func.getOwner();
+                        range.value.setFirst(new TInteger(fromVal));
+                        range.value.setSecond(new TInteger(toVal));
+                        return range;
                     }).build();
 
     private final Map<String, Member> methods;
@@ -125,7 +129,10 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
     private class TRangeIterator implements IteratorObject {
 
         private static final Type type = new Type.Builder("RangeIterator")
-                .setConstructor((thread, params) -> Null.INSTANCE)
+                .setConstructor((func, thread, params) -> Null.INSTANCE)
+                .setInstanceMaker(() -> {
+                    throw new AssertionError();
+                })
                 .setAbstract(true).build();
 
         private int curr = Range.this.getFrom();

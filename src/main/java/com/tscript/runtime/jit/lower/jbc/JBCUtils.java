@@ -467,7 +467,7 @@ public class JBCUtils {
         }
         else if (called instanceof VirtualType type) {
             ImageFrame frame = pushFrame(type.getConstructor(), prevFrame, extraLocals);
-            frame.owner = type.newInstance();
+            frame.owner = type.newInstance(null);
             return frame;
         }
         else {

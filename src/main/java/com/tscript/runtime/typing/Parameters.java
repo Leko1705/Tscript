@@ -4,6 +4,9 @@ import java.util.*;
 
 public class Parameters {
 
+    public static final Parameters EMPTY = new Parameters();
+
+
     public static Parameters newInstance(){
         return new Parameters();
     }

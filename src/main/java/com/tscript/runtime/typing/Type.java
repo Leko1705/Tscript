@@ -1,18 +1,20 @@
 package com.tscript.runtime.typing;
 
-import com.tscript.runtime.core.InternalRuntimeErrorMessages;
 import com.tscript.runtime.core.TThread;
-
+import com.tscript.runtime.tni.Environment;
+import com.tscript.runtime.tni.NativeFunction;
 
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 public interface Type extends Callable {
 
     Type TYPE = new TypeType();
+
 
 
    String getName();
@@ -24,22 +26,48 @@ public interface Type extends Callable {
 
     Type getSuperType();
 
-   boolean isAbstract();
+    boolean isAbstract();
 
    Map<String, Integer> getInstanceFields();
 
     @Override
     Parameters getParameters(TThread thread);
 
+    /**
+     * Creates a new raw, non initialized, instance of this Type
+     * @param env the execution environment
+     * @return the new instantiated object, or null if an error occurred.
+     */
+    default TObject newInstance(Environment env){
+        env.reportRuntimeError("type can not get instantiated " + getName());
+        return null;
+    }
+
+    default Function getConstructor(){
+        return null;
+    }
+
     @Override
-    TObject eval(TThread thread, List<TObject> params);
+    default TObject eval(TThread thread, List<TObject> params){
+        TObject object = newInstance(thread);
+        if (object == null) return null;
+
+        Function constructor = getConstructor();
+
+        if (constructor != null) {
+            constructor = constructor.dup();
+            constructor.setOwner(object);
+            constructor.eval(thread, params);
+        }
+
+        return object;
+    }
 
 
 
     interface Constructor {
-        TObject eval(TThread thread, List<TObject> params);
+        TObject eval(Function func, TThread thread, List<TObject> params);
     }
-
 
 
     class Builder {
@@ -49,14 +77,36 @@ public interface Type extends Callable {
         private final List<Member> members = new ArrayList<>();
         private Parameters parameters = Parameters.newInstance();
         private Type superType;
-        private Constructor constructor;
+        private Function constructor;
+        private Supplier<TObject> instanceMaker;
 
         public Builder(String name) {
             this.name = Objects.requireNonNull(name);
         }
 
-        public Builder setConstructor( Constructor constructor) {
-            this.constructor = Objects.requireNonNull(constructor);
+        public Builder setConstructor(Constructor constructor) {
+            Objects.requireNonNull(constructor);
+            this.constructor = new NativeFunction() {
+                @Override
+                public String getName() {
+                    return name + "@constructor";
+                }
+
+                @Override
+                public Parameters doGetParameters(Environment env) {
+                    return parameters;
+                }
+
+                @Override
+                public TObject evaluate(Environment env, List<TObject> arguments) {
+                    return constructor.eval(this, env.getCurrentThread(), arguments);
+                }
+            };
+            return this;
+        }
+
+        public Builder setInstanceMaker(Supplier<TObject> instanceMaker) {
+            this.instanceMaker = instanceMaker;
             return this;
         }
 
@@ -83,7 +133,10 @@ public interface Type extends Callable {
         public Type build() {
 
             if (constructor == null)
-                throw new IllegalStateException("constructor not set");
+                throw new IllegalStateException("constructor not set for " + name);
+
+            if (instanceMaker == null)
+                throw new IllegalStateException("instanceMaker not set for " + name);
 
             return new Type() {
 
@@ -118,15 +171,6 @@ public interface Type extends Callable {
                 }
 
                 @Override
-                public TObject eval(TThread thread, List<TObject> params) {
-                    if (isAbstract()){
-                        thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidAbstractInstantiation(getName()));
-                        return null;
-                    }
-                    return constructor.eval(thread, params);
-                }
-
-                @Override
                 public Type getType() {
                     return TYPE;
                 }
@@ -134,6 +178,16 @@ public interface Type extends Callable {
                 @Override
                 public Iterable<Member> getMembers() {
                     return members;
+                }
+
+                @Override
+                public Function getConstructor() {
+                    return constructor;
+                }
+
+                @Override
+                public TObject newInstance(Environment env) {
+                    return instanceMaker.get();
                 }
             };
 

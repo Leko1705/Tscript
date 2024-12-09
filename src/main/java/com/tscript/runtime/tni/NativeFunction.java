@@ -31,7 +31,7 @@ public abstract class NativeFunction extends Function implements Cloneable {
     }
 
     @Override
-    public final TObject eval(TThread thread, List<TObject> params) {
+    public final TObject eval0(TThread thread, List<TObject> params) {
         thread.frameStack.push(Frame.createNativeFrame(this));
         TObject result = evaluate(thread, params);
         if (result == null) return null;

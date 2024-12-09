@@ -50,7 +50,7 @@ public class VirtualFunction extends Function {
     }
 
     @Override
-    public  TObject eval(TThread thread, List<TObject> params) {
+    public  TObject eval0(TThread thread, List<TObject> params) {
         Frame frame = new Frame(this);
         thread.frameStack.push(frame);
         for (int i = params.size() - 1; i >= 0; i--) {

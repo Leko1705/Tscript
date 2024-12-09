@@ -9,17 +9,19 @@ public class TBoolean extends PrimitiveObject<Boolean> {
     public static final Type TYPE =
             new Type.Builder("Boolean")
                     .setParameters(Parameters.newInstance().add("value", null))
-                    .setConstructor((thread, params) -> TBoolean.of(TNIUtils.isTrue(params.get(0)))).build();
+                    .setInstanceMaker(() -> TBoolean.FALSE)
+                    .setConstructor((func, thread, params) -> {
+                        ((TBoolean) func.getOwner()).value = TNIUtils.isTrue(params.get(0));
+                        return func.getOwner();
+                    }).build();
 
     @JITSensitive public static final TBoolean TRUE = new TBoolean(true);
     @JITSensitive public static final TBoolean FALSE = new TBoolean(false);
-
 
     @JITSensitive
     public static TBoolean of(boolean value) {
         return value ? TRUE : FALSE;
     }
-
 
     private TBoolean(Boolean value) {
         super(value);

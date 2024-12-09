@@ -17,7 +17,10 @@ public class LoadedModule implements Module {
 
     public static final Type TYPE =
             new Type.Builder("Module")
-                    .setConstructor((thread, params) -> {
+                    .setInstanceMaker(() -> {
+                        throw new AssertionError();
+                    })
+                    .setConstructor((func, thread, params) -> {
                         throw new AssertionError("Module is abstract");
                     })
                     .setAbstract(true)

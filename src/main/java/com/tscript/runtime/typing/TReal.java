@@ -16,19 +16,24 @@ public class TReal extends PrimitiveObject<Double> {
                     .addMember(Member.of(Visibility.PUBLIC, false, "nan", new GetNanStaticMethod()))
                     .addMember(Member.of(Visibility.PUBLIC, false, "inf", new GetInfiniteStaticMethod()))
                     .setParameters(Parameters.newInstance().add("value", null))
-                    .setConstructor((thread, params) -> {
+                    .setInstanceMaker(() -> new TReal(0))
+                    .setConstructor((func, thread, params) -> {
                         TObject value = params.get(0);
 
-                        if (value instanceof TReal)
-                            return value;
+                        if (value instanceof TReal) {
+                            ((TReal)func.getOwner()).value = ((TReal)value).value;
+                            return func.getOwner();
+                        }
 
                         if (value instanceof TInteger integer){
-                            return new TReal(integer.getValue().doubleValue());
+                            ((TReal)func.getOwner()).value = integer.getValue().doubleValue();
+                            return func.getOwner();
                         }
 
                         if (value instanceof TString string){
                             try {
-                                return new TReal(Double.parseDouble(string.getValue()));
+                                ((TReal)func.getOwner()).value = Double.parseDouble(string.getValue());
+                                return func.getOwner();
                             }
                             catch (NumberFormatException e){
                                 thread.reportRuntimeError("can not convert string '" + string.getValue() + "' to Real");

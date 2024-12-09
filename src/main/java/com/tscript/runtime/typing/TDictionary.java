@@ -16,14 +16,18 @@ public class TDictionary extends PrimitiveObject<Map<TObject, TObject>>
                     .Builder("Dictionary")
                     .setParameters(Parameters.newInstance()
                             .add("other", Null.INSTANCE))
-                    .setConstructor((thread, params) -> {
+                    .setInstanceMaker(TDictionary::new)
+                    .setConstructor((func, thread, params) -> {
                         TObject value = params.get(0);
 
-                        if (value == Null.INSTANCE)
-                            return new TDictionary();
+                        TDictionary dict = (TDictionary) func.getOwner();
 
-                        if (value instanceof TDictionary dict){
-                            return new TDictionary(dict.getValue());
+                        if (value == Null.INSTANCE)
+                            return dict;
+
+                        if (value instanceof TDictionary other){
+                            dict.value = new LinkedHashMap<>(other.value.size());
+                            return dict;
                         }
 
                         thread.reportRuntimeError("can not convert " + value.getType() + " to Dictionary");
@@ -34,7 +38,10 @@ public class TDictionary extends PrimitiveObject<Map<TObject, TObject>>
     public static final Type ITR_TYPE =
             new Type.Builder("DictionaryIterator")
                     .setAbstract(true)
-                    .setConstructor((thread, params) -> Null.INSTANCE)
+                    .setInstanceMaker(() -> {
+                        throw new AssertionError();
+                    })
+                    .setConstructor((func, thread, params) -> Null.INSTANCE)
                     .build();
 
     private final Map<String, Member> methods;

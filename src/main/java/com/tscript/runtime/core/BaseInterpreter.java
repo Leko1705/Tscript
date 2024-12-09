@@ -542,26 +542,17 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void callSuper(byte argCount) {
         TObject owner = thread.getFrame().getOwner();
-        if (!(owner instanceof VirtualObject vobj)){
-            thread.reportRuntimeError("can not bind to builtin or native type");
-            return;
-        }
-        if (vobj.superObject != null){
-            thread.reportRuntimeError("super has already been called");
-            return;
-        }
+
         Type type = owner.getType();
         Type superType = type.getSuperType();
-        assert superType != null; // should have been checked by the compiler earlier
-        List<TObject> args = new ArrayList<>(); // avg. param amount
+
+        Function constructor = superType.getConstructor().dup();
+        constructor.setOwner(owner.getSuper());
+
+        List<TObject> args = new ArrayList<>();
         for (int i = 0; i < argCount; i++) args.add(thread.pop());
-        boolean isAbstract = superType.isAbstract();
-        if (superType instanceof VirtualType vt) vt.isAbstract = false;
-        TObject superObj = thread.call(superType, args);
-        if (superType instanceof VirtualType vt) vt.isAbstract = isAbstract;
-        if (superObj == null) return;
-        vobj.superObject = superObj;
-        if (superObj instanceof VirtualObject vo) vo.subObject = vobj;
+
+        constructor.call(thread, args);
     }
 
     @Override

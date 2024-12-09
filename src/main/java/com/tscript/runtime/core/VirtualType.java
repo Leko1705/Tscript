@@ -1,12 +1,10 @@
 package com.tscript.runtime.core;
 
 import com.tscript.runtime.tni.Environment;
+import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.typing.*;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class VirtualType implements Type {
 
@@ -85,10 +83,6 @@ public class VirtualType implements Type {
 
     @Override
     public synchronized TObject eval(TThread thread, List<TObject> params) {
-        if (isAbstract){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidAbstractInstantiation(name));
-            return null;
-        }
 
         if (constructorVisibility != Visibility.PUBLIC){
             if (constructorVisibility == Visibility.PRIVATE){
@@ -119,22 +113,31 @@ public class VirtualType implements Type {
             }
         }
 
-        VirtualObject object = newInstance();
-
-        if (constructor != null) {
-            Function copy = constructor.dup();
-            copy.setOwner(object);
-            copy.eval(thread, params);
-        }
-
+        Type.super.eval(thread, params);
         return null;
     }
 
-    public VirtualObject newInstance() {
+    public VirtualObject newInstance(Environment env) {
+        VirtualObject obj = new VirtualObject(this, prepareInstanceMembers());
+
+        if (superType != null){
+            TObject superObj = superType.newInstance(env);
+            obj.superObject = superObj;
+
+            if (superObj instanceof VirtualObject vobj){
+                vobj.subObject = obj;
+            }
+            //else if super object is not virtual: we don't care
+        }
+
+        return obj;
+    }
+
+    private Member[] prepareInstanceMembers(){
         Member[] members = new Member[instanceMembers.length];
         for (int i = 0; i < instanceMembers.length; i++)
             members[i] = Member.copy(instanceMembers[i]);
-        return new VirtualObject(this, members);
+        return members;
     }
 
     @Override
@@ -148,12 +151,34 @@ public class VirtualType implements Type {
     }
 
     public Function getConstructor() {
-        return constructor;
+        return Objects.requireNonNullElseGet(constructor, this::defaultConstructor);
     }
 
     @Override
     public Member loadMember(int index) {
         return staticMembers[index];
+    }
+
+
+
+    private Function defaultConstructor() {
+        return new NativeFunction() {
+
+            @Override
+            public String getName() {
+                return name + "@constructor";
+            }
+
+            @Override
+            public Parameters doGetParameters(Environment env) {
+                return Parameters.EMPTY;
+            }
+
+            @Override
+            public TObject evaluate(Environment env, List<TObject> arguments) {
+                return getOwner();
+            }
+        };
     }
 
 }

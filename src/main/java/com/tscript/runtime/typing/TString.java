@@ -20,11 +20,18 @@ public class TString extends PrimitiveObject<String>
                     .addMember(Member.of(Visibility.PUBLIC, false, "fromUnicode", new FromUnicodeStaticMethod()))
                     .addMember(Member.of(Visibility.PUBLIC, false, "join", new JoinStaticMethod()))
                     .setParameters(Parameters.newInstance().add("value", EMPTY))
-                    .setConstructor((thread, params) -> new TString(TNIUtils.toString(thread, params.get(0))))
+                    .setInstanceMaker(() -> new TString(""))
+                    .setConstructor((func, thread, params) -> {
+                        ((TString)func.getOwner()).value = TNIUtils.toString(thread, params.get(0));
+                        return func.getOwner();
+                    })
                     .build();
 
     public static final Type ITR_TYPE = new Type.Builder("StringIterator")
-            .setConstructor((thread, params) ->  Null.INSTANCE)
+            .setInstanceMaker(() -> {
+                throw new AssertionError();
+            })
+            .setConstructor((func, thread, params) ->  Null.INSTANCE)
             .setAbstract(true)
             .build();
 

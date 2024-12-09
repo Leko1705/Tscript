@@ -1,6 +1,7 @@
 module test;
 
-class X {}
+class Y {}
+class X: Y {}
 
 function foo(y){
     return X();

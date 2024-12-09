@@ -8,17 +8,23 @@ public class TInteger extends PrimitiveObject<Integer> {
     public static final Type TYPE =
             new Type.Builder("Integer")
                     .setParameters(Parameters.newInstance().add("value", null))
-                    .setConstructor(((thread, params) -> {
+                    .setInstanceMaker(() -> new TInteger(0))
+                    .setConstructor(((func, thread, params) -> {
                         TObject value = params.get(0);
+                        TInteger owner = (TInteger) func.getOwner();
 
-                        if (value instanceof TInteger)
-                            return value;
+                        if (value instanceof TInteger i) {
+                            owner.value = i.value;
+                            return owner;
+                        }
                         if (value instanceof TReal real){
-                            return new TInteger(real.getValue().intValue());
+                            owner.value = real.value.intValue();
+                            return owner;
                         }
                         if (value instanceof TString string){
                             try {
-                                return new TInteger(Integer.parseInt(string.getValue()));
+                                owner.value = Integer.parseInt(string.getValue());
+                                return owner;
                             }
                             catch (NumberFormatException e){
                                 thread.reportRuntimeError("can not convert string '" + string.getValue() + "' to Integer");

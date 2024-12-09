@@ -77,7 +77,7 @@ public class ClassGenerator extends TCTreeScanner<Void, Void> {
                 r.run();
 
             if (handled.superName != null && !handled.superName.isEmpty()){
-                constructorGenerator.addInstructions(List.of(new CallSuper(0)));
+                constructorGenerator.addInstructions(List.of(new CallSuper(0), new Pop()));
                 constructorGenerator.stackGrows();
                 constructorGenerator.stackShrinks();
             }

@@ -54,6 +54,11 @@ class TypeType implements Type {
     }
 
     @Override
+    public TObject newInstance(Environment env) {
+        return this;
+    }
+
+    @Override
     public Type getType() {
         return this;
     }

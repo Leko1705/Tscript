@@ -16,7 +16,10 @@ public class TThread extends Thread implements Environment, TObject {
 
     public static final Type TYPE = new Type.Builder("Thread")
             .setAbstract(true)
-            .setConstructor(((thread, params) -> {
+            .setInstanceMaker(() -> {
+                throw new AssertionError();
+            })
+            .setConstructor(((func, thread, params) -> {
                 throw new AbstractMethodError();
             }))
             .build();

@@ -18,19 +18,23 @@ public class TArray extends PrimitiveObject<List<TObject>>
                     .setParameters(Parameters.newInstance()
                             .add("size_or_other", new TInteger(0))
                             .add("value", Null.INSTANCE))
-                    .setConstructor((thread, params) -> {
+                    .setInstanceMaker(TArray::new)
+                    .setConstructor((func, thread, params) -> {
                         TObject size_or_other = params.get(0);
+                        TArray arr = (TArray) func.getOwner();
 
                         if (size_or_other instanceof TInteger integer) {
                             int count = integer.getValue();
                             TObject other = params.get(1);
                             ArrayList<TObject> list = new ArrayList<>(count);
                             for (int i = 0; i < count; i++) list.add(other);
-                            return new TArray(list);
+                            arr.value = list;
+                            return arr;
                         }
 
-                        else if (size_or_other instanceof TArray arr){
-                            return new TArray(arr.getValue());
+                        else if (size_or_other instanceof TArray other){
+                            arr.value = new ArrayList<>(other.getValue());
+                            return arr;
                         }
 
                         thread.reportRuntimeError("can not convert " + size_or_other.getType() + " to Array");
@@ -41,8 +45,11 @@ public class TArray extends PrimitiveObject<List<TObject>>
     public static final Type ITR_TYPE =
             new Type.Builder("ArrayIterator")
                     .setAbstract(true)
+                    .setInstanceMaker(() -> {
+                        throw new AssertionError();
+                    })
                     .addMember(Member.of(Visibility.PUBLIC, false, "concat", new ConcatStaticMethod()))
-                    .setConstructor((thread, params) -> Null.INSTANCE)
+                    .setConstructor((func, thread, params) -> Null.INSTANCE)
                     .build();
 
     private final Map<String, Member> methods;
