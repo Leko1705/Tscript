@@ -45,6 +45,15 @@ public class Frame {
         this.module = module;
     }
 
+    public Frame(TObject owner, String name, byte[][] instructions, TObject[] stack, TObject[] locals, Module module) {
+        this.owner = owner;
+        this.name = name;
+        this.instructions = instructions;
+        this.stack = stack;
+        this.locals = locals;
+        this.module = module;
+    }
+
     public String getName() {
         return name;
     }
@@ -62,7 +71,9 @@ public class Frame {
     }
 
     public TObject pop() {
-        return stack[--sp];
+        TObject top = stack[--sp];
+        stack[sp] = null;
+        return top;
     }
 
     public void jumpTo(int address) {

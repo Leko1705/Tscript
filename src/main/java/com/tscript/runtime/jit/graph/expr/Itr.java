@@ -5,8 +5,9 @@ public class Itr implements Expression {
     public Expression iterable;
     public boolean canFail = true;
 
-    public Itr(Expression iterable) {
+    public Itr(Expression iterable, boolean canFail) {
         this.iterable = iterable;
+        this.canFail = canFail;
     }
 
     @Override

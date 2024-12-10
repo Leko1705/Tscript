@@ -11,6 +11,9 @@ import java.util.*;
 
 public class Profiler extends InterpreterDecorator {
 
+    public static final boolean DEBUG = true;
+
+
     private record Key(Module module, String name, int pos, Type[] types) {
         @Override
         public boolean equals(Object o) {
@@ -58,17 +61,22 @@ public class Profiler extends InterpreterDecorator {
             types[i] = args[i].getType();
         }
 
-        Key key = new Key(vfunc.getModule(), vfunc.getName(), frame.ip, types);
+        Key key = new Key(vfunc.getModule(), vfunc.getName(), -1, types); // ip does not matter for function cals
         Value value = cache.computeIfAbsent(key, k -> new Value());
 
         if (value.image != null){
+            ImageFrame imgFrame = new ImageFrame(vfunc, args);
             try {
-                TObject result = value.image.run(thread, new ImageFrame(vfunc, args));
+                TObject result = value.image.run(thread, imgFrame);
                 if (result != null) {
                     frame.push(result);
                 }
             }
-            catch (FallbackException ignored){}
+            catch (FallbackException ignored){
+                if (DEBUG){
+                    System.err.println("Fallback exception");
+                }
+            }
             return;
         }
 
@@ -97,9 +105,9 @@ public class Profiler extends InterpreterDecorator {
                     return value.image.run(thread, imgFrame);
                 }
                 catch (FallbackException ignored){
-                    super.call(called, arguments);
-                    frame.sp = imgFrame.sp;
-                    frame.ip = imgFrame.ip;
+                    if (DEBUG){
+                        System.err.println("Fallback exception");
+                    }
                     return null;
                 }
             }

@@ -10,6 +10,7 @@ import com.tscript.runtime.jit.graph.traversal.TreeTraverseStrategy;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class ConstantFolder implements Optimizer {
@@ -164,9 +165,8 @@ public class ConstantFolder implements Optimizer {
         @Override
         public Void visitPopFrame(PopFrame expr, Expression expression) {
             locals.restore();
-            if (temps.get(0) != null && temps.get(0) == This.INSTANCE){
-                // can not fold 'this'
-                temps.put(0, null);
+            if (temps.get(0) != null){
+                temps.put(0, validateFoldable(temps.get(0)));
             }
             return null;
         }
@@ -174,7 +174,7 @@ public class ConstantFolder implements Optimizer {
         @Override
         public Void visitStoreTemp(StoreTemp expr, Expression parent) {
             scan(expr.what, expr);
-            temps.put(expr.index, expr.what);
+            temps.put(expr.index, validateFoldable(expr.what));
             return null;
         }
 
@@ -194,7 +194,7 @@ public class ConstantFolder implements Optimizer {
         @Override
         public Void visitStoreLocal(StoreLocal expr, Expression expression) {
             scan(expr.what, expr);
-            locals.get().put(expr.index, expr.what);
+            locals.get().put(expr.index, validateFoldable(expr.what));
             return null;
         }
 
@@ -242,6 +242,11 @@ public class ConstantFolder implements Optimizer {
             }
 
             return null;
+        }
+
+        private static Expression validateFoldable(Expression exp){
+            if (Set.of(This.class, ItrNext.class).contains(exp.getClass())) return null;
+            return exp;
         }
     }
 

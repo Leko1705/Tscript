@@ -1,11 +1,15 @@
 module test;
 
-class Y {}
-class X: Y {}
 
-function foo(y){
-    return X();
+function foo(x, y){
+    for x do {
+        if y then print("hi");
+    }
 }
 
-for var i in 0:100000 do print(foo(i));
+for var i in 0:101 do {
+    foo(0:1, true);
+}
 
+print("here");
+foo(5, false);

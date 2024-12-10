@@ -4,8 +4,8 @@ public class BoolGuard extends Guard {
 
     public boolean required;
 
-    public BoolGuard(Expression expression, boolean required) {
-        super(expression);
+    public BoolGuard(Expression expression, boolean required, int recoverAddress, int spRecover) {
+        super(expression, recoverAddress, spRecover);
         this.required = required;
     }
 

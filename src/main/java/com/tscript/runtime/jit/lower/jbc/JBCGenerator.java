@@ -62,6 +62,7 @@ public class JBCGenerator implements Generator {
                 .defineClass(b);
 
         NativeImage image;
+        //new ClassReader(b).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(System.err)), 0);
 
         try {
             image = (NativeImage) clazz.getConstructor().newInstance();

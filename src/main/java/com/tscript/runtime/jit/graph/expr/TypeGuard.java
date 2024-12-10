@@ -6,8 +6,8 @@ public class TypeGuard extends Guard {
 
     public Type[] required;
 
-    public TypeGuard(Expression expression, Type... types) {
-        super(expression);
+    public TypeGuard(Expression expression, int recoverAddress, int spRecover, Type... types) {
+        super(expression, recoverAddress, spRecover);
         this.required = types;
     }
 

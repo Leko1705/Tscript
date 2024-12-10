@@ -173,8 +173,8 @@ public class Tracer extends InterpreterDecorator {
 
     @Override
     public TObject call(Callable called, List<TObject> arguments) {
-        // method is called from native context
-        // ensure the optimized version is called
+        // Method is called from native context.
+        // Ensure the optimized version is called instead.
         return profiler.call(called, arguments);
     }
 
@@ -491,7 +491,7 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void getIterator() {
         super.getIterator();
-        Itr itr = new Itr(stack.remove());
+        Expression itr = new Itr(stack.remove(), false);
         stack.push(itr);
         extendFlow(itr);
     }
@@ -512,10 +512,10 @@ public class Tracer extends InterpreterDecorator {
         super.branchIterator(b1, b2);
 
         boolean hasNext = (currIp == frame.ip);
-        extendFlow(new ItrNextGuard(hasNext));
+        extendFlow(new ItrNextGuard(hasNext, frame.ip-1, frame.sp+1));
         if (!hasNext){
             stack.remove();
-            extendFlow(new Pop(null));
+            extendFlow(new Pop(Expression.EMPTY));
         }
     }
 
@@ -528,7 +528,7 @@ public class Tracer extends InterpreterDecorator {
         super.branch(b1, b2, ifTrue);
 
         boolean required = !ifTrue && (currIp == frame.ip);
-        extendFlow(new BoolGuard(stack.remove(), required));
+        extendFlow(new BoolGuard(stack.remove(), required, frame.ip-1, frame.sp+1));
     }
 
     @Override
@@ -546,7 +546,7 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void posivate() {
         super.posivate();
-        stack.push(new TypeGuard(stack.remove(), TInteger.TYPE, TReal.TYPE));
+        stack.push(new TypeGuard(stack.remove(), ip(), sp(), TInteger.TYPE, TReal.TYPE));
     }
 
     @Override
@@ -555,9 +555,9 @@ public class Tracer extends InterpreterDecorator {
         Expression top = stack.remove();
 
         if (top instanceof Bool)
-            top = new TypeGuard(top, TBoolean.TYPE);
+            top = new TypeGuard(top, ip(), sp(), TBoolean.TYPE);
         else
-            top = new TypeGuard(top, TInteger.TYPE, TReal.TYPE);
+            top = new TypeGuard(top, ip(), sp(), TInteger.TYPE, TReal.TYPE);
 
         stack.push(new Not(top));
     }
@@ -565,7 +565,7 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void negate() {
         super.negate();
-        stack.push(new Neg(new TypeGuard(stack.remove(), TInteger.TYPE, TReal.TYPE)));
+        stack.push(new Neg(new TypeGuard(stack.remove(), ip(), sp(), TInteger.TYPE, TReal.TYPE)));
     }
 
     @Override
@@ -637,6 +637,9 @@ public class Tracer extends InterpreterDecorator {
     }
 
     private void completeTrace(Expression exp) {
+        if (Profiler.DEBUG){
+            System.err.println("trace complete; start compilation");
+        }
         current.setNext(new EndNode(new Wrapper(exp)));
         TThread thread = getCurrentThread();
         JITCompiler jit = thread.getVM().getJitCompiler();
@@ -656,6 +659,14 @@ public class Tracer extends InterpreterDecorator {
         Module module = getCurrentThread().frameStack.element().getModule();
         Pool pool = module.getPool();
         return pool.loadName(b1, b2);
+    }
+
+    private int sp(){
+        return getCurrentThread().frameStack.element().sp;
+    }
+
+    private int ip(){
+        return getCurrentThread().frameStack.element().ip;
     }
 
 }

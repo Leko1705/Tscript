@@ -9,7 +9,7 @@ import java.util.Objects;
 
 public abstract class PrimitiveObject<V> implements TObject {
 
-    public V value;
+    protected V value;
 
     protected PrimitiveObject(V value) {
         this.value = value;

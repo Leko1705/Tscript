@@ -110,6 +110,9 @@ public class DeadVariableEliminator implements Optimizer {
                 }
             }
 
+            if (expr.what == ItrNext.INSTANCE)
+                return null;
+
             int address = expr.index;
             if (!removalCandidates.get().containsKey(address))
                 removalCandidates.get().put(address, new LinkedList<>());

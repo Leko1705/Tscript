@@ -11,7 +11,7 @@ import java.util.LinkedList;
 
 /**
  * Removes unnecessary function calls that might have been already inlined
- * or do not affect the execution.
+ * or do not affect the execution or will never fail.
  */
 public class TrivialCallRemover implements Optimizer {
 

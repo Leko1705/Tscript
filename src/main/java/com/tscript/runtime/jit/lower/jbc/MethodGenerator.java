@@ -175,8 +175,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitPop(Pop expr, Void unused) {
-        if (expr.expression != null)
-            expr.expression.accept(this);
+        expr.expression.accept(this);
         mv.visitInsn(POP);
         decSp();
         return null;
@@ -696,6 +695,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitItr(Itr expr, Void unused) {
         genLoadThread();
+        genLoadFrame();
         expr.iterable.accept(this);
 
         mv.visitMethodInsn(
@@ -704,6 +704,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 "getIterator",
                 "("
                         + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
                         + TOBJECT_DESC
                         + ")" + TOBJECT_DESC,
                 false
@@ -800,9 +801,11 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitStoreLocal(StoreLocal expr, Void unused) {
 
-        genLocalsArray();
-        pushJBCInt(mv, expr.index);
         expr.what.accept(this);
+        genLocalsArray();
+        mv.visitInsn(SWAP);
+        pushJBCInt(mv, expr.index);
+        mv.visitInsn(SWAP);
         mv.visitInsn(AASTORE);
 
         decSp();
@@ -1118,10 +1121,12 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitBoolGuard(BoolGuard expr, Void unused) {
         expr.expression.accept(this);
+        decSp();
 
-        mv.visitInsn(DUP);
         genLoadThread();
         genLoadFrame();
+        pushJBCInt(mv, expr.recoverAddress);
+        pushJBCInt(mv, expr.recoverStackPointerAddr);
         if (expr.required){
             mv.visitInsn(ICONST_1);
         }
@@ -1137,7 +1142,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                         + TOBJECT_DESC
                         + org.objectweb.asm.Type.getDescriptor(TThread.class)
                         + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
-                        + "Z)V",
+                        + "IIZ)V",
                 false
         );
 
@@ -1155,6 +1160,9 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         mv.visitInsn(DUP);
         genLoadThread();
         genLoadFrame();
+        pushJBCInt(mv, expr.ip);
+        pushJBCInt(mv, expr.sp);
+
         if (expr.shouldHaveNext){
             mv.visitInsn(ICONST_1);
         }
@@ -1170,7 +1178,7 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                         + TOBJECT_DESC
                         + org.objectweb.asm.Type.getDescriptor(TThread.class)
                         + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
-                        + "Z)V",
+                        + "IIZ)V",
                 false
         );
 
@@ -1425,4 +1433,5 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     private void genStoreFrame(){
         mv.visitVarInsn(ASTORE, 2);
     }
+
 }
