@@ -149,6 +149,10 @@ public class ConstantFolder implements Optimizer {
             locals.get().replaceAll((i, t) -> null);
         }
 
+        private void forgetTemps(){
+            temps.replaceAll((i, t) -> null);
+        }
+
         @Override
         public Void visitPushFrame(PushFrame expr, Expression unused) {
             scan(expr.called, expr);
@@ -241,6 +245,30 @@ public class ConstantFolder implements Optimizer {
                 }
             }
 
+            return null;
+        }
+
+        @Override
+        public Void visitBoolGuard(BoolGuard expr, Expression expression) {
+            super.visitBoolGuard(expr, expression);
+            // enforce snapshotting locals before guard evaluation
+            forgetLocals();
+            return null;
+        }
+
+        @Override
+        public Void visitTypeGuard(TypeGuard expr, Expression expression) {
+            super.visitTypeGuard(expr, expression);
+            // enforce snapshotting locals before guard evaluation
+            forgetLocals();
+            return null;
+        }
+
+        @Override
+        public Void visitItrNextGuard(ItrNextGuard expr, Expression expression) {
+            super.visitItrNextGuard(expr, expression);
+            // enforce snapshotting locals before guard evaluation
+            forgetLocals();
             return null;
         }
 

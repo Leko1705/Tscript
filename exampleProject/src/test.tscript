@@ -2,11 +2,9 @@ module test;
 
 
 function foo(x){
-    return +x;
+    return -x;
 }
 
-for var i in 0:101 do {
-    foo(2);
+for var i in 0:200 do {
+    print(foo(2));
 }
-
-foo("hi");
