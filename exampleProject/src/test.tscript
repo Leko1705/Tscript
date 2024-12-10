@@ -1,15 +1,12 @@
 module test;
 
 
-function foo(x, y){
-    for x do {
-        if y then print("hi");
-    }
+function foo(x){
+    return +x;
 }
 
 for var i in 0:101 do {
-    foo(0:1, true);
+    foo(2);
 }
 
-print("here");
-foo(5, false);
+foo("hi");

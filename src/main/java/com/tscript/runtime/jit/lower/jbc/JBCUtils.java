@@ -3,6 +3,7 @@ package com.tscript.runtime.jit.lower.jbc;
 import com.tscript.projectfile.ProjectFile;
 import com.tscript.runtime.core.*;
 import com.tscript.runtime.jit.JITSensitive;
+import com.tscript.runtime.jit.graph.expr.Str;
 import com.tscript.runtime.jit.tracing.FallbackException;
 import com.tscript.runtime.jit.tracing.ImageFrame;
 import com.tscript.runtime.stroage.FunctionArea;
@@ -521,6 +522,34 @@ public class JBCUtils {
         if (given != expected){
             frame.sp = spRecover;
             frame.stack[spRecover-1] = obj;
+            frame.ip = recoverAddress;
+            fallback(thread, frame);
+        }
+    }
+
+    @JITSensitive
+    public static void guardTypes(TObject obj, TThread thread,
+                                  ImageFrame frame, int recoverAddress,
+                                  int spRecover, String[] expected){
+        for (String s : expected){
+            String given = obj.getType().getId();
+            if (given.equals(s)) return;
+        }
+
+        frame.sp = spRecover;
+        frame.stack[frame.sp-1] = obj;
+        frame.ip = recoverAddress;
+        fallback(thread, frame);
+    }
+
+    @JITSensitive
+    public static void guardType(TObject obj, TThread thread,
+                                  ImageFrame frame, int recoverAddress,
+                                  int spRecover, String expected){
+        String given = obj.getType().getId();
+        if (!given.equals(expected)){
+            frame.sp = spRecover;
+            frame.stack[frame.sp-1] = obj;
             frame.ip = recoverAddress;
             fallback(thread, frame);
         }

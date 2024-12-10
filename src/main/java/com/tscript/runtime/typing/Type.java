@@ -19,6 +19,19 @@ public interface Type extends Callable {
 
    String getName();
 
+   default String getId(){
+       String id = "id<" + getName() + ">{";
+       Type superType = getSuperType();
+       if (superType != null) {
+           id += superType.getId();
+       }
+       id += "" + isAbstract()
+               + getInstanceFields().size();
+       if (isVirtual()) id += ";V}";
+       else id += ";N}";
+       return id;
+   }
+
     @Override
     default String getDisplayName() {
         return "Type<" + getName() + ">";

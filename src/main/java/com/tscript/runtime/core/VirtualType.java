@@ -8,6 +8,7 @@ import java.util.*;
 
 public class VirtualType implements Type {
 
+    private final String modulePath;
     private final String name;
     protected Type superType;
     private boolean superTypeInitialized = false;
@@ -24,7 +25,9 @@ public class VirtualType implements Type {
                        Function constructor,
                        Visibility constructorVisibility,
                        Member[] staticMembers,
-                       Member[] instanceMembers) {
+                       Member[] instanceMembers,
+                       String modulePath) {
+        this.modulePath = modulePath;
         this.name = name;
         this.isAbstract = isAbstract;
         this.constructor = constructor;
@@ -159,7 +162,14 @@ public class VirtualType implements Type {
         return staticMembers[index];
     }
 
+    public String getModulePath() {
+        return modulePath;
+    }
 
+    @Override
+    public String getId() {
+        return Type.super.getId() + modulePath;
+    }
 
     private Function defaultConstructor() {
         return new NativeFunction() {

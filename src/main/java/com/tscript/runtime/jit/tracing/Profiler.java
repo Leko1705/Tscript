@@ -11,7 +11,7 @@ import java.util.*;
 
 public class Profiler extends InterpreterDecorator {
 
-    public static final boolean DEBUG = true;
+    public static final boolean DEBUG = false;
 
 
     private record Key(Module module, String name, int pos, Type[] types) {

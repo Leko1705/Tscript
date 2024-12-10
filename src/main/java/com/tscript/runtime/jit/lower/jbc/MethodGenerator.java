@@ -1152,6 +1152,56 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitTypeGuard(TypeGuard expr, Void unused) {
         expr.expression.accept(this);
+
+        mv.visitInsn(DUP);
+        genLoadThread();
+        genLoadFrame();
+        pushJBCInt(mv, expr.recoverAddress);
+        pushJBCInt(mv, expr.recoverStackPointerAddr);
+
+        if (expr.required.length == 1){
+            mv.visitLdcInsn(expr.required[0].getId());
+
+            mv.visitMethodInsn(
+                    INVOKESTATIC,
+                    org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                    "guardType",
+                    "("
+                            + TOBJECT_DESC
+                            + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                            + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                            + "II"
+                            + org.objectweb.asm.Type.getDescriptor(String.class)
+                            + ")V",
+                    false
+            );
+            return null;
+        }
+
+        pushJBCInt(mv, expr.required.length);
+        mv.visitTypeInsn(ANEWARRAY, org.objectweb.asm.Type.getInternalName(String.class));
+
+        for (int i = 0; i < expr.required.length; i++) {
+            mv.visitInsn(DUP);
+            pushJBCInt(mv, i);
+            mv.visitLdcInsn(expr.required[i].getId());
+            mv.visitInsn(AASTORE);
+        }
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "guardTypes",
+                "("
+                        + TOBJECT_DESC
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + "II"
+                        + org.objectweb.asm.Type.getDescriptor(String[].class)
+                        + ")V",
+                false
+        );
+
         return null;
     }
 

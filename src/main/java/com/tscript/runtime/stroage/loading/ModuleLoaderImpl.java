@@ -251,7 +251,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
             int instanceMemberAmount = Conversion.from2Bytes(reader.read(), reader.read());
             Member[] instanceMembers = readMembers(reader, instanceMemberAmount);
 
-            area.virtualTypes[id] = new VirtualType(name, isAbstract, constructor, constructorVisibility, staticMembers, instanceMembers);
+            area.virtualTypes[id] = new VirtualType(name, isAbstract, constructor, constructorVisibility, staticMembers, instanceMembers, module.getCanonicalPath());
             area.unloadedStaticBlocks[id] = staticBlock;
         }
 
