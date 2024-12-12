@@ -2,6 +2,7 @@ package com.tscript.runtime.jit.lower.jbc;
 
 import com.tscript.runtime.core.Argument;
 import com.tscript.runtime.core.Builtins;
+import com.tscript.runtime.core.Opcode;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.jit.graph.BranchNode;
 import com.tscript.runtime.jit.graph.Context;
@@ -23,7 +24,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MethodGenerator extends TreeTraverseStrategy implements ExpressionVisitor<Void, Void>, Opcodes {
+public class MethodGenerator
+        extends TreeTraverseStrategy
+        implements ExpressionVisitor<Void, Void>, Lower.Generator, Opcodes {
 
     private static final String TOBJECT_DESC = org.objectweb.asm.Type.getDescriptor(TObject.class);
     private static final String TOBJECT_INTERNAL = org.objectweb.asm.Type.getInternalName(TObject.class);
@@ -90,8 +93,8 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     }
 
     @Override
-    public Void visitWrapper(Wrapper wrapper, Void unused) {
-        return wrapper.expression.accept(this);
+    public Void visitReturn(Return expr, Void unused) {
+        return expr.expression.accept(this);
     }
 
     @Override
@@ -193,6 +196,12 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitInt(Int expr, Void unused) {
+        sp++;
+
+        if (expr.asPrimitive) {
+            pushJBCInt(mv, expr.value);
+            return null;
+        }
 
         String name = loadConstant(
                 expr.value,
@@ -208,13 +217,17 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 TOBJECT_DESC
         );
 
-        sp++;
-
         return null;
     }
 
     @Override
     public Void visitString(Str expr, Void unused) {
+        sp++;
+
+        if (expr.asPrimitive) {
+            mv.visitLdcInsn(expr.value);
+            return null;
+        }
 
         String name = loadConstant(
                 expr.value,
@@ -230,12 +243,22 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 TOBJECT_DESC
         );
 
-        sp++;
         return null;
     }
 
     @Override
     public Void visitBool(Bool expr, Void unused) {
+        sp++;
+
+        if (expr.asPrimitive) {
+            if (expr.value) {
+                mv.visitInsn(ICONST_1);
+            }
+            else {
+                mv.visitInsn(ICONST_0);
+            }
+            return null;
+        }
 
         String fieldName = expr.value ? "TRUE" : "FALSE";
 
@@ -245,12 +268,18 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 fieldName,
                 org.objectweb.asm.Type.getDescriptor(TBoolean.class));
 
-        sp++;
         return null;
     }
 
     @Override
     public Void visitReal(Real expr, Void unused) {
+        sp++;
+
+        if (expr.asPrimitive) {
+            mv.visitLdcInsn(expr.value);
+            return null;
+        }
+
         String name = loadConstant(
                 expr.value,
                 TReal.class,
@@ -264,7 +293,6 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
                 TOBJECT_DESC
         );
 
-        sp++;
         return null;
     }
 
@@ -605,39 +633,128 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
 
     @Override
     public Void visitBinaryOp(BinaryOp expr, Void unused) {
-        genLoadThread();
-        expr.lhs.accept(this);
-        expr.rhs.accept(this);
-        pushJBCInt(mv, expr.opcode.b);
 
-        mv.visitMethodInsn(
-                INVOKESTATIC,
-                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
-                "binary",
-                "("
-                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
-                        + TOBJECT_DESC
-                        + TOBJECT_DESC
-                        + "B"
-                        + ")" + TOBJECT_DESC,
-                false
-        );
+        if (expr.lhsTarget == null || expr.rhsTarget == null) {
+            genLoadThread();
+            expr.lhs.accept(this);
+            expr.rhs.accept(this);
 
-        if (expr.canFail)
-            genFailureReturnIfNull();
+
+            pushJBCInt(mv, expr.opcode.b);
+
+            mv.visitMethodInsn(
+                    INVOKESTATIC,
+                    org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                    "binary",
+                    "("
+                            + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                            + TOBJECT_DESC
+                            + TOBJECT_DESC
+                            + "B"
+                            + ")" + TOBJECT_DESC,
+                    false
+            );
+
+            if (expr.canFail)
+                genFailureReturnIfNull();
+        }
+        else {
+            if (expr.opcode == Opcode.ADD) {
+                operateNumericPrimitives(expr, IADD, DADD);
+            }
+            else if (expr.opcode == Opcode.SUB) {
+                operateNumericPrimitives(expr, ISUB, DSUB);
+            }
+            else if (expr.opcode == Opcode.MUL) {
+                operateNumericPrimitives(expr, IMUL, DMUL);
+            }
+            else if (expr.opcode == Opcode.DIV) {
+                operateNumericPrimitives(expr, IDIV, DDIV);
+            }
+            else if (expr.opcode == Opcode.MOD) {
+                operateIntPrimitives(expr, IREM);
+            }
+            else if (expr.opcode == Opcode.AND) {
+                operateIntPrimitives(expr, IAND);
+            }
+            else if (expr.opcode == Opcode.OR) {
+                operateIntPrimitives(expr, IOR);
+            }
+            else if (expr.opcode == Opcode.XOR) {
+                operateIntPrimitives(expr, IXOR);
+            }
+            else if (expr.opcode == Opcode.SLA) {
+                operateIntPrimitives(expr, ISHL);
+            }
+            else if (expr.opcode == Opcode.SRA) {
+                operateIntPrimitives(expr, ISHR);
+            }
+            else if (expr.opcode == Opcode.SRL) {
+                operateIntPrimitives(expr, IUSHR);
+            }
+        }
 
         decSp();
         return null;
     }
 
+    private void operateNumericPrimitives(BinaryOp expr, int intOp, int doubleOp) {
+        if (expr.lhsTarget == int.class) {
+            if (expr.rhsTarget == int.class) {
+                expr.lhs.accept(this);
+                expr.rhs.accept(this);
+                mv.visitInsn(intOp);
+            }
+            else if (expr.rhsTarget == double.class) {
+                expr.lhs.accept(this);
+                mv.visitInsn(I2D);
+                expr.rhs.accept(this);
+                mv.visitInsn(doubleOp);
+            }
+        }
+        else if (expr.lhsTarget == double.class) {
+            if (expr.rhsTarget == int.class) {
+                expr.lhs.accept(this);
+                expr.rhs.accept(this);
+                mv.visitInsn(I2D);
+                mv.visitInsn(doubleOp);
+            }
+            else if (expr.rhsTarget == double.class) {
+                expr.lhs.accept(this);
+                expr.rhs.accept(this);
+                mv.visitInsn(doubleOp);
+            }
+        }
+    }
+
+    private void operateIntPrimitives(BinaryOp expr, int op){
+        expr.lhs.accept(this);
+        expr.rhs.accept(this);
+        mv.visitInsn(op);
+    }
+
     @Override
     public Void visitNot(Not expr, Void unused) {
+        if (expr.primitiveTarget != null){
+            mv.visitInsn(IXOR);
+            return null;
+        }
+
         genUnaryOp(expr.expression, "not", expr.canFail);
         return null;
     }
 
     @Override
     public Void visitNeg(Neg expr, Void unused) {
+        if (expr.primitiveTarget == int.class){
+            mv.visitInsn(INEG);
+            return null;
+        }
+        if (expr.primitiveTarget == double.class){
+            mv.visitInsn(DNEG);
+            return null;
+        }
+
         genUnaryOp(expr.expression, "neg", expr.canFail);
         return null;
     }
@@ -790,8 +907,23 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     @Override
     public Void visitLoadLocal(LoadLocal expr, Void unused) {
 
+        if (expr.primitiveType != null){
+            if (expr.primitiveType == int.class) {
+                mv.visitVarInsn(ILOAD, expr.index + 4);
+            }
+            else if (expr.primitiveType == double.class) {
+                mv.visitVarInsn(DLOAD, expr.index + 4);
+            }
+            else if (expr.primitiveType == String.class) {
+                mv.visitVarInsn(ALOAD, expr.index + 4);
+            }
+
+            sp++;
+            return null;
+        }
+
         genLocalsArray();
-        pushJBCInt(mv, expr.index());
+        pushJBCInt(mv, expr.index);
         mv.visitInsn(AALOAD);
 
         sp++;
@@ -802,6 +934,22 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
     public Void visitStoreLocal(StoreLocal expr, Void unused) {
 
         expr.what.accept(this);
+
+        if (expr.primitiveType != null) {
+            if (expr.primitiveType == int.class) {
+                mv.visitVarInsn(ISTORE, expr.index + 4);
+            }
+            else if (expr.primitiveType == double.class) {
+                mv.visitVarInsn(DSTORE, expr.index + 4);
+            }
+            else if (expr.primitiveType == String.class) {
+                mv.visitVarInsn(ASTORE, expr.index + 4);
+            }
+
+            decSp();
+            return null;
+        }
+
         genLocalsArray();
         mv.visitInsn(SWAP);
         pushJBCInt(mv, expr.index);
@@ -1235,7 +1383,159 @@ public class MethodGenerator extends TreeTraverseStrategy implements ExpressionV
         return null;
     }
 
+    @Override
+    public Void visitBuiltinLower(Lower expr, Void unused) {
+        expr.builtin.lower(this);
+        return null;
+    }
 
+    @Override
+    public void generate(Lower.Cast builtin) {
+        builtin.cast.accept(this);
+
+        if (builtin.asPrimitive) {
+            if (builtin.from == builtin.to) return;
+
+            if (builtin.to == boolean.class) return;
+
+            if (builtin.from == int.class && builtin.to == double.class)
+                mv.visitInsn(I2D);
+
+            else if (builtin.from == double.class && builtin.to == int.class)
+                mv.visitInsn(D2I);
+
+            else if (builtin.to == String.class){
+                mv.visitMethodInsn(INVOKESTATIC,
+                        org.objectweb.asm.Type.getInternalName(String.class),
+                        "valueOf",
+                        "(" + org.objectweb.asm.Type.getDescriptor(builtin.from) + ")" + org.objectweb.asm.Type.getDescriptor(String.class),
+                        false);
+            }
+            else {
+                throw new UnsupportedOperationException();
+            }
+        }
+        else {
+            if (builtin.to == boolean.class) {
+                mv.visitMethodInsn(
+                        INVOKESTATIC,
+                        org.objectweb.asm.Type.getInternalName(TBoolean.class),
+                        "of",
+                        "(Z)" + org.objectweb.asm.Type.getDescriptor(TBoolean.class),
+                        false
+                );
+            }
+
+            else if (builtin.from == int.class && builtin.to == int.class){
+                mv.visitMethodInsn(
+                        INVOKESPECIAL,
+                        org.objectweb.asm.Type.getInternalName(TInteger.class),
+                        "<init>",
+                        "(I)V", // Constructor descriptor
+                        false
+                );
+            }
+
+            else if (builtin.from == double.class && builtin.to == double.class){
+                mv.visitMethodInsn(
+                        INVOKESPECIAL,
+                        org.objectweb.asm.Type.getInternalName(TReal.class),
+                        "<init>",
+                        "(D)V", // Constructor descriptor
+                        false
+                );
+            }
+
+            else {
+                throw new UnsupportedOperationException();
+            }
+        }
+
+
+    }
+
+    @Override
+    public void generate(Lower.Unpack builtin) {
+        builtin.wrapper.accept(this);
+
+        if (builtin.unpackedType == int.class) {
+            genUnpack(TInteger.class, Integer.class, () -> {
+                mv.visitMethodInsn(INVOKEVIRTUAL,
+                        org.objectweb.asm.Type.getInternalName(Integer.class),
+                        "intValue",
+                        "()I",
+                        false);
+            });
+        }
+        else if (builtin.unpackedType == double.class) {
+            genUnpack(TReal.class, Double.class, () -> {
+                mv.visitMethodInsn(INVOKEVIRTUAL,
+                        org.objectweb.asm.Type.getInternalName(Double.class),
+                        "doubleValue",
+                        "()D",
+                        false);
+            });
+        }
+        else if (builtin.unpackedType == String.class) {
+            genUnpack(TString.class, String.class, () -> { });
+        }
+
+    }
+
+    private void genUnpack(Class<?> wrapperType, Class<?> unwrapped, Runnable furtherUnpack) {
+        mv.visitTypeInsn(CHECKCAST, org.objectweb.asm.Type.getInternalName(wrapperType));
+
+        mv.visitMethodInsn(INVOKEVIRTUAL,
+                org.objectweb.asm.Type.getInternalName(PrimitiveObject.class),
+                "getValue",
+                "()" + org.objectweb.asm.Type.getDescriptor(Object.class),
+                false);
+
+        mv.visitTypeInsn(CHECKCAST, org.objectweb.asm.Type.getInternalName(unwrapped));
+
+        if (furtherUnpack != null) furtherUnpack.run();
+    }
+
+    @Override
+    public void generate(Lower.Print builtin) {
+        mv.visitFieldInsn(GETSTATIC, org.objectweb.asm.Type.getInternalName(System.class), "out", "Ljava/io/PrintStream;");
+
+        Class<?> inputType = builtin.clazz;
+        if (inputType == Void.TYPE) inputType = Object.class;
+        else if (!inputType.isPrimitive() && inputType != String.class) inputType = Object.class;
+
+        builtin.sub.accept(this);
+        mv.visitMethodInsn(INVOKEVIRTUAL,
+                "java/io/PrintStream",
+                "println",
+                "(" + org.objectweb.asm.Type.getDescriptor(inputType) + ")V",
+                false);
+        decSp();
+
+        visitNull(null, null);
+    }
+
+    @Override
+    public void generate(Lower.Time builtin) {
+        if (!builtin.asPrimitive) {
+            mv.visitTypeInsn(NEW, org.objectweb.asm.Type.getInternalName(TReal.class));
+            mv.visitInsn(DUP);
+        }
+
+        mv.visitMethodInsn(INVOKESTATIC, org.objectweb.asm.Type.getInternalName(System.class), "currentTimeMillis", "()J", false);
+        mv.visitInsn(L2D);
+
+        if (!builtin.asPrimitive) {
+            mv.visitMethodInsn(
+                    INVOKESPECIAL,
+                    org.objectweb.asm.Type.getInternalName(TReal.class),
+                    "<init>",
+                    "(D)V", // Constructor descriptor
+                    false
+            );
+        }
+        sp++;
+    }
 
     private void pushJBCInt(MethodVisitor mv, int value){
         if (value == 0) mv.visitInsn(ICONST_0);

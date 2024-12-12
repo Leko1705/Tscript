@@ -2,11 +2,14 @@ package com.tscript.runtime.jit.graph.expr;
 
 public class Neg implements Expression {
 
-    public Expression expression;
-    public boolean canFail = true;
+    public Class<?> primitiveTarget = null;
 
-    public Neg(Expression expression) {
+    public Expression expression;
+    public boolean canFail;
+
+    public Neg(Expression expression, boolean canFail) {
         this.expression = expression;
+        this.canFail = canFail;
     }
 
     @Override

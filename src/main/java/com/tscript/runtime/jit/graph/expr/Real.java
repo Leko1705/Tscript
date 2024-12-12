@@ -2,6 +2,8 @@ package com.tscript.runtime.jit.graph.expr;
 
 public class Real extends LiteralExpr<Double> {
 
+    public boolean asPrimitive = false;
+
     public Real(Double value) {
         super(value);
     }

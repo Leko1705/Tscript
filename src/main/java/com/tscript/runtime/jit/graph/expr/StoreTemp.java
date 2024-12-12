@@ -4,6 +4,7 @@ public class StoreTemp implements Expression {
 
     public Expression what;
     public int index;
+    public Class<?> primitiveType = null;
 
     public StoreTemp(Expression what, int index) {
         this.what = what;

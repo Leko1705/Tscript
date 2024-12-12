@@ -4,9 +4,16 @@ public class ParentDelegationScanner<R>
         extends ExpressionScanner<Expression, R>
         implements ExpressionVisitor<Expression, R> {
 
+    public ParentDelegationScanner() {
+    }
+
+    public ParentDelegationScanner(R defaultResult) {
+        super(defaultResult);
+    }
+
     @Override
-    public R visitWrapper(Wrapper wrapper, Expression expression) {
-        return super.visitWrapper(wrapper, wrapper);
+    public R visitReturn(Return expr, Expression expression) {
+        return super.visitReturn(expr, expr);
     }
 
     @Override

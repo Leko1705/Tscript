@@ -104,7 +104,7 @@ public class DeadVariableEliminator implements Optimizer {
             scan(expr.what, null);
 
             if (expr.what instanceof LoadLocal l){
-                if (expr.index == l.index()){
+                if (expr.index == l.index){
                     prev.setNext(prev.getNext().getNext());
                     optimized = true;
                 }
@@ -123,10 +123,10 @@ public class DeadVariableEliminator implements Optimizer {
 
         @Override
         public Void visitLoadLocal(LoadLocal expr, Void unused) {
-            int address = expr.index();
+            int address = expr.index;
             if (!removalCandidates.get().containsKey(address))
                 removalCandidates.get().put(address, new LinkedList<>());
-            removalCandidates.get().get(expr.index()).clear();
+            removalCandidates.get().get(expr.index).clear();
             return null;
         }
 

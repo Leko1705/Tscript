@@ -3,6 +3,7 @@ package com.tscript.runtime.jit.compilers;
 import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.graph.Node;
+import com.tscript.runtime.typing.Type;
 
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -10,7 +11,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class ParallelJIT implements JITCompiler {
 
-    private record Task(Node node, CompletableFuture<NativeImage> image){}
+    private record Task(Node node, Type[] types, CompletableFuture<NativeImage> image){}
 
 
     private final JITCompiler underlying;
@@ -24,9 +25,9 @@ public class ParallelJIT implements JITCompiler {
 
 
     @Override
-    public CompletableFuture<NativeImage> compile(Node graph) {
+    public CompletableFuture<NativeImage> compile(Node graph, Type[] types) {
         CompletableFuture<NativeImage> future = new CompletableFuture<>();
-        handler.queue.add(new Task(graph, future));
+        handler.queue.add(new Task(graph, types, future));
         return future;
     }
 
@@ -56,7 +57,7 @@ public class ParallelJIT implements JITCompiler {
                 if (queue.isEmpty()) continue;
                 Task task = queue.poll();
                 try {
-                    NativeImage img = underlying.compile(task.node).get();
+                    NativeImage img = underlying.compile(task.node, task.types).get();
                     task.image.complete(img);
                 }
                 catch (Exception ignored) {}

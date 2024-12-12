@@ -272,7 +272,7 @@ class BitStream {
         one = one.split("");
         two = two.split("");
         var transfer = 0;
-        var result = "";
+        var node = "";
 
         for var i in 0:one.size() do{
             var index = one.size()-1-i;
@@ -280,18 +280,18 @@ class BitStream {
             var digitSum = String(Integer(one[index]) + Integer(two[index]) + Integer(transfer)).split("");
 
             if digitSum.size() > 1 then{
-                result = digitSum[1] + result;
+                node = digitSum[1] + node;
                 transfer = digitSum[0];
             }
             else{
-                result = digitSum[0] + result;
+                node = digitSum[0] + node;
                 transfer = 0;
             }
         }
 
-        if transfer != 0 then result = transfer + result;
+        if transfer != 0 then node = transfer + node;
 
-        return result;
+        return node;
     }
 
 }
@@ -326,7 +326,7 @@ namespace net {
     class Server {
 
         private:
-        var wrapper;
+        var aReturn;
         var handler;
         var running = false;
 
@@ -334,7 +334,7 @@ namespace net {
         constructor(port, requestHandler) {
             requireType(port, Integer);
             requireType(requestHandler, Function);
-            wrapper = java.loadClass("java.net.ServerSocket")(port);
+            aReturn = java.loadClass("java.net.ServerSocket")(port);
             handler = requestHandler;
         }
 
@@ -351,7 +351,7 @@ namespace net {
 
         function stop(){
             running = false;
-            wrapper.close();
+            aReturn.close();
         }
 
         private:
@@ -364,7 +364,7 @@ namespace net {
             while running do {
                 var socket;
                 try {
-                    socket = wrapper.accept();
+                    socket = aReturn.accept();
                 }
                 catch var ex do {
                     running = false;
@@ -381,7 +381,7 @@ namespace net {
                 }
                 handler(net.Request(socket, msg));
             }
-            wrapper.close();
+            aReturn.close();
             java.dropClass("java.net.ServerSocket");
         }
 
@@ -390,22 +390,22 @@ namespace net {
     class Request {
 
         private:
-        var wrapper;
+        var aReturn;
 
         public:
         var message;
 
         public:
-        constructor(wrapper, msg) {
+        constructor(aReturn, msg) {
             var Socket = java.loadClass("java.net.Socket");
-            requireType(wrapper, Socket);
-            this.wrapper = wrapper;
+            requireType(aReturn, Socket);
+            this.aReturn = aReturn;
             this.message = msg;
         }
 
         function respond(msg) {
             requireType(msg, String);
-            java.loadClass("java.io.PrintWriter")(wrapper.getOutputStream(), true).println(msg);
+            java.loadClass("java.io.PrintWriter")(aReturn.getOutputStream(), true).println(msg);
         }
 
     }
@@ -415,7 +415,7 @@ namespace net {
         private:
         var ip;
         var port;
-        var wrapper;
+        var aReturn;
 
         public:
         constructor(ip, port) {
@@ -429,19 +429,19 @@ namespace net {
         }
 
         function connect(){
-            wrapper = java.loadClass("java.net.Socket")(ip, port);
+            aReturn = java.loadClass("java.net.Socket")(ip, port);
         }
 
         function close(){
-            if wrapper == null then return;
-            wrapper.close();
-            wrapper = null;
+            if aReturn == null then return;
+            aReturn.close();
+            aReturn = null;
         }
 
         function send(msg){
-            if wrapper == null then throw "client not connected";
+            if aReturn == null then throw "client not connected";
             requireType(msg, String);
-            var osw = java.loadClass("java.io.OutputStreamWriter")(wrapper.getOutputStream(), "UTF-8");
+            var osw = java.loadClass("java.io.OutputStreamWriter")(aReturn.getOutputStream(), "UTF-8");
             osw.write(msg, 0, msg.size());
         }
 

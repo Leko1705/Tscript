@@ -2,9 +2,9 @@ package com.tscript.runtime.jit.graph.expr;
 
 public class Null implements Expression {
 
-    public static final Null INSTANCE = new Null();
+    public boolean asPrimitive = false;
 
-    private Null() {}
+    public Null() {}
 
     @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {

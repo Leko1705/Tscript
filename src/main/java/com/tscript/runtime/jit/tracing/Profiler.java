@@ -82,7 +82,7 @@ public class Profiler extends InterpreterDecorator {
 
         for (int i = argCount-1; i >= 0; i--) frame.push(args[i]);
         frame.push(top);
-        checkThreshold(value, argCount);
+        checkThreshold(value, types);
         super.callInplace(argCount);
     }
 
@@ -112,14 +112,14 @@ public class Profiler extends InterpreterDecorator {
                 }
             }
             else {
-                checkThreshold(value, arguments.size());
+                checkThreshold(value, types);
             }
         }
 
         return super.call(called, arguments);
     }
 
-    private void checkThreshold(Value value, int args) {
+    private void checkThreshold(Value value, Type[] args) {
         value.hotness++;
         if (value.hotness >= TRACING_THRESHOLD) {
             TThread thread = getCurrentThread();

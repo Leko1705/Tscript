@@ -18,7 +18,6 @@ public class CallInp implements Expression {
         if (tree == called) {
             called = toReplace;
         }
-
         args.replaceAll(candidate -> candidate == toReplace ? tree : candidate);
     }
 

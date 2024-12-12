@@ -1,10 +1,10 @@
 module test;
 
 
-function foo(x){
-    return -x;
+function foo(x, y){
+    print(Real(x) * y);
 }
 
-for var i in 0:200 do {
-    print(foo(2));
+for var i in 0:20000 do {
+    foo(i, 0);
 }

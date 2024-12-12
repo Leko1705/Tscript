@@ -1,10 +1,11 @@
 package com.tscript.runtime.jit.graph.expr;
 
-public class Wrapper implements Expression {
+public class Return implements Expression {
 
+    public Class<?> targetType = null;
     public Expression expression;
 
-    public Wrapper(Expression expression) {
+    public Return(Expression expression) {
         this.expression = expression;
     }
 
@@ -17,6 +18,6 @@ public class Wrapper implements Expression {
 
     @Override
     public <P, R> R accept(ExpressionVisitor<P, R> visitor, P p) {
-        return visitor.visitWrapper(this, p);
+        return visitor.visitReturn(this, p);
     }
 }

@@ -6,6 +6,16 @@ import java.util.List;
 
 public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
+    private final R defaultValue;
+
+    public ExpressionScanner(R defaultValue) {
+        this.defaultValue = defaultValue;
+    }
+
+    public ExpressionScanner() {
+        this.defaultValue = null;
+    }
+
     public R scan(Expression exp, P p){
         return exp != null ? exp.accept(this, p) : null;
     }
@@ -19,8 +29,8 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
     }
 
     @Override
-    public R visitWrapper(Wrapper wrapper, P p) {
-        return scan(wrapper.expression, p);
+    public R visitReturn(Return expr, P p) {
+        return scan(expr.expression, p);
     }
 
     @Override
@@ -30,17 +40,17 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitPushSuperFrame(PushSuperFrame expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitPopFrame(PopFrame expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitLoadTemp(LoadTemp expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -55,27 +65,27 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitNull(Null expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitInt(Int expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitString(Str expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitBool(Bool expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitReal(Real expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -104,22 +114,22 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitThis(This expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitVirtual(Virtual expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitNative(Native expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitBuiltin(Builtin expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -151,7 +161,7 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitType(Type expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -194,17 +204,17 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitItrNext(ItrNext expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitNewLine(NewLine expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitLoadGlobal(LoadGlobal expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -214,7 +224,7 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitLoadLocal(LoadLocal expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -224,7 +234,7 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitLoadExternal(LoadExternal expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -234,7 +244,7 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitLoadInternal(LoadInternal expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -244,7 +254,7 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitLoadSuper(LoadSuper expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -254,7 +264,7 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitLoadStatic(LoadStatic expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -277,12 +287,12 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitLoadName(LoadName expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
     public R visitImportModule(ImportModule expr, P p) {
-        return null;
+        return visitExpression(expr, p);
     }
 
     @Override
@@ -313,6 +323,10 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
 
     @Override
     public R visitItrNextGuard(ItrNextGuard expr, P p) {
-        return null;
+        return visitExpression(expr, p);
+    }
+
+    public R visitExpression(Expression expr, P p) {
+        return defaultValue;
     }
 }

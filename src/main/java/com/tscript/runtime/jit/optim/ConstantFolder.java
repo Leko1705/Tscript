@@ -204,7 +204,7 @@ public class ConstantFolder implements Optimizer {
 
         @Override
         public Void visitLoadLocal(LoadLocal expr, Expression parent) {
-            int address = expr.index();
+            int address = expr.index;
             if (!locals.get().containsKey(address))
                 locals.get().put(address, null);
             Expression value = locals.get().get(address);
@@ -243,6 +243,42 @@ public class ConstantFolder implements Optimizer {
                         optimized = true;
                     }
                 }
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visitNeg(Neg expr, Expression parent) {
+            scan(expr.expression, expr);
+
+            if (expr.expression instanceof Int i){
+                Int newInt = new Int(-i.value);
+                parent.replace(expr, newInt);
+                optimized = true;
+            }
+            else if (expr.expression instanceof Real r){
+                Real newReal = new Real(-r.value);
+                parent.replace(expr, newReal);
+                optimized = true;
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visitNot(Not expr, Expression parent) {
+            scan(expr.expression, expr);
+            
+            if (expr.expression instanceof Int i){
+                Int newInt = new Int(~i.value);
+                parent.replace(expr, newInt);
+                optimized = true;
+            }
+            else if (expr.expression instanceof Bool b){
+                Bool newBool = new Bool(!b.value);
+                parent.replace(expr, newBool);
+                optimized = true;
             }
 
             return null;

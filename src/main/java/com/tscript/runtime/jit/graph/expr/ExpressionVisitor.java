@@ -2,7 +2,7 @@ package com.tscript.runtime.jit.graph.expr;
 
 public interface ExpressionVisitor<P, R> {
 
-    R visitWrapper(Wrapper wrapper, P p);
+    R visitReturn(Return expr, P p);
 
     R visitPushFrame(PushFrame expr, P p);
 
@@ -113,4 +113,8 @@ public interface ExpressionVisitor<P, R> {
      R visitTypeGuard(TypeGuard expr, P p);
 
      R visitItrNextGuard(ItrNextGuard expr, P p);
+
+     default R visitBuiltinLower(Lower expr, P p) {
+         return null;
+     }
 }

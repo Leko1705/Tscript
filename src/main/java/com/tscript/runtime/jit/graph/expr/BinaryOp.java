@@ -4,6 +4,9 @@ import com.tscript.runtime.core.Opcode;
 
 public class BinaryOp extends Binary {
 
+    public Class<?> lhsTarget = null;
+    public Class<?> rhsTarget = null;
+
     public Opcode opcode;
     public boolean canFail = true;
 

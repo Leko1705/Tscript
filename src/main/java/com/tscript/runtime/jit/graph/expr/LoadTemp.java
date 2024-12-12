@@ -3,6 +3,7 @@ package com.tscript.runtime.jit.graph.expr;
 public class LoadTemp implements Expression {
 
     public int index;
+    public Class<?> primitiveType = null;
 
     public LoadTemp(int index) {
         this.index = index;

@@ -32,12 +32,13 @@ public class Tracer extends InterpreterDecorator {
 
     private final Deque<Expression> stack;
     private int argsLeft;
+    private com.tscript.runtime.typing.Type[] types;
 
     public Tracer(Interpreter interpreter,
                   Profiler profiler,
                   int callStackDepth,
                   Profiler.Value value,
-                  int args) {
+                  com.tscript.runtime.typing.Type[] args) {
         super(interpreter);
         this.profiler = profiler;
         this.callStackDepth = callStackDepth;
@@ -49,13 +50,14 @@ public class Tracer extends InterpreterDecorator {
 
         stack = new ArrayDeque<>();
         traceSize = 0;
-        this.argsLeft = args;
+        types = args;
+        this.argsLeft = args.length;
     }
 
     @Override
     public void pushNull() {
         super.pushNull();
-        stack.push(Null.INSTANCE);
+        stack.push(new Null());
     }
 
     @Override
@@ -84,7 +86,7 @@ public class Tracer extends InterpreterDecorator {
         else if (obj instanceof TReal r) return new Real(r.getValue());
         else if (obj instanceof TBoolean b) return new Bool(b.getValue());
         else if (obj instanceof TInteger i) return new Int(i.getValue());
-        else if (obj == com.tscript.runtime.typing.Null.INSTANCE) return Null.INSTANCE;
+        else if (obj == com.tscript.runtime.typing.Null.INSTANCE) return new Null();
         else if (obj instanceof com.tscript.runtime.typing.Range r) return new Range(new Int(r.getFrom()), new Int(r.getTo()), false);
         else if (obj instanceof TArray a) {
             List<Expression> exps = new ArrayList<>();
@@ -559,13 +561,13 @@ public class Tracer extends InterpreterDecorator {
         else
             top = new TypeGuard(top, ip(), sp(), TInteger.TYPE, TReal.TYPE);
 
-        stack.push(new Not(top));
+        stack.push(new Not(top, false));
     }
 
     @Override
     public void negate() {
         super.negate();
-        stack.push(new Neg(new TypeGuard(stack.remove(), ip(), sp(), TInteger.TYPE, TReal.TYPE)));
+        stack.push(new Neg(new TypeGuard(stack.remove(), ip(), sp(), TInteger.TYPE, TReal.TYPE), false));
     }
 
     @Override
@@ -640,10 +642,10 @@ public class Tracer extends InterpreterDecorator {
         if (Profiler.DEBUG){
             System.err.println("trace complete; start compilation");
         }
-        current.setNext(new EndNode(new Wrapper(exp)));
+        current.setNext(new EndNode(new Return(exp)));
         TThread thread = getCurrentThread();
         JITCompiler jit = thread.getVM().getJitCompiler();
-        CompletableFuture<NativeImage> future = jit.compile(root);
+        CompletableFuture<NativeImage> future = jit.compile(root, types);
         future.thenAccept(img -> value.image = img);
         thread.setInterpreter(profiler);
     }

@@ -2,6 +2,8 @@ package com.tscript.runtime.jit.graph.expr;
 
 public class Bool extends LiteralExpr<Boolean> {
 
+    public boolean asPrimitive = false;
+
     public Bool(Boolean value) {
         super(value);
     }

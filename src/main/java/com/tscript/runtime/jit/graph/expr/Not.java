@@ -2,11 +2,13 @@ package com.tscript.runtime.jit.graph.expr;
 
 public class Not implements Expression {
 
+    public Class<?> primitiveTarget = null;
     public Expression expression;
-    public boolean canFail = true;
+    public boolean canFail;
 
-    public Not(Expression expression) {
+    public Not(Expression expression, boolean canFail) {
         this.expression = expression;
+        this.canFail = canFail;
     }
 
     @Override
