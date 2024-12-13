@@ -58,7 +58,7 @@ public class JITCompilerImpl implements JITCompiler {
     }
 
     private List<PostOptimizer> getPostOptimizers() {
-        return List.of(new ToJBCTransformer());
+        return List.of(new ToJBCTransformer(), new UnsafeReducer());
     }
 
     private NativeImage lower(Node graph) {

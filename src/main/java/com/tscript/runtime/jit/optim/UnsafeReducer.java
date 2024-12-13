@@ -5,12 +5,13 @@ import com.tscript.runtime.jit.graph.Context;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.jit.graph.expr.*;
 import com.tscript.runtime.jit.graph.traversal.TreeTraverseStrategy;
+import com.tscript.runtime.jit.optim.post.PostOptimizer;
 
 /**
  * Removes NEW_LINE instructions and ENTER_TRY as well as LEAVE_TRY instructions
  * if possible.
  */
-public class UnsafeReducer implements Optimizer {
+public class UnsafeReducer implements Optimizer, PostOptimizer {
 
     private boolean optimized;
 
@@ -19,6 +20,12 @@ public class UnsafeReducer implements Optimizer {
 
     private Node prevNewLineNode = null;
     private boolean unsafeDetected = false;
+
+
+    @Override
+    public Node optimize(Node graph, com.tscript.runtime.typing.Type[] inputTypes) {
+        return optimize(graph);
+    }
 
     @Override
     public Node optimize(Node graph) {
@@ -37,6 +44,7 @@ public class UnsafeReducer implements Optimizer {
             current.step(trav, context);
         }
 
+        handler.clearLine();
         return graph;
     }
 
@@ -59,12 +67,16 @@ public class UnsafeReducer implements Optimizer {
             unsafeDetected = true;
         }
 
-        @Override
-        public Void visitNewLine(NewLine expr, Void unused) {
+        private void clearLine(){
             if (prevNewLineNode != null) {
                 optimized = true;
                 prevNewLineNode.setNext(prevNewLineNode.getNext().getNext());
             }
+        }
+
+        @Override
+        public Void visitNewLine(NewLine expr, Void unused) {
+            clearLine();
             prevNewLineNode = prev;
             return null;
         }

@@ -1,15 +1,21 @@
 package com.tscript.runtime.jit.optim;
 
+import com.tscript.runtime.core.Builtins;
 import com.tscript.runtime.core.Opcode;
 import com.tscript.runtime.jit.graph.BranchNode;
 import com.tscript.runtime.jit.graph.Context;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.jit.graph.expr.*;
+import com.tscript.runtime.jit.graph.expr.Type;
 import com.tscript.runtime.jit.graph.traversal.Traverser;
 import com.tscript.runtime.jit.graph.traversal.TreeTraverseStrategy;
+import com.tscript.runtime.jit.optim.util.Stringifyer;
+import com.tscript.runtime.typing.*;
+import com.tscript.runtime.typing.Null;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
@@ -305,6 +311,97 @@ public class ConstantFolder implements Optimizer {
             super.visitItrNextGuard(expr, expression);
             // enforce snapshotting locals before guard evaluation
             forgetLocals();
+            return null;
+        }
+
+        @Override
+        public Void visitCallInp(CallInp expr, Expression parent) {
+            super.visitCallInp(expr, parent);
+
+            if (expr.called instanceof Builtin builtin){
+                TObject obj = Builtins.load(builtin.index());
+
+                if (expr.args.size() == 1){
+                    Expression arg = expr.args.get(0);
+
+                    if (obj == Null.TYPE){
+                        parent.replace(expr, new com.tscript.runtime.jit.graph.expr.Null());
+                        optimized = true;
+                    }
+
+                    else if (obj == TInteger.TYPE){
+                        if (arg instanceof Int){
+                            parent.replace(expr, arg);
+                            optimized = true;
+                        }
+                        else if (arg instanceof Real real){
+                            parent.replace(expr, new Int(real.value.intValue()));
+                            optimized = true;
+                        }
+                        else if (arg instanceof Str str){
+                            try {
+                                parent.replace(expr, new Int(Integer.parseInt(str.value)));
+                                optimized = true;
+                            }
+                            catch (NumberFormatException ignored){}
+                        }
+                    }
+
+                    else if (obj == TReal.TYPE){
+                        if (arg instanceof Real){
+                            parent.replace(expr, arg);
+                            optimized = true;
+                        }
+                        else if (arg instanceof Int i){
+                            parent.replace(expr, new Real(i.value.doubleValue()));
+                            optimized = true;
+                        }
+                        else if (arg instanceof Str str){
+                            try {
+                                parent.replace(expr, new Real(Double.parseDouble(str.value)));
+                                optimized = true;
+                            }
+                            catch (NumberFormatException ignored){}
+                        }
+                    }
+
+                    else if (obj == TBoolean.TYPE){
+                        if (arg instanceof Bool){
+                            parent.replace(expr, arg);
+                            optimized = true;
+                        }
+                        else if (arg instanceof com.tscript.runtime.jit.graph.expr.Null){
+                            parent.replace(expr, new Bool(false));
+                            optimized = true;
+                        }
+                        else if (arg instanceof Int i){
+                            parent.replace(expr, new Bool(i.value != 0));
+                            optimized = true;
+                        }
+                        else if (arg instanceof Str str){
+                            parent.replace(expr, new Bool(!str.value.isEmpty()));
+                            optimized = true;
+                        }
+                        else if (arg instanceof Array arr){
+                            parent.replace(expr, new Bool(!arr.contents().isEmpty()));
+                        }
+                        else if (arg instanceof Type || arg instanceof Virtual
+                                || arg instanceof Builtin || arg instanceof Native
+                                || arg instanceof Real){
+                            parent.replace(expr, new Bool(true));
+                            optimized = true;
+                        }
+                    }
+
+                    else if (obj == TString.TYPE){
+                        String s = Stringifyer.toString(arg);
+                        if (s != null){
+                            parent.replace(expr, new Str(s));
+                        }
+                    }
+                }
+            }
+
             return null;
         }
 

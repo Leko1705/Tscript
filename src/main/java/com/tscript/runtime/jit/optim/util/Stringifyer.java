@@ -93,7 +93,15 @@ public class Stringifyer implements ExpressionVisitor<Void, String> {
 
     @Override
     public String visitDict(Dict expr, Void unused) {
-        return null;
+        StringJoiner joiner = new StringJoiner(", ", "{", "}");
+        for (int i = 0; i < expr.keys.size(); i++){
+            String key = expr.keys.get(i).accept(this, unused);
+            if (key == null) return null;
+            String value = expr.values.get(i).accept(this, unused);
+            if (value == null) return null;
+            joiner.add(key + ": " + value);
+        }
+        return joiner.toString();
     }
 
     @Override
@@ -168,6 +176,12 @@ public class Stringifyer implements ExpressionVisitor<Void, String> {
 
     @Override
     public String visitNeg(Neg expr, Void unused) {
+        if (expr.expression instanceof Int i){
+            return Integer.toString(-i.value);
+        }
+        else if (expr.expression instanceof Real r){
+            return Double.toString(-r.value);
+        }
         return null;
     }
 
