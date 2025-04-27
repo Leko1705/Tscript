@@ -524,6 +524,33 @@ public class MethodGenerator
     }
 
     @Override
+    public Void visitCallImage(CallImage expr, Void unused) {
+        genLoadThread();
+        expr.function.accept(this);
+        genLoadFrame();
+        genNewTObjectArray(expr.args);
+
+        mv.visitMethodInsn(
+                INVOKESTATIC,
+                org.objectweb.asm.Type.getInternalName(JBCUtils.class),
+                "callImage",
+                "("
+                        + org.objectweb.asm.Type.getDescriptor(TThread.class)
+                        + org.objectweb.asm.Type.getDescriptor(TObject.class)
+                        + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
+                        + org.objectweb.asm.Type.getDescriptor(TObject[].class)
+                        + ")" + TOBJECT_DESC,
+                false
+        );
+
+        genFailureReturnIfNull();
+
+        decSp(expr.args.size());
+
+        return null;
+    }
+
+    @Override
     public Void visitToInpArg(ToInpArg expr, Void unused) {
         mv.visitTypeInsn(NEW, org.objectweb.asm.Type.getInternalName(Argument.class));
         mv.visitInsn(DUP);

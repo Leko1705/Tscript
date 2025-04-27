@@ -150,6 +150,11 @@ public class ExpressionScanner<P, R> implements ExpressionVisitor<P, R> {
     }
 
     @Override
+    public R visitCallImage(CallImage expr, P p) {
+        return scan(expr.args, p);
+    }
+
+    @Override
     public R visitToInpArg(ToInpArg expr, P p) {
         return scan(expr.arg, p);
     }

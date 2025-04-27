@@ -3,7 +3,7 @@ package com.tscript.runtime.jit.lower.jbc;
 import com.tscript.projectfile.ProjectFile;
 import com.tscript.runtime.core.*;
 import com.tscript.runtime.jit.JITSensitive;
-import com.tscript.runtime.jit.graph.expr.Str;
+import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.tracing.FallbackException;
 import com.tscript.runtime.jit.tracing.ImageFrame;
 import com.tscript.runtime.stroage.FunctionArea;
@@ -178,6 +178,22 @@ public class JBCUtils {
             return true;
         }
         return false;
+    }
+
+    @JITSensitive
+    public static TObject callImage(TThread thread, TObject called, ImageFrame prevFrame, TObject[] args) {
+        Type[] types = new Type[args.length];
+        for (int i = 0; i < args.length; i++) {
+            types[i] = args[i].getType();
+        }
+
+        ImageFrame frame = pushFrame(called, prevFrame, 0);
+        System.arraycopy(args, 0, frame.locals, 0, args.length);
+
+        VirtualFunction vfunc = (VirtualFunction) called;
+        NativeImage image = thread.getVM().getJitCompiler().getCache().getFunctional(vfunc, types);
+
+        return image.run(thread, frame);
     }
 
     @JITSensitive

@@ -46,6 +46,8 @@ public interface ExpressionVisitor<P, R> {
 
     R visitCallMap(CallMap expr, P p);
 
+    R visitCallImage(CallImage expr, P p);
+
     R visitToInpArg(ToInpArg expr, P p);
 
     R visitToMapArg(ToMapArg expr, P p);

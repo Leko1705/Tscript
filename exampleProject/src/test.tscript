@@ -4,12 +4,19 @@ function foo(x) {
     print(x);
 }
 
-var i = 0;
-var z = 100_000;
+function bar(x) {
+    foo(x);
+}
 
-while i < (z + 2) do {
-    if i != z then {
-        print(i);
-    }
+var i = 0;
+while i < 200 do {
+    foo(i);
+    i += 1;
+}
+
+
+i = 0;
+while i < 200 do {
+    bar(i);
     i += 1;
 }

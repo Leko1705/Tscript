@@ -140,6 +140,11 @@ public class Stringifyer implements ExpressionVisitor<Void, String> {
     }
 
     @Override
+    public String visitCallImage(CallImage expr, Void unused) {
+        return "";
+    }
+
+    @Override
     public String visitToInpArg(ToInpArg expr, Void unused) {
         return null;
     }

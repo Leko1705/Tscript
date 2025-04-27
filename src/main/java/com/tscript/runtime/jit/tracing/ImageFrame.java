@@ -31,7 +31,7 @@ public class ImageFrame {
     public Map<String, TObject> names = null;
 
 
-    private ImageFrame(String name, ImageFrame prevFrame) {
+    public ImageFrame(String name, ImageFrame prevFrame) {
         this.name = name;
         this.next = prevFrame;
     }

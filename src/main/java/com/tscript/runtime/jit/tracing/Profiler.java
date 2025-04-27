@@ -1,11 +1,13 @@
 package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.*;
+import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.NativeImage;
-import com.tscript.runtime.stroage.Module;
+import com.tscript.runtime.jit.caching.JITCache;
 import com.tscript.runtime.typing.Callable;
 import com.tscript.runtime.typing.TObject;
 import com.tscript.runtime.typing.Type;
+import com.tscript.runtime.stroage.Module;
 
 import java.util.*;
 
@@ -15,6 +17,15 @@ public class Profiler extends InterpreterDecorator {
 
 
     private record Key(Module module, String name, int pos, Type[] types) {
+
+        public Key(Module module, String name, Type[] types) {
+            this(module, name, -1, types);
+        }
+
+        public Key(Module module, String name, int ip) {
+            this(module, name, ip, null);
+        }
+
         @Override
         public boolean equals(Object o) {
             if (o == null || getClass() != o.getClass()) return false;
@@ -30,16 +41,10 @@ public class Profiler extends InterpreterDecorator {
         }
     }
 
-    public static class Value {
-        int hotness = 0;
-        NativeImage image;
-    }
-
-
     private static final int TRACING_THRESHOLD = 100;
 
 
-    private final Map<Key, Value> cache = new HashMap<>();
+    private final Map<Key, Integer> hotnessCache = new HashMap<>();
 
     public Profiler(Interpreter interpreter) {
         super(interpreter);
@@ -56,6 +61,7 @@ public class Profiler extends InterpreterDecorator {
             super.callInplace(argCount);
             return;
         }
+
         TObject[] args = new TObject[argCount];
         Type[] types = new Type[argCount];
         for (int i = 0; i < argCount; i++) {
@@ -63,13 +69,12 @@ public class Profiler extends InterpreterDecorator {
             types[i] = args[i].getType();
         }
 
-        Key key = new Key(vfunc.getModule(), vfunc.getName(), -1, types); // ip does not matter for function calls
-        Value value = cache.computeIfAbsent(key, k -> new Value());
+        NativeImage image = cache().getFunctional(vfunc, types);
 
-        if (value.image != null){
+        if (image != null){
             ImageFrame imgFrame = new ImageFrame(vfunc, args);
             try {
-                TObject result = value.image.run(thread, imgFrame);
+                TObject result = image.run(thread, imgFrame);
                 if (result != null) {
                     frame.push(result);
                 }
@@ -85,38 +90,44 @@ public class Profiler extends InterpreterDecorator {
         for (int i = argCount-1; i >= 0; i--) frame.push(args[i]);
         frame.push(top);
 
-        checkThreshold(value, new FunctionTraceConfig(thread, thread.frameStack.size(), types, value));
+        JITCompiler jit = thread.getVM().getJitCompiler();
+        Key key = new Key(vfunc.getModule(), vfunc.getName(), types);
+        checkThreshold(key, new FunctionTraceConfig(thread, jit, vfunc, thread.frameStack.size(), types));
 
         super.callInplace(argCount);
     }
 
     @Override
     public TObject call(Callable called, List<TObject> arguments) {
-        if (called instanceof VirtualFunction vfunc) {
-            TThread thread = getCurrentThread();
 
-            Type[] types = new Type[arguments.size()];
-            for (int i = 0; i < arguments.size(); i++)
-                types[i] = arguments.get(i).getType();
+        if (!(called instanceof VirtualFunction vfunc))
+            return super.call(called, arguments);
 
-            Key key = new Key(vfunc.getModule(), vfunc.getName(), -1, types);
-            Value value = cache.computeIfAbsent(key, k -> new Value());
 
-            if (value.image != null) {
-                ImageFrame imgFrame = new ImageFrame(vfunc, arguments.toArray(new TObject[0]));
-                try {
-                    return value.image.run(thread, imgFrame);
-                }
-                catch (FallbackException ignored){
-                    if (DEBUG){
-                        System.err.println("Fallback exception");
-                    }
-                    return null;
-                }
+        TThread thread = getCurrentThread();
+
+        Type[] types = new Type[arguments.size()];
+        for (int i = 0; i < arguments.size(); i++)
+            types[i] = arguments.get(i).getType();
+
+        NativeImage image = cache().getFunctional(vfunc, types);
+
+        if (image != null) {
+            ImageFrame imgFrame = new ImageFrame(vfunc, arguments.toArray(new TObject[0]));
+            try {
+                return image.run(thread, imgFrame);
             }
-            else {
-                checkThreshold(value, new FunctionTraceConfig(thread, thread.frameStack.size(), types, value));
+            catch (FallbackException ignored){
+                if (DEBUG){
+                    System.err.println("Fallback exception");
+                }
+                return null;
             }
+        }
+        else {
+            JITCompiler jit = thread.getVM().getJitCompiler();
+            Key key = new Key(vfunc.getModule(), vfunc.getName(), types);
+            checkThreshold(key, new FunctionTraceConfig(thread, jit, vfunc, thread.frameStack.size(), types));
         }
 
         return super.call(called, arguments);
@@ -155,13 +166,13 @@ public class Profiler extends InterpreterDecorator {
         TThread thread = getCurrentThread();
         Frame frame = thread.frameStack.element();
 
-        Key key = new Key(frame.getModule(), frame.getName(), jumpBackAddress, null);
-        Value value = cache.computeIfAbsent(key, k -> new Value());
+        String context = frame.getModule().getCanonicalPath() + ":" + frame.getName();
+        NativeImage image = cache().getPositional(context, jumpBackAddress);
 
-        if (value.image != null) {
+        if (image != null) {
             ImageFrame imgFrame = new ImageFrame(frame);
             try {
-                TObject res = value.image.run(thread, imgFrame);
+                TObject res = image.run(thread, imgFrame);
                 if (res != null) {
                     frame.push(res);
                 }
@@ -174,13 +185,18 @@ public class Profiler extends InterpreterDecorator {
             }
         }
         else {
-            checkThreshold(value, new PositionalTraceConfig(thread, value, jumpBackAddress, returns));
+            JITCompiler jit = thread.getVM().getJitCompiler();
+            Key key = new Key(frame.getModule(), frame.getName(), jumpBackAddress);
+            checkThreshold(key, new PositionalTraceConfig(thread, jit, context, jumpBackAddress, returns));
         }
     }
 
-    private void checkThreshold(Value value, TracingConfiguration configuration) {
-        value.hotness++;
-        if (value.hotness >= TRACING_THRESHOLD) {
+    private void checkThreshold(Key key, TracingConfiguration configuration) {
+        int hotness = hotnessCache.computeIfAbsent(key, k -> 0);
+        hotness++;
+        hotnessCache.put(key, hotness);
+
+        if (hotness >= TRACING_THRESHOLD) {
             TThread thread = getCurrentThread();
             int callStackDepth = thread.frameStack.size();
 
@@ -193,6 +209,10 @@ public class Profiler extends InterpreterDecorator {
 
             thread.setInterpreter(tracer);
         }
+    }
+
+    private JITCache cache() {
+        return getCurrentThread().getVM().getJitCompiler().getCache();
     }
 
 }

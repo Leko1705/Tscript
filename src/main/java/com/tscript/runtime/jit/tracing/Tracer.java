@@ -3,6 +3,8 @@ package com.tscript.runtime.jit.tracing;
 import com.tscript.runtime.core.*;
 import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.JITTask;
+import com.tscript.runtime.jit.NativeImage;
+import com.tscript.runtime.jit.caching.JITCache;
 import com.tscript.runtime.jit.graph.EndNode;
 import com.tscript.runtime.jit.graph.FlowNode;
 import com.tscript.runtime.jit.graph.Node;
@@ -180,18 +182,30 @@ public class Tracer extends InterpreterDecorator {
 
         Frame frame = getCurrentThread().frameStack.element();
         TObject top = frame.pop();
-        frame.push(top);
 
+        if (top instanceof VirtualFunction vfunc) {
+            boolean nativeImageExecuted = callNativeImageInplace(argCount, frame, vfunc);
+
+            if (nativeImageExecuted) {
+                List<TObject> missingDefaults = getMissingInplaceArgs(vfunc, argCount);
+                if (missingDefaults == null) return;
+                Expression funcExpr = stack.remove();
+                List<Expression> args = new ArrayList<>();
+                for (int i = 0; i < argCount; i++) args.add(stack.remove());
+                for (TObject missing : missingDefaults) args.add(fromObject(missing));
+                stack.push(new CallImage(funcExpr, args));
+                return;
+            }
+        }
+
+        frame.push(top);
         super.callInplace(argCount);
 
         if (top instanceof Callable callable) {
 
             Expression func = stack.remove();
-            Parameters parameters = callable.getParameters(getCurrentThread());
-            int lastNonDefined = parameters.getLastNonDefinedParameterIndex();
-            if (argCount <= lastNonDefined) return;
-            List<TObject> missingDefaults = parameters.getTail(argCount);
-
+            List<TObject> missingDefaults = getMissingInplaceArgs(callable, argCount);
+            if (missingDefaults == null) return;
 
             if (callable.isVirtual()) {
 
@@ -217,6 +231,46 @@ public class Tracer extends InterpreterDecorator {
 
             }
         }
+    }
+
+    private boolean callNativeImageInplace(int argCount, Frame frame, VirtualFunction vfunc) {
+        TObject[] args = new TObject[argCount];
+        com.tscript.runtime.typing.Type[] types = new com.tscript.runtime.typing.Type[argCount];
+        for (int i = 0; i < argCount; i++) {
+            args[i] = frame.pop();
+            types[i] = args[i].getType();
+        }
+
+        JITCompiler compiler = getCurrentThread().getVM().getJitCompiler();
+        JITCache cache = compiler.getCache();
+
+        NativeImage image = cache.getFunctional(vfunc, types);
+
+        if (image == null) {
+            for (int i = argCount - 1; i >= 0; i--) frame.push(args[i]);
+            return false;
+        }
+
+        ImageFrame imgFrame = new ImageFrame(vfunc, args);
+        try {
+            TObject result = image.run(super.getCurrentThread(), imgFrame);
+            if (result != null) {
+                frame.push(result);
+            }
+        } catch (FallbackException ignored) {
+            if (Profiler.DEBUG) {
+                System.err.println("Fallback exception");
+            }
+        }
+
+        return true;
+    }
+
+    private List<TObject> getMissingInplaceArgs(Callable callable, int argCount) {
+        Parameters parameters = callable.getParameters(getCurrentThread());
+        int lastNonDefined = parameters.getLastNonDefinedParameterIndex();
+        if (argCount <= lastNonDefined) return null;
+        return parameters.getTail(argCount);
     }
 
     @Override
@@ -652,9 +706,6 @@ public class Tracer extends InterpreterDecorator {
     }
 
     private void completeTrace(Expression exp) {
-        if (Profiler.DEBUG){
-            System.err.println("trace complete; start compilation");
-        }
         if (configuration.doesReturn())
             current.setNext(new EndNode(new Return(exp)));
         TThread thread = getCurrentThread();

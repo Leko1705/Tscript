@@ -1,8 +1,10 @@
 package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.JITTask;
 import com.tscript.runtime.jit.NativeImage;
+import com.tscript.runtime.jit.caching.JITCache;
 import com.tscript.runtime.jit.compilers.tasks.CompileTask;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.typing.Type;
@@ -12,14 +14,16 @@ import java.util.function.Consumer;
 public class PositionalTraceConfig implements TracingConfiguration {
 
     private final TThread thread;
-    private final Profiler.Value value;
+    private final JITCompiler compiler;
     private final int jumpBackAddress;
     private final boolean returns;
+    private final String context;
 
-    public PositionalTraceConfig(TThread thread, Profiler.Value value, int ip, boolean returns) {
+    public PositionalTraceConfig(TThread thread, JITCompiler compiler, String context, int jumpBackAddress, boolean returns) {
         this.thread = thread;
-        this.value = value;
-        this.jumpBackAddress = ip;
+        this.compiler = compiler;
+        this.context = context;
+        this.jumpBackAddress = jumpBackAddress;
         this.returns = returns;
     }
 
@@ -40,7 +44,8 @@ public class PositionalTraceConfig implements TracingConfiguration {
 
     @Override
     public JITTask getCompletionTask(Node node) {
-        Consumer<NativeImage> c = img -> value.image = img;
+        JITCache cache = compiler.getCache();
+        Consumer<NativeImage> c = img -> cache.putPositional(context, jumpBackAddress, img);
 
         if (returns)
             return new CompileTask(node, new Type[0], c);
