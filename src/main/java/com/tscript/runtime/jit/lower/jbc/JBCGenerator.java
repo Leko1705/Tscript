@@ -18,6 +18,12 @@ public class JBCGenerator implements Generator {
 
     private static long imageId = 0;
 
+    private final boolean returns;
+
+    public JBCGenerator(boolean returns) {
+        this.returns = returns;
+    }
+
     @Override
     @SuppressWarnings("deprecation")
     public NativeImage generate(Node graph) {
@@ -48,7 +54,7 @@ public class JBCGenerator implements Generator {
                 + Type.getDescriptor(TObject.class);
 
         mv = cw.visitMethod(ACC_PUBLIC, "run", desc, null, null);
-        MethodGenerator generator = new MethodGenerator(name, cw, mv);
+        MethodGenerator generator = new MethodGenerator(name, cw, mv, returns);
         generator.generate(graph);
 
         mv.visitMaxs(1, 1);

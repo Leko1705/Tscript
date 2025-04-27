@@ -419,6 +419,7 @@ public class ToJBCTransformer implements PostOptimizer {
 
                 if (builtin instanceof NativePrint
                         && nodes.length == 1
+                        && nodes[0].type() != null
                         && (nodes[0].type().isPrimitive() || nodes[0].type() == String.class)) {
 
                     Expression arg = expr.args.get(0);

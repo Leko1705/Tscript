@@ -1,10 +1,15 @@
 module test;
 
-
-function foo(x, y){
-    print(Integer(1));
+function foo(x) {
+    print(x);
 }
 
-for var i in 0:20000 do {
-    foo(i, 0);
+var i = 0;
+var z = 100_000;
+
+while i < (z + 2) do {
+    if i != z then {
+        print(i);
+    }
+    i += 1;
 }

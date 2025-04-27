@@ -1,11 +1,14 @@
 package com.tscript.runtime.jit.optim;
 
+import com.tscript.runtime.core.Builtins;
 import com.tscript.runtime.jit.graph.BranchNode;
 import com.tscript.runtime.jit.graph.Context;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.jit.graph.expr.*;
 import com.tscript.runtime.jit.graph.traversal.TreeTraverseStrategy;
 import com.tscript.runtime.jit.optim.post.PostOptimizer;
+import com.tscript.runtime.tni.natfuncs.std.NativePrint;
+import com.tscript.runtime.typing.TObject;
 
 /**
  * Removes NEW_LINE instructions and ENTER_TRY as well as LEAVE_TRY instructions
@@ -18,9 +21,13 @@ public class UnsafeReducer implements Optimizer, PostOptimizer {
     private Node prev;
 
 
-    private Node prevNewLineNode = null;
-    private boolean unsafeDetected = false;
+    private static class UnsafeState {
+        Node prevFramePushNode = null;
+        Node prevNewLineNode = null;
+        boolean unsafeDetected = false;
+    }
 
+    private final State<UnsafeState> state = new State<>(new UnsafeState());
 
     @Override
     public Node optimize(Node graph, com.tscript.runtime.typing.Type[] inputTypes) {
@@ -63,27 +70,37 @@ public class UnsafeReducer implements Optimizer, PostOptimizer {
     private class Handler extends ExpressionScanner<Void, Void> {
 
         private void handleUnsafe(){
-            prevNewLineNode = null;
-            unsafeDetected = true;
+            UnsafeState unsafeState = state.get();
+            unsafeState.prevNewLineNode = null;
+            unsafeState.unsafeDetected = true;
+            unsafeState.prevFramePushNode = null;
         }
 
         private void clearLine(){
-            if (prevNewLineNode != null) {
+            UnsafeState unsafeState = state.get();
+            if (unsafeState.prevNewLineNode != null) {
                 optimized = true;
-                prevNewLineNode.setNext(prevNewLineNode.getNext().getNext());
+                unsafeState.prevNewLineNode.setNext(unsafeState.prevNewLineNode.getNext().getNext());
             }
         }
 
         @Override
         public Void visitNewLine(NewLine expr, Void unused) {
             clearLine();
-            prevNewLineNode = prev;
+            state.get().prevNewLineNode = prev;
             return null;
         }
 
         @Override
         public Void visitCallInp(CallInp expr, Void unused) {
             super.visitCallInp(expr, null);
+            if (expr.called instanceof Builtin builtin) {
+                TObject obj = Builtins.load(builtin.index());
+
+                if (obj instanceof NativePrint && expr.args.size() == 1){
+                    return null;
+                }
+            }
             handleUnsafe();
             return null;
         }
@@ -92,6 +109,35 @@ public class UnsafeReducer implements Optimizer, PostOptimizer {
         public Void visitCallMap(CallMap expr, Void unused) {
             super.visitCallMap(expr, unused);
             handleUnsafe();
+            return null;
+        }
+
+        @Override
+        public Void visitPushFrame(PushFrame expr, Void unused) {
+            super.visitPushFrame(expr, unused);
+            UnsafeState newState = new UnsafeState();
+            newState.prevFramePushNode = prev;
+            state.storeAndSet(newState);
+            return null;
+        }
+
+        @Override
+        public Void visitPushSuperFrame(PushSuperFrame expr, Void unused) {
+            return super.visitPushSuperFrame(expr, unused);
+        }
+
+        @Override
+        public Void visitPopFrame(PopFrame expr, Void unused) {
+            super.visitPopFrame(expr, unused);
+
+            UnsafeState prevState = state.get();
+            clearLine();
+            if (prevState.prevFramePushNode != null){
+                prevState.prevFramePushNode.setNext(prevState.prevFramePushNode.getNext().getNext());
+                prev.setNext(prev.getNext().getNext());
+            }
+
+            state.restore();
             return null;
         }
 

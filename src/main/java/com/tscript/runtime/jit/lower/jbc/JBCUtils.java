@@ -567,7 +567,17 @@ public class JBCUtils {
             frame = frame.next;
         }
 
-        for (int i = frames.size() - 1; i >= 0; i--){
+        ImageFrame currImgFrame = frames.get(frames.size()-1);
+        Frame currRealFrame = thread.frameStack.element();
+
+        currRealFrame.ip = currImgFrame.ip;
+        currRealFrame.sp = currImgFrame.sp;
+        currRealFrame.setLine(currImgFrame.line);
+        System.arraycopy(currImgFrame.locals, 0, currRealFrame.locals, 0, currImgFrame.locals.length);
+        System.arraycopy(currImgFrame.stack, 0, currRealFrame.stack, 0, currImgFrame.stack.length);
+
+
+        for (int i = frames.size() - 2; i >= 0; i--){  // ignore the current frame; already updated before
             ImageFrame imgFrame = frames.get(i);
 
             Frame trueFrame = new Frame(

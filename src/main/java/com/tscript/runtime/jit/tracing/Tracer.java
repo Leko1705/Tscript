@@ -2,7 +2,7 @@ package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.*;
 import com.tscript.runtime.jit.JITCompiler;
-import com.tscript.runtime.jit.NativeImage;
+import com.tscript.runtime.jit.JITTask;
 import com.tscript.runtime.jit.graph.EndNode;
 import com.tscript.runtime.jit.graph.FlowNode;
 import com.tscript.runtime.jit.graph.Node;
@@ -17,14 +17,12 @@ import com.tscript.runtime.typing.*;
 import com.tscript.runtime.utils.Conversion;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 public class Tracer extends InterpreterDecorator {
 
     private static final int MAX_TRACE_LIMIT = 1000;
 
     private final Profiler profiler;
-    private final Profiler.Value value;
     private final int callStackDepth;
     private final FlowNode root;
     private Node current;
@@ -32,26 +30,23 @@ public class Tracer extends InterpreterDecorator {
 
     private final Deque<Expression> stack;
     private int argsLeft;
-    private com.tscript.runtime.typing.Type[] types;
+    private final TracingConfiguration configuration;
 
     public Tracer(Interpreter interpreter,
                   Profiler profiler,
                   int callStackDepth,
-                  Profiler.Value value,
-                  com.tscript.runtime.typing.Type[] args) {
+                  TracingConfiguration configuration) {
         super(interpreter);
         this.profiler = profiler;
         this.callStackDepth = callStackDepth;
-        this.value = value;
+        this.configuration = configuration;
+
         root = new FlowNode(Expression.EMPTY);
         root.next = root;
-
         current = root;
-
         stack = new ArrayDeque<>();
         traceSize = 0;
-        types = args;
-        this.argsLeft = args.length;
+        argsLeft = configuration.paramStorageSkips();
     }
 
     @Override
@@ -340,7 +335,7 @@ public class Tracer extends InterpreterDecorator {
     public void returnFunction() {
         super.returnFunction();
 
-        if (traceComplete()) {
+        if (configuration.isReturnComplete()) {
             completeTrace(stack.remove());
         }
         else {
@@ -516,21 +511,40 @@ public class Tracer extends InterpreterDecorator {
         boolean hasNext = (currIp == frame.ip);
         extendFlow(new ItrNextGuard(hasNext, frame.ip-1, frame.sp+1));
         if (!hasNext){
-            stack.remove();
+            if (!stack.isEmpty()) {
+                stack.remove();
+            }
+            // else is loop trace
             extendFlow(new Pop(Expression.EMPTY));
         }
     }
 
     @Override
     public void branch(byte b1, byte b2, boolean ifTrue) {
+
         TThread thread = getCurrentThread();
         Frame frame = thread.frameStack.element();
         int currIp = frame.ip;
 
+        if (inCorrectFunction() && configuration.isLoopComplete()){
+            completeTrace(stack.remove());
+            frame.ip--;
+            return;
+        }
+
         super.branch(b1, b2, ifTrue);
 
         boolean required = !ifTrue && (currIp == frame.ip);
-        extendFlow(new BoolGuard(stack.remove(), required, frame.ip-1, frame.sp+1));
+
+        extendFlow(new BoolGuard(stack.remove(), required, currIp-1, frame.sp+1));
+    }
+
+    @Override
+    public void jumpTo(byte b1, byte b2) {
+        super.jumpTo(b1, b2);
+        if (inCorrectFunction() && configuration.isLoopComplete()){
+            completeTrace(Expression.EMPTY);
+        }
     }
 
     @Override
@@ -613,6 +627,10 @@ public class Tracer extends InterpreterDecorator {
         stack.push(new LoadName(getUtf8Constant(b1, b2)));
     }
 
+    private boolean inCorrectFunction(){
+        return getCurrentThread().frameStack.size() == callStackDepth;
+    }
+
     private void extendFlow(Expression exp) {
         TThread thread = getCurrentThread();
 
@@ -621,7 +639,7 @@ public class Tracer extends InterpreterDecorator {
             return;
         }
 
-        if (traceComplete()){
+        if (configuration.isReturnComplete()){
             completeTrace(exp);
             return;
         }
@@ -633,20 +651,18 @@ public class Tracer extends InterpreterDecorator {
         current = next;
     }
 
-    private boolean traceComplete(){
-        TThread thread = getCurrentThread();
-        return thread.frameStack.size() == callStackDepth;
-    }
-
     private void completeTrace(Expression exp) {
         if (Profiler.DEBUG){
             System.err.println("trace complete; start compilation");
         }
-        current.setNext(new EndNode(new Return(exp)));
+        if (configuration.doesReturn())
+            current.setNext(new EndNode(new Return(exp)));
         TThread thread = getCurrentThread();
+
+        JITTask task = configuration.getCompletionTask(root);
         JITCompiler jit = thread.getVM().getJitCompiler();
-        CompletableFuture<NativeImage> future = jit.compile(root, types);
-        future.thenAccept(img -> value.image = img);
+        jit.handle(task);
+
         thread.setInterpreter(profiler);
     }
 

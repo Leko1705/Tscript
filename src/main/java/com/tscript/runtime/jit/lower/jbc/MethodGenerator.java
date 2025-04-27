@@ -36,14 +36,16 @@ public class MethodGenerator
     private final ClassWriter cw;
     private final MethodVisitor mv;
     private final MethodVisitor clinit;
+    private final boolean returns;
 
     private final Map<Object, String> constants;
     private int sp; // used for debugging
 
-    public MethodGenerator(String internalName, ClassWriter cw, MethodVisitor mv) {
+    public MethodGenerator(String internalName, ClassWriter cw, MethodVisitor mv, boolean returns) {
         this.internalName = internalName;
         this.cw = cw;
         this.mv = mv;
+        this.returns = returns;
         sp = 0;
         constants = new HashMap<>();
         clinit = cw.visitMethod(
@@ -80,9 +82,12 @@ public class MethodGenerator
         clinit.visitMaxs(0, 0);
         clinit.visitEnd();
 
+        if (!returns) mv.visitInsn(ACONST_NULL);
+
         // finish actual method
         mv.visitInsn(ARETURN);
-        decSp();
+
+        if (returns) decSp();
 
         if (sp != 0) throw new AssertionError("sp != 0: is " + sp);
     }

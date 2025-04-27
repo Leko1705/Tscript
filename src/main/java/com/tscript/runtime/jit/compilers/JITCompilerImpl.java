@@ -1,6 +1,7 @@
 package com.tscript.runtime.jit.compilers;
 
 import com.tscript.runtime.jit.JITCompiler;
+import com.tscript.runtime.jit.JITTask;
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.jit.lower.Generator;
@@ -24,6 +25,11 @@ public class JITCompilerImpl implements JITCompiler {
         graph = postOptimize(graph, inputTypes);
         NativeImage image = lower(graph);
         return CompletableFuture.completedFuture(image);
+    }
+
+    @Override
+    public void handle(JITTask task) {
+        task.run();
     }
 
     private Node optimize(Node node, Type[] inputTypes) {
@@ -62,7 +68,7 @@ public class JITCompilerImpl implements JITCompiler {
     }
 
     private NativeImage lower(Node graph) {
-        Generator generator = new JBCGenerator();
+        Generator generator = new JBCGenerator(true);
         return generator.generate(graph);
     }
 

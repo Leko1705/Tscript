@@ -9,6 +9,8 @@ public interface JITCompiler {
 
     CompletableFuture<NativeImage> compile(Node instructions, Type[] inputTypes);
 
+    void handle(JITTask task);
+
     default void boot(){
     }
 

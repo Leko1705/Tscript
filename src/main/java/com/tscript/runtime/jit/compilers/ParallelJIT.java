@@ -1,6 +1,7 @@
 package com.tscript.runtime.jit.compilers;
 
 import com.tscript.runtime.jit.JITCompiler;
+import com.tscript.runtime.jit.JITTask;
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.graph.Node;
 import com.tscript.runtime.typing.Type;
@@ -29,6 +30,11 @@ public class ParallelJIT implements JITCompiler {
         CompletableFuture<NativeImage> future = new CompletableFuture<>();
         handler.queue.add(new Task(graph, types, future));
         return future;
+    }
+
+    @Override
+    public void handle(JITTask task) {
+        task.run();
     }
 
 
