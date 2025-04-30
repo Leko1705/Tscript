@@ -145,7 +145,7 @@ public class Profiler extends InterpreterDecorator {
             thread.setInterpreter(getUnderlying());
         }
         else if (curIp < prevIp) {
-            handleJumpBack(curIp, false);
+            handleJumpBack(curIp+1, false);
         }
     }
 

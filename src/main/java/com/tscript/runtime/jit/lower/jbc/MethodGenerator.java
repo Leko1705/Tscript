@@ -867,12 +867,12 @@ public class MethodGenerator
 
     @Override
     public Void visitItrNext(ItrNext expr, Void unused) {
-        mv.visitInsn(DUP);
+        genLoadFrame();
         mv.visitMethodInsn(
                 INVOKESTATIC,
                 org.objectweb.asm.Type.getInternalName(JBCUtils.class),
                 "iteratorNext",
-                "(" + TOBJECT_DESC + ")" + TOBJECT_DESC,
+                "(" + org.objectweb.asm.Type.getDescriptor(ImageFrame.class) + ")" + TOBJECT_DESC,
                 false
         );
         sp++;
@@ -1387,7 +1387,6 @@ public class MethodGenerator
 
     @Override
     public Void visitItrNextGuard(ItrNextGuard expr, Void unused) {
-        mv.visitInsn(DUP);
         genLoadThread();
         genLoadFrame();
         pushJBCInt(mv, expr.ip);
@@ -1405,7 +1404,6 @@ public class MethodGenerator
                 org.objectweb.asm.Type.getInternalName(JBCUtils.class),
                 "guardItrHasNext",
                 "("
-                        + TOBJECT_DESC
                         + org.objectweb.asm.Type.getDescriptor(TThread.class)
                         + org.objectweb.asm.Type.getDescriptor(ImageFrame.class)
                         + "IIZ)V",

@@ -91,8 +91,8 @@ public class JBCUtils {
     }
 
     @JITSensitive
-    public static TObject iteratorNext(TObject candidate) {
-        IteratorObject itr = (IteratorObject) candidate;
+    public static TObject iteratorNext(ImageFrame frame) {
+        IteratorObject itr = (IteratorObject) frame.stack[frame.sp-1];
         if (!itr.hasNext()){
             return null;
         }
@@ -517,14 +517,13 @@ public class JBCUtils {
     }
 
     @JITSensitive
-    public static void guardItrHasNext(TObject obj, TThread thread,
+    public static void guardItrHasNext(TThread thread,
                                        ImageFrame frame, int recoverAddress,
                                        int spRecover, boolean shouldHaveNext){
-        IteratorObject itr = (IteratorObject) obj;
+        IteratorObject itr = (IteratorObject) frame.stack[frame.sp-1];
         boolean hasNext = itr.hasNext();
         if (hasNext != shouldHaveNext){
             frame.sp = spRecover;
-            frame.stack[frame.sp-1] = obj;
             frame.ip = recoverAddress;
             fallback(thread, frame);
         }

@@ -8,15 +8,16 @@ function bar(x) {
     foo(x);
 }
 
-var i = 0;
-while i < 200 do {
+var z = 0;
+
+while z < 200 do {
+    foo(z);
+    z += 1;
+}
+
+for var i in 0:200 do {
     foo(i);
     i += 1;
 }
 
 
-i = 0;
-while i < 200 do {
-    bar(i);
-    i += 1;
-}
