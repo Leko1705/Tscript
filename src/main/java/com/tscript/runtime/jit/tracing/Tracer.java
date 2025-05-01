@@ -595,10 +595,52 @@ public class Tracer extends InterpreterDecorator {
 
     @Override
     public void jumpTo(byte b1, byte b2) {
+        TThread thread = getCurrentThread();
+        Frame frame = thread.frameStack.element();
+
+        int prevIp = frame.ip;
         super.jumpTo(b1, b2);
+        int curIp = frame.ip;
+
         if (inCorrectFunction() && configuration.isLoopComplete()){
             completeTrace(Expression.EMPTY);
         }
+        else if (curIp < prevIp){
+            boolean nativeImageExecuted = handleJumpBack(curIp+1);
+
+            if (nativeImageExecuted) {
+                // TODO change CallImage(null, List.of()) to RunImage(currIp+1, currIp)
+                stack.push(new Pop(new CallImage(null, List.of())));
+            }
+        }
+    }
+
+    private boolean handleJumpBack(int jumpBackAddress) {
+        TThread thread = getCurrentThread();
+        Frame frame = thread.frameStack.element();
+
+        String context = frame.getModule().getCanonicalPath() + ":" + frame.getName();
+        NativeImage image = thread.getVM().getJitCompiler().getCache().getPositional(context, jumpBackAddress);
+
+        if (image == null) {
+            return false;
+        }
+
+        ImageFrame imgFrame = new ImageFrame(frame);
+        try {
+            TObject res = image.run(thread, imgFrame);
+            if (res != null) {
+                frame.push(res);
+            }
+            frame.ip = jumpBackAddress-1;
+        }
+        catch (FallbackException ignored){
+            if (Profiler.DEBUG){
+                System.err.println("Fallback exception");
+            }
+        }
+
+        return true;
     }
 
     @Override

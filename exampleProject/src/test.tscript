@@ -8,13 +8,6 @@ function bar(x) {
     foo(x);
 }
 
-var z = 0;
-
-while z < 200 do {
-    foo(z);
-    z += 1;
-}
-
 for var i in 0:200 do {
     foo(i);
     i += 1;
