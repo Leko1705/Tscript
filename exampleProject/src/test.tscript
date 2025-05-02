@@ -4,10 +4,6 @@ function foo(x) {
     print(x);
 }
 
-function bar(x) {
-    foo(x);
-}
-
 for var i in 0:200 do {
     foo(i);
     i += 1;

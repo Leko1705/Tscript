@@ -4,6 +4,7 @@ import com.tscript.runtime.core.*;
 import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.caching.JITCache;
+import com.tscript.runtime.jit.ir.IRBuilder;
 import com.tscript.runtime.typing.Callable;
 import com.tscript.runtime.typing.TObject;
 import com.tscript.runtime.typing.Type;
@@ -200,15 +201,42 @@ public class Profiler extends InterpreterDecorator {
             TThread thread = getCurrentThread();
             int callStackDepth = thread.frameStack.size();
 
-            Tracer tracer = new Tracer(
-                    this.getUnderlying(),
-                    this,
-                    callStackDepth,
-                    configuration
-            );
+            Tracer2 tracer2 = getTracer2(configuration, thread, callStackDepth);
 
-            thread.setInterpreter(tracer);
+//            Tracer tracer = new Tracer(
+//                    this.getUnderlying(),
+//                    this,
+//                    callStackDepth,
+//                    configuration
+//            );
+
+            thread.setInterpreter(tracer2);
         }
+    }
+
+    private Tracer2 getTracer2(TracingConfiguration configuration, TThread thread, int callStackDepth) {
+
+        IRBuilder.LimitExceededListener l = new IRBuilder.LimitExceededListener(1000) {
+            @Override
+            public void onLimitExceeded() {
+                thread.setInterpreter(Profiler.this);
+            }
+        };
+
+        IRBuilder irBuilder = new IRBuilder(thread.frameStack.element().ip, l);
+
+        int loopStartIndex = -1;
+        if (configuration instanceof PositionalTraceConfig c) {
+            loopStartIndex = c.jumpBackAddress;
+        }
+
+        return new Tracer2(
+                getUnderlying(),
+                this,
+                irBuilder,
+                callStackDepth,
+                loopStartIndex,
+                configuration.paramStorageSkips());
     }
 
     private JITCache cache() {

@@ -15,7 +15,7 @@ public class PositionalTraceConfig implements TracingConfiguration {
 
     private final TThread thread;
     private final JITCompiler compiler;
-    private final int jumpBackAddress;
+    public final int jumpBackAddress;
     private final boolean returns;
     private final String context;
 
