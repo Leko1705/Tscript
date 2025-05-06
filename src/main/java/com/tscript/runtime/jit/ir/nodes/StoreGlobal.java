@@ -15,6 +15,6 @@ public class StoreGlobal implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitStoreGlobal(this, p);
     }
 }

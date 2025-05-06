@@ -6,15 +6,17 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 public class StoreExternal implements IRNode {
 
     public final String name;
-    public IRNode value;
+    public IRValue owner;
+    public IRValue value;
 
-    public StoreExternal(String name, IRNode value) {
+    public StoreExternal(String name, IRValue owner, IRValue value) {
         this.name = name;
+        this.owner = owner;
         this.value = value;
     }
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitStoreExternal(this, p);
     }
 }

@@ -54,6 +54,7 @@ public class TArray extends PrimitiveObject<List<TObject>>
 
     private final Map<String, Member> methods;
 
+    @JITSensitive
     public TArray(List<TObject> value) {
         super(value);
         methods = new HashMap<>(Map.of(

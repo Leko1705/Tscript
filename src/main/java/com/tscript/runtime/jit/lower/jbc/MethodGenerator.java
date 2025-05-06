@@ -980,7 +980,7 @@ public class MethodGenerator
 
             decSp();
             return null;
-        }
+        } // locals int expr
 
         genLocalsArray();
         mv.visitInsn(SWAP);
@@ -1577,7 +1577,7 @@ public class MethodGenerator
         else if (value == -1) mv.visitInsn(ICONST_M1);
         else if (value >= -128 && value <= 127) mv.visitIntInsn(BIPUSH, value);
         else if (value >= -32768 && value <= 32767) mv.visitIntInsn(SIPUSH, value);
-        else mv.visitIntInsn(SIPUSH, 30000);
+        else mv.visitIntInsn(SIPUSH, value);
     }
 
     private String loadConstant(Object value, Class<?> type, String constructorDesc, Runnable loader){

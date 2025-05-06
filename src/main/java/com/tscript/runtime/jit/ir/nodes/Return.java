@@ -13,6 +13,15 @@ public class Return implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitReturn(this, p);
+    }
+
+    @Override
+    public boolean replace(IRValue oldNode, IRValue newNode) {
+        if (oldNode == value) {
+            value = newNode;
+            return true;
+        }
+        return false;
     }
 }

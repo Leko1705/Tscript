@@ -244,7 +244,7 @@ public class Tracer extends InterpreterDecorator {
         JITCompiler compiler = getCurrentThread().getVM().getJitCompiler();
         JITCache cache = compiler.getCache();
 
-        NativeImage image = cache.getFunctional(vfunc, types);
+        NativeImage image = cache.getFunctional(null, types);
 
         if (image == null) {
             for (int i = argCount - 1; i >= 0; i--) frame.push(args[i]);

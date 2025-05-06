@@ -1,9 +1,10 @@
 package com.tscript.runtime.jit.ir.nodes;
 
-import com.tscript.runtime.jit.ir.IRNode;
 import com.tscript.runtime.jit.ir.IRVisitor;
+import com.tscript.runtime.jit.ir.types.IRFunctionType;
+import com.tscript.runtime.jit.ir.types.IRType;
 
-public class LoadAbstract implements IRNode {
+public class LoadAbstract implements IRValue {
 
     public final String name;
 
@@ -13,6 +14,11 @@ public class LoadAbstract implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitLoadAbstract(this, p);
+    }
+
+    @Override
+    public IRType getType() {
+        return new IRFunctionType();
     }
 }

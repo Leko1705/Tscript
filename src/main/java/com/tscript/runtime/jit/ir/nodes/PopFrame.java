@@ -6,6 +6,6 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 public class PopFrame implements IRNode {
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitPopFrame(this, p);
     }
 }

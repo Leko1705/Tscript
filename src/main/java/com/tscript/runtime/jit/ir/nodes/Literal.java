@@ -1,8 +1,6 @@
 package com.tscript.runtime.jit.ir.nodes;
 
-import com.tscript.runtime.jit.ir.IRNode;
-
-public abstract class Literal<T> implements IRNode {
+public abstract class Literal<T> implements IRValue {
 
     public T value;
 

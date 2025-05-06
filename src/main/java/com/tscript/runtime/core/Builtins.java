@@ -29,6 +29,9 @@ public class Builtins {
         return indexMap.getOrDefault(name, -1);
     }
 
+    public static boolean hasBuiltin(TObject o) {
+        return builtins.contains(o);
+    }
 
     static {
         registerBuiltin(Type.TYPE);

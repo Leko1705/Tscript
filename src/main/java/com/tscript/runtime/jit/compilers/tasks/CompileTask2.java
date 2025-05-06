@@ -2,11 +2,14 @@ package com.tscript.runtime.jit.compilers.tasks;
 
 import com.tscript.runtime.jit.JITTask;
 import com.tscript.runtime.jit.NativeImage;
+import com.tscript.runtime.jit.emit.Emitter;
+import com.tscript.runtime.jit.emit.jbc.JBCEmitter;
 import com.tscript.runtime.jit.ir.IRBlock;
-import com.tscript.runtime.jit.optim.*;
+import com.tscript.runtime.jit.optim.v2.*;
 import com.tscript.runtime.typing.Type;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 public class CompileTask2 implements JITTask {
@@ -18,6 +21,10 @@ public class CompileTask2 implements JITTask {
     private final Type[] argTypes;
     private final Consumer<NativeImage> completionObserver;
 
+    public CompileTask2(IRBlock root, Consumer<NativeImage> completionObserver) {
+        this(root, EMPTY_TYPE_ARRAY, completionObserver);
+    }
+
     public CompileTask2(IRBlock root, Type[] argTypes, Consumer<NativeImage> completionObserver) {
         this.root = root;
         this.argTypes = argTypes;
@@ -26,6 +33,7 @@ public class CompileTask2 implements JITTask {
 
     @Override
     public void run() {
+        if (argTypes == null) return;
         IRBlock block = optimize(root, argTypes);
         NativeImage image = emit(block);
         completionObserver.accept(image);
@@ -38,8 +46,9 @@ public class CompileTask2 implements JITTask {
         do {
             optimized = false;
 
-            for (Optimizer optimizer : getOptimizers()) {
+            for (IROptimizer optimizer : getOptimizers()) {
                 block = optimizer.optimize(block, inputTypes);
+                Objects.requireNonNull(block);
                 optimized |= optimizer.isOptimized();
             }
             passes++;
@@ -49,13 +58,15 @@ public class CompileTask2 implements JITTask {
         return block;
     }
 
-    private List<Optimizer> getOptimizers() {
+    private List<IROptimizer> getOptimizers() {
         return List.of(
-                new ConstantFolder(false), new DeadVariableEliminator(),
-                new UnsafeReducer(), new TrivialCallRemover(), new TypeReducer());
+                new ConstantFolder(), new TypeInferrer(), new WrapOptimizer(),
+                new UnsafeReducer(), new DeadVariableEliminator(), new DeadCodeEliminator()
+        );
     }
 
     private NativeImage emit(IRBlock block) {
-        return null;
+        Emitter emitter = new JBCEmitter();
+        return emitter.emit(block);
     }
 }

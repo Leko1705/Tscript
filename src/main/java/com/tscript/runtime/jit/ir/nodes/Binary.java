@@ -1,15 +1,25 @@
 package com.tscript.runtime.jit.ir.nodes;
 
-import com.tscript.runtime.jit.ir.IRNode;
+public abstract class Binary implements IRValue {
 
-public abstract class Binary implements IRNode {
+    public IRValue lhs;
+    public IRValue rhs;
 
-    public IRNode lhs;
-    public IRNode rhs;
-
-    public Binary(IRNode lhs, IRNode rhs) {
+    public Binary(IRValue lhs, IRValue rhs) {
         this.lhs = lhs;
         this.rhs = rhs;
     }
 
+    @Override
+    public boolean replace(IRValue oldNode, IRValue newNode) {
+        if (oldNode == rhs) {
+            rhs = newNode;
+            return true;
+        }
+        if (oldNode == lhs) {
+            lhs = newNode;
+            return true;
+        }
+        return false;
+    }
 }

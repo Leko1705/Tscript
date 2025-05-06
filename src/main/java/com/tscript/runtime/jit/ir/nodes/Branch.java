@@ -6,12 +6,12 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 
 public class Branch implements IRNode {
 
-    public IRNode condition;
+    public IRValue condition;
     public IRBlock jumpBlock;
     public IRBlock noJumpBlock;
     public boolean jumpOnTrue;
 
-    public Branch(IRNode condition, IRBlock jumpBlock, IRBlock noJumpBlock, boolean jumpOnTrue) {
+    public Branch(IRValue condition, IRBlock jumpBlock, IRBlock noJumpBlock, boolean jumpOnTrue) {
         this.condition = condition;
         this.jumpBlock = jumpBlock;
         this.noJumpBlock = noJumpBlock;
@@ -20,6 +20,15 @@ public class Branch implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitBranch(this, p);
+    }
+
+    @Override
+    public boolean replace(IRValue oldNode, IRValue newNode) {
+        if (oldNode == condition) {
+            condition = newNode;
+            return true;
+        }
+        return false;
     }
 }

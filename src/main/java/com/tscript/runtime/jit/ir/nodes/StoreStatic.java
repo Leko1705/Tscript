@@ -6,15 +6,15 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 public class StoreStatic implements IRNode {
 
     public final String name;
-    public IRNode value;
+    public IRValue value;
 
-    public StoreStatic(String name, IRNode value) {
+    public StoreStatic(String name, IRValue value) {
         this.name = name;
         this.value = value;
     }
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitStoreStatic(this, p);
     }
 }

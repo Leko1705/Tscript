@@ -100,6 +100,18 @@ public class JBCUtils {
     }
 
     @JITSensitive
+    public static boolean iteratorHasNext(ImageFrame frame) {
+        IteratorObject itr = (IteratorObject) frame.stack[frame.sp-1];
+        return itr.hasNext();
+    }
+
+    @JITSensitive
+    public static TObject pop(ImageFrame frame) {
+        frame.stack[--frame.sp] = null;
+        return frame.stack[frame.sp-1];
+    }
+
+    @JITSensitive
     public static TObject not(TThread thread, TObject candidate) {
         return performUnaryOperation(Opcode.NOT, thread, candidate);
     }
@@ -191,7 +203,7 @@ public class JBCUtils {
         System.arraycopy(args, 0, frame.locals, 0, args.length);
 
         VirtualFunction vfunc = (VirtualFunction) called;
-        NativeImage image = thread.getVM().getJitCompiler().getCache().getFunctional(vfunc, types);
+        NativeImage image = thread.getVM().getJitCompiler().getCache().getFunctional(null, types);
 
         return image.run(thread, frame);
     }
@@ -507,8 +519,8 @@ public class JBCUtils {
 
 
     @JITSensitive
-    public static void storeGlobal(TThread thread, ImageFrame frame, TObject what, int index){
-        frame.module.loadMember(index).set(what, thread);
+    public static void storeGlobal(ImageFrame frame, TObject what, int index){
+        frame.module.loadMember(index).set(what, null); // thread not necessary because never fails
     }
 
     @JITSensitive

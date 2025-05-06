@@ -13,7 +13,7 @@ public class UseMembers implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitUseMembers(this, p);
     }
 
 }

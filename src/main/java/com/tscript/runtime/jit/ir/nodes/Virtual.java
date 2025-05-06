@@ -1,9 +1,10 @@
 package com.tscript.runtime.jit.ir.nodes;
 
-import com.tscript.runtime.jit.ir.IRNode;
 import com.tscript.runtime.jit.ir.IRVisitor;
+import com.tscript.runtime.jit.ir.types.IRFunctionType;
+import com.tscript.runtime.jit.ir.types.IRType;
 
-public class Virtual implements IRNode {
+public class Virtual implements IRValue {
 
     public final int address;
 
@@ -13,6 +14,11 @@ public class Virtual implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitVirtual(this, p);
+    }
+
+    @Override
+    public IRType getType() {
+        return new IRFunctionType();
     }
 }

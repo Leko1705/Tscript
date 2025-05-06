@@ -11,11 +11,6 @@ public interface JITCache {
 
     NativeImage getFunctional(String context, Type[] argumentTypes);
 
-    default NativeImage getFunctional(VirtualFunction function, Type[] argumentTypes) {
-        String context = function.getModule().getCanonicalPath() + ":" + function.getName();
-        return getFunctional(context, argumentTypes);
-    }
-
     void putFunctional(String context, Type[] argumentTypes, NativeImage image);
 
     default void putFunctional(VirtualFunction function, Type[] argumentTypes, NativeImage image) {

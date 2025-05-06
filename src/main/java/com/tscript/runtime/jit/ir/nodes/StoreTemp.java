@@ -6,15 +6,15 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 public class StoreTemp implements IRNode {
 
     public final int address;
-    public IRNode value;
+    public IRValue value;
 
-    public StoreTemp(int address, IRNode value) {
+    public StoreTemp(int address, IRValue value) {
         this.address = address;
         this.value = value;
     }
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitStoreTemp(this, p);
     }
 }

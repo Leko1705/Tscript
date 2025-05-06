@@ -13,6 +13,6 @@ public class NewLine implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitNewLine(this, p);
     }
 }

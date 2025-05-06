@@ -1,25 +1,26 @@
 package com.tscript.runtime.jit.ir.nodes;
 
-import com.tscript.runtime.jit.ir.IRNode;
 import com.tscript.runtime.jit.ir.IRVisitor;
+import com.tscript.runtime.jit.ir.types.IRType;
+import com.tscript.runtime.jit.ir.types.IRTypeType;
 
-public class Type implements IRNode {
+public class Type implements IRValue {
 
     public int address;
-    public String id;
+    public boolean fromModule;
 
-    public Type(int address) {
+    public Type(int address, boolean fromModule) {
         this.address = address;
-        this.id = null;
-    }
-
-    public Type(com.tscript.runtime.typing.Type type) {
-        this.address = -1;
-        this.id = type.getId();
+        this.fromModule = fromModule;
     }
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitType(this, p);
+    }
+
+    @Override
+    public IRType getType() {
+        return IRTypeType.TYPE_TYPE;
     }
 }

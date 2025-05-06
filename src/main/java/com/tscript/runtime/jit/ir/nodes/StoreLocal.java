@@ -6,15 +6,15 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 public class StoreLocal implements IRNode {
 
     public final int address;
-    public IRNode value;
+    public IRValue value;
 
-    public StoreLocal(int address, IRNode value) {
+    public StoreLocal(int address, IRValue value) {
         this.address = address;
         this.value = value;
     }
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitStoreLocal(this, p);
     }
 }

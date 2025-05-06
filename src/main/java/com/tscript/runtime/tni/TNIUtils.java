@@ -4,6 +4,7 @@ import com.tscript.runtime.core.Frame;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.core.VirtualFunction;
 import com.tscript.runtime.core.VirtualObject;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.typing.*;
 
 import java.util.List;
@@ -51,6 +52,7 @@ public class TNIUtils {
         return o1.equals(o2);
     }
 
+    @JITSensitive
     public static boolean isTrue(TObject object) {
         if (object instanceof TBoolean i && !i.getValue()) return false;
         if (object == Null.INSTANCE) return false;

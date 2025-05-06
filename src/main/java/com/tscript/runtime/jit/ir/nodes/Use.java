@@ -5,8 +5,8 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 
 public class Use implements IRNode {
 
-    IRNode value;
-    String name;
+    public IRNode value;
+    public String name;
 
     public Use(IRNode value, String name) {
         this.value = value;
@@ -15,6 +15,6 @@ public class Use implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitUse(this, p);
     }
 }

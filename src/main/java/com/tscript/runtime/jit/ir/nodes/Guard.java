@@ -5,11 +5,11 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 
 public class Guard implements IRNode {
 
-    public IRNode condition;
+    public IRValue condition;
     public int ipRecover;
     public int spRecover;
 
-    public Guard(IRNode condition, int ipRecover, int spRecover) {
+    public Guard(IRValue condition, int ipRecover, int spRecover) {
         this.condition = condition;
         this.ipRecover = ipRecover;
         this.spRecover = spRecover;
@@ -17,6 +17,15 @@ public class Guard implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitGuard(this, p);
+    }
+
+    @Override
+    public boolean replace(IRValue oldNode, IRValue newNode) {
+        if (oldNode == condition) {
+            condition = newNode;
+            return true;
+        }
+        return false;
     }
 }

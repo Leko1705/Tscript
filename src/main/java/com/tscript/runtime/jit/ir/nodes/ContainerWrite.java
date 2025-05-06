@@ -5,11 +5,11 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 
 public class ContainerWrite implements IRNode {
 
-    public IRNode container;
-    public IRNode key;
-    public IRNode value;
+    public IRValue container;
+    public IRValue key;
+    public IRValue value;
 
-    public ContainerWrite(IRNode container, IRNode key, IRNode value) {
+    public ContainerWrite(IRValue container, IRValue key, IRValue value) {
         this.container = container;
         this.key = key;
         this.value = value;
@@ -17,7 +17,23 @@ public class ContainerWrite implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitContainerWrite(this, p);
     }
 
+    @Override
+    public boolean replace(IRValue oldNode, IRValue newNode) {
+        if (oldNode == container) {
+            container = newNode;
+            return true;
+        }
+        if (oldNode == key) {
+            key = newNode;
+            return true;
+        }
+        if (value == oldNode) {
+            value = newNode;
+            return true;
+        }
+        return false;
+    }
 }

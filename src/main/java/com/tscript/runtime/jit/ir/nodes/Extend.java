@@ -5,11 +5,11 @@ import com.tscript.runtime.jit.ir.IRVisitor;
 
 public class Extend implements IRNode {
 
-    public IRNode owner;
+    public IRValue owner;
     public String name;
-    public IRNode value;
+    public IRValue value;
 
-    public Extend(IRNode owner, String name, IRNode value) {
+    public Extend(IRValue owner, String name, IRValue value) {
         this.owner = owner;
         this.name = name;
         this.value = value;
@@ -17,6 +17,19 @@ public class Extend implements IRNode {
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitExtend(this, p);
+    }
+
+    @Override
+    public boolean replace(IRValue oldNode, IRValue newNode) {
+        if (owner == oldNode) {
+            owner = newNode;
+            return true;
+        }
+        if (value == oldNode) {
+            value = newNode;
+            return true;
+        }
+        return false;
     }
 }

@@ -3,7 +3,7 @@ package com.tscript.runtime.jit.optim.v2;
 import com.tscript.runtime.jit.ir.IRBlock;
 import com.tscript.runtime.typing.Type;
 
-public interface Optimizer {
+public interface IROptimizer {
 
     default IRBlock optimize(IRBlock block, Type[] inputTypes){
         return optimize(block);

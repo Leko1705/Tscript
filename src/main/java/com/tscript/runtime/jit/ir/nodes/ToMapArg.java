@@ -1,20 +1,25 @@
 package com.tscript.runtime.jit.ir.nodes;
 
-import com.tscript.runtime.jit.ir.IRNode;
 import com.tscript.runtime.jit.ir.IRVisitor;
+import com.tscript.runtime.jit.ir.types.IRType;
 
-public class ToMapArg implements IRNode {
+public class ToMapArg implements IRValue {
 
     public final String name;
-    public IRNode value;
+    public IRValue value;
 
-    public ToMapArg(String name, IRNode value) {
+    public ToMapArg(String name, IRValue value) {
         this.name = name;
         this.value = value;
     }
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitToMapArg(this, p);
+    }
+
+    @Override
+    public IRType getType() {
+        return value.getType();
     }
 }

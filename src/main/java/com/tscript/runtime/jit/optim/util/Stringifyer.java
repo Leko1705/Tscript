@@ -141,7 +141,7 @@ public class Stringifyer implements ExpressionVisitor<Void, String> {
 
     @Override
     public String visitCallImage(CallImage expr, Void unused) {
-        return "";
+        return null;
     }
 
     @Override

@@ -1,7 +1,6 @@
 package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.*;
-import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.caching.JITCache;
 import com.tscript.runtime.jit.ir.IRBuilder;
@@ -40,6 +39,7 @@ public class Profiler extends InterpreterDecorator {
         public int hashCode() {
             return Objects.hash(module, name, pos);
         }
+
     }
 
     private static final int TRACING_THRESHOLD = 100;
@@ -70,7 +70,8 @@ public class Profiler extends InterpreterDecorator {
             types[i] = args[i].getType();
         }
 
-        NativeImage image = cache().getFunctional(vfunc, types);
+        String context = vfunc.getModule().getCanonicalPath() + ":" + vfunc.getName();
+        NativeImage image = cache().getFunctional(context, types);
 
         if (image != null){
             ImageFrame imgFrame = new ImageFrame(vfunc, args);
@@ -91,9 +92,16 @@ public class Profiler extends InterpreterDecorator {
         for (int i = argCount-1; i >= 0; i--) frame.push(args[i]);
         frame.push(top);
 
-        JITCompiler jit = thread.getVM().getJitCompiler();
         Key key = new Key(vfunc.getModule(), vfunc.getName(), types);
-        checkThreshold(key, new FunctionTraceConfig(thread, jit, vfunc, thread.frameStack.size(), types));
+
+        TracerConfiguration config =
+                new FunctionTracingConfiguration(
+                        context,
+                        types,
+                        thread.frameStack.size(),
+                        vfunc.getParameters(thread).count());
+
+        checkThreshold(key, config);
 
         super.callInplace(argCount);
     }
@@ -111,7 +119,8 @@ public class Profiler extends InterpreterDecorator {
         for (int i = 0; i < arguments.size(); i++)
             types[i] = arguments.get(i).getType();
 
-        NativeImage image = cache().getFunctional(vfunc, types);
+        String context = vfunc.getModule().getCanonicalPath() + ":" + vfunc.getName();
+        NativeImage image = cache().getFunctional(context, types);
 
         if (image != null) {
             ImageFrame imgFrame = new ImageFrame(vfunc, arguments.toArray(new TObject[0]));
@@ -126,9 +135,16 @@ public class Profiler extends InterpreterDecorator {
             }
         }
         else {
-            JITCompiler jit = thread.getVM().getJitCompiler();
             Key key = new Key(vfunc.getModule(), vfunc.getName(), types);
-            checkThreshold(key, new FunctionTraceConfig(thread, jit, vfunc, thread.frameStack.size(), types));
+
+            TracerConfiguration config =
+                    new FunctionTracingConfiguration(
+                            context,
+                            types,
+                            thread.frameStack.size(),
+                            vfunc.getParameters(thread).count());
+
+            checkThreshold(key, config);
         }
 
         return super.call(called, arguments);
@@ -146,7 +162,7 @@ public class Profiler extends InterpreterDecorator {
             thread.setInterpreter(getUnderlying());
         }
         else if (curIp < prevIp) {
-            handleJumpBack(curIp+1, false);
+            // handleJumpBack(curIp+1);
         }
     }
 
@@ -159,11 +175,11 @@ public class Profiler extends InterpreterDecorator {
         int curIp = frame.ip;
 
         if (curIp < prevIp) {
-            handleJumpBack(prevIp, true);
+            // handleJumpBack(prevIp);
         }
     }
 
-    private void handleJumpBack(int jumpBackAddress, boolean returns){
+    private void handleJumpBack(int jumpBackAddress){
         TThread thread = getCurrentThread();
         Frame frame = thread.frameStack.element();
 
@@ -186,35 +202,31 @@ public class Profiler extends InterpreterDecorator {
             }
         }
         else {
-            JITCompiler jit = thread.getVM().getJitCompiler();
             Key key = new Key(frame.getModule(), frame.getName(), jumpBackAddress);
-            checkThreshold(key, new PositionalTraceConfig(thread, jit, context, jumpBackAddress, returns));
+
+            TracerConfiguration config =
+                    new LoopTracingConfiguration(
+                            context,
+                            thread.frameStack.size(),
+                            jumpBackAddress);
+
+            checkThreshold(key, config);
         }
     }
 
-    private void checkThreshold(Key key, TracingConfiguration configuration) {
+    private void checkThreshold(Key key, TracerConfiguration configuration) {
         int hotness = hotnessCache.computeIfAbsent(key, k -> 0);
         hotness++;
         hotnessCache.put(key, hotness);
 
         if (hotness >= TRACING_THRESHOLD) {
             TThread thread = getCurrentThread();
-            int callStackDepth = thread.frameStack.size();
-
-            Tracer2 tracer2 = getTracer2(configuration, thread, callStackDepth);
-
-//            Tracer tracer = new Tracer(
-//                    this.getUnderlying(),
-//                    this,
-//                    callStackDepth,
-//                    configuration
-//            );
-
+            Tracer2 tracer2 = getTracer2(configuration, thread);
             thread.setInterpreter(tracer2);
         }
     }
 
-    private Tracer2 getTracer2(TracingConfiguration configuration, TThread thread, int callStackDepth) {
+    private Tracer2 getTracer2(TracerConfiguration configuration, TThread thread) {
 
         IRBuilder.LimitExceededListener l = new IRBuilder.LimitExceededListener(1000) {
             @Override
@@ -225,18 +237,11 @@ public class Profiler extends InterpreterDecorator {
 
         IRBuilder irBuilder = new IRBuilder(thread.frameStack.element().ip, l);
 
-        int loopStartIndex = -1;
-        if (configuration instanceof PositionalTraceConfig c) {
-            loopStartIndex = c.jumpBackAddress;
-        }
-
         return new Tracer2(
                 getUnderlying(),
                 this,
                 irBuilder,
-                callStackDepth,
-                loopStartIndex,
-                configuration.paramStorageSkips());
+                configuration);
     }
 
     private JITCache cache() {

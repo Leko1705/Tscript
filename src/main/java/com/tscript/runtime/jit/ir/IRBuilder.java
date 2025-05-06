@@ -1,7 +1,9 @@
 package com.tscript.runtime.jit.ir;
 
+import com.tscript.runtime.core.Builtins;
 import com.tscript.runtime.core.Opcode;
 import com.tscript.runtime.jit.ir.nodes.*;
+import com.tscript.runtime.jit.caching.TypeCache;
 
 import java.util.*;
 
@@ -21,7 +23,7 @@ public class IRBuilder {
     }
 
 
-    private final Deque<IRNode> stack;
+    private final Deque<IRValue> stack;
 
     private final IRBlock root;
 
@@ -61,15 +63,15 @@ public class IRBuilder {
         return root;
     }
 
-    public void push(IRNode node) {
+    public void push(IRValue node) {
         stack.push(node);
     }
 
-    public IRNode pop() {
+    public IRValue pop() {
         return stack.remove();
     }
 
-    public IRNode top() {
+    public IRValue top() {
         return stack.element();
     }
 
@@ -103,9 +105,9 @@ public class IRBuilder {
     }
 
     public void array(int argc) {
-        List<IRNode> exps = new ArrayList<>();
+        List<IRValue> exps = new ArrayList<>();
         for (int i = 0; i < argc; i++) {
-            exps.add(stack.remove());
+            exps.add(new WrapTObj(stack.remove()));
         }
         this.stack.push(new Array(exps));
         postHandleExpr();
@@ -114,17 +116,19 @@ public class IRBuilder {
     public void dict(int argc) {
         Dict dict = new Dict();
         for (int i = 0; i < argc; i++) {
-            dict.keys.add(stack.remove());
-            dict.values.add(stack.remove());
+            IRValue value = stack.remove();
+            IRValue key = stack.remove();
+            dict.keys.add(new WrapTObj(key));
+            dict.values.add(new WrapTObj(value));
         }
         this.stack.push(dict);
         postHandleExpr();
     }
 
     public void range() {
-        IRNode to = stack.remove();
-        IRNode from = stack.pop();
-        stack.push(new Range(from, to));
+        IRValue to = stack.remove();
+        IRValue from = stack.pop();
+        stack.push(new Range(new WrapTObj(from), new WrapTObj(to)));
         postHandleExpr();
     }
 
@@ -139,17 +143,17 @@ public class IRBuilder {
     }
 
     public void loadType(int address) {
-        stack.push(new Type(address));
+        stack.push(new Type(address, true));
         postHandleExpr();
     }
 
     public void loadType(com.tscript.runtime.typing.Type type) {
-        stack.push(new Type(type));
+        stack.push(new Type(TypeCache.getId(type), false));
         postHandleExpr();
     }
 
     public void typeof() {
-        stack.push(new GetType(stack.remove()));
+        stack.push(new GetType(new WrapTObj(stack.remove())));
         postHandleExpr();
     }
 
@@ -168,33 +172,33 @@ public class IRBuilder {
     }
 
     public void callInp(int argc, boolean isGuaranteedVirtual) {
-        IRNode called = stack.remove();
+        IRValue called = stack.remove();
 
         if (isGuaranteedVirtual || isVirtual(called)) {
             for (int i = 0; i < argc; i++) {
-                block.append(new StoreTemp(i, stack.remove()));
+                block.append(new StoreTemp(i, new WrapTObj(stack.remove())));
             }
             block.append(new PushFrame(called));
             for (int i = 0; i < argc; i++) {
-                stack.push(new LoadTemp(i));
+                stack.push(new UnpackObj(new LoadTemp(i)));
             }
         }
         else {
-            List<IRNode> args = new ArrayList<>(argc);
-            for (int i = 0; i < argc; i++) args.add(stack.remove());
-            stack.push(new CallInp(called, args));
+            List<IRValue> args = new ArrayList<>(argc);
+            for (int i = 0; i < argc; i++) args.add(new WrapTObj(stack.remove()));
+            stack.push(new UnpackObj(new CallInp(new WrapTObj(called), args)));
         }
 
         postHandleExpr();
     }
 
     public void toInpArg() {
-        stack.push(new ToInpArg(stack.remove()));
+        stack.push(new ToInpArg(new WrapTObj(stack.remove())));
         postHandleExpr();
     }
 
     public void toMapArg(String name) {
-        stack.push(new ToMapArg(name, stack.remove()));
+        stack.push(new ToMapArg(name, new WrapTObj(stack.remove())));
         postHandleExpr();
     }
 
@@ -204,73 +208,74 @@ public class IRBuilder {
     }
 
     public void loadLocal(int address) {
-        stack.push(new LoadLocal(address));
+        stack.push(new UnpackObj(new LoadLocal(address)));
         postHandleExpr();
     }
 
     public void storeLocal(int address) {
-        IRNode value = stack.remove();
-        this.block.append(new StoreLocal(address, value));
+        IRValue value = stack.remove();
+        this.block.append(new StoreLocal(address, new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void loadGlobal(int address) {
-        stack.push(new LoadGlobal(address));
+        stack.push(new UnpackObj(new LoadGlobal(address)));
         postHandleExpr();
     }
 
     public void storeGlobal(int address) {
-        IRNode value = stack.remove();
-        this.block.append(new StoreGlobal(address, value));
+        IRValue value = stack.remove();
+        this.block.append(new StoreGlobal(address, new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void loadInternal(int address) {
-        stack.push(new LoadInternal(address));
+        stack.push(new UnpackObj(new LoadInternal(address)));
         postHandleExpr();
     }
 
     public void storeInternal(int address) {
-        IRNode value = stack.remove();
-        this.block.append(new StoreInternal(address, value));
+        IRValue value = stack.remove();
+        this.block.append(new StoreInternal(address, new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void loadExternal(String name) {
-        stack.push(new LoadExternal(name));
+        stack.push(new UnpackObj(new LoadExternal(new WrapTObj(stack.remove()), name)));
         postHandleExpr();
     }
 
     public void storeExternal(String name) {
-        IRNode value = stack.remove();
-        this.block.append(new StoreExternal(name, value));
+        IRValue accessed = stack.remove();
+        IRValue value = stack.remove();
+        this.block.append(new StoreExternal(name, new WrapTObj(accessed), new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void loadStatic(String name) {
-        stack.push(new LoadStatic(name));
+        stack.push(new UnpackObj(new LoadStatic(name)));
         postHandleExpr();
     }
 
     public void storeStatic(String name) {
-        IRNode value = stack.remove();
-        this.block.append(new StoreStatic(name, value));
+        IRValue value = stack.remove();
+        this.block.append(new StoreStatic(name, new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void loadSuper(String name) {
-        stack.push(new LoadSuper(name));
+        stack.push(new UnpackObj(new LoadSuper(name)));
         postHandleExpr();
     }
 
     public void storeSuper(String name) {
-        IRNode value = stack.remove();
-        this.block.append(new StoreSuper(name, value));
+        IRValue value = stack.remove();
+        this.block.append(new StoreSuper(name, new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void loadName(String name) {
-        stack.push(new LoadName(name));
+        stack.push(new UnpackObj(new LoadName(name)));
         postHandleExpr();
     }
 
@@ -285,48 +290,48 @@ public class IRBuilder {
     }
 
     public void makeReturn() {
-        this.block.append(new Return(stack.remove()));
+        this.block.append(new Return(new WrapTObj(stack.remove())));
         postHandleStmt();
     }
 
     public void containerRead() {
-        IRNode container = stack.remove();
-        IRNode key = stack.remove();
-        stack.push(new ContainerRead(container, key));
+        IRValue container = stack.remove();
+        IRValue key = stack.remove();
+        stack.push(new UnpackObj(new ContainerRead(new WrapTObj(container), new WrapTObj(key))));
         postHandleExpr();
     }
 
     public void containerWrite() {
-        IRNode container = stack.remove();
-        IRNode key = stack.remove();
-        IRNode value = stack.remove();
-        this.block.append(new ContainerWrite(container, key, value));
+        IRValue container = stack.remove();
+        IRValue key = stack.remove();
+        IRValue value = stack.remove();
+        this.block.append(new ContainerWrite(new WrapTObj(container), new WrapTObj(key), new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void equals(boolean shouldBeEqual) {
-        IRNode rhs = stack.remove();
-        IRNode lhs = stack.remove();
-        stack.push(new Equals(lhs, rhs, shouldBeEqual));
+        IRValue rhs = stack.remove();
+        IRValue lhs = stack.remove();
+        stack.push(new UnpackObj(new Equals(lhs, rhs, shouldBeEqual)));
         postHandleExpr();
     }
 
     public void negate() {
-        IRNode value = stack.remove();
-        stack.push(new Neg(value));
+        IRValue value = stack.remove();
+        stack.push(new UnpackObj(new Neg(value)));
         postHandleExpr();
     }
 
     public void not() {
-        IRNode value = stack.remove();
-        stack.push(new Not(value));
+        IRValue value = stack.remove();
+        stack.push(new UnpackObj(new Not(value)));
         postHandleExpr();
     }
 
     public void binaryOp(Opcode opcode) {
-        IRNode rhs = stack.remove();
-        IRNode lhs = stack.remove();
-        stack.push(new BinaryOp(rhs, lhs, opcode));
+        IRValue rhs = stack.remove();
+        IRValue lhs = stack.remove();
+        stack.push(new UnpackObj(new BinaryOp(new WrapTObj(lhs), new WrapTObj(rhs), opcode)));
         postHandleExpr();
     }
 
@@ -336,39 +341,39 @@ public class IRBuilder {
     }
 
     public void setOwner() {
-        IRNode member = stack.remove();
-        IRNode owner = stack.remove();
-        stack.push(new SetOwner(member, owner));
+        IRValue member = stack.remove();
+        IRValue owner = stack.remove();
+        stack.push(new UnpackObj(new SetOwner(new WrapTObj(owner), new WrapTObj(member))));
         postHandleExpr();
     }
 
     public void use(String name) {
-        IRNode value = stack.remove();
-        block.append(new Use(value, name));
+        IRValue value = stack.remove();
+        block.append(new Use(new WrapTObj(value), name));
         postHandleStmt();
     }
 
     public void useMembers() {
-        IRNode value = stack.remove();
-        block.append(new UseMembers(value));
+        IRValue value = stack.remove();
+        block.append(new UseMembers(new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void extend(String name) {
-        IRNode value = stack.remove();
-        IRNode owner = stack.remove();
-        block.append(new Extend(owner, name, value));
+        IRValue value = stack.remove();
+        IRValue owner = stack.remove();
+        block.append(new Extend(new WrapTObj(owner), name, new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void getItr() {
-        block.append(new Itr(stack.remove()));
+        block.append(new Itr(new WrapTObj(stack.remove())));
         blocks.put(currentIp, block);
         postHandleStmt();
     }
 
     public void itrHasNext(boolean shouldHaveNext) {
-        stack.push(new ItrHasNext(shouldHaveNext));
+        stack.push(new UnpackObj(new ItrHasNext(shouldHaveNext)));
         postHandleExpr();
     }
 
@@ -387,7 +392,7 @@ public class IRBuilder {
             throw new IllegalStateException("Endless loop does not work on branching directly");
         }
 
-        block.append(new ItrBranch(jumpBlock, noJumpBlock, address));
+        block.append(new ItrBranch(jumpBlock, noJumpBlock));
 
         size++;
         if (checkLimitExceeded()) return;
@@ -403,7 +408,7 @@ public class IRBuilder {
 
 
     public void createBranch(int address, boolean onTrue) {
-        IRNode condition = stack.remove();
+        IRValue condition = stack.remove();
 
         IRBlock noJumpBlock = blocks.computeIfAbsent(currentIp+1, k -> new IRBlock());
         IRBlock jumpBlock;
@@ -418,7 +423,7 @@ public class IRBuilder {
             throw new IllegalStateException("Endless loop does not work on branching directly");
         }
 
-        block.append(new Branch(condition, jumpBlock, noJumpBlock, onTrue));
+        block.append(new Branch(new UnpackObj(condition), jumpBlock, noJumpBlock, onTrue));
 
         currentIp++;
         block = noJumpBlock;
@@ -452,7 +457,7 @@ public class IRBuilder {
     }
 
     public void createGuard(int ipRecover, int spRecover) {
-        IRNode condition = stack.remove();
+        IRValue condition = stack.remove();
         block.append(new Guard(condition, ipRecover, spRecover));
         postHandleStmt();
     }

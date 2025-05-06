@@ -380,8 +380,8 @@ public class BaseInterpreter implements Interpreter {
     public void makeDict(byte size) {
         Map<TObject, TObject> content = new LinkedHashMap<>();
         for (; size > 0; size--) {
-            TObject key = thread.pop();
             TObject value = thread.pop();
+            TObject key = thread.pop();
             content.put(key, value);
         }
         thread.push(new TDictionary(content));

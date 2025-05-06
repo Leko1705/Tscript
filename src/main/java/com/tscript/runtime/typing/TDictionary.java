@@ -3,6 +3,7 @@ package com.tscript.runtime.typing;
 
 
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 
@@ -46,6 +47,7 @@ public class TDictionary extends PrimitiveObject<Map<TObject, TObject>>
 
     private final Map<String, Member> methods;
 
+    @JITSensitive
     public TDictionary(Map<TObject, TObject> value) {
         super(value);
         methods = new HashMap<>(Map.of(

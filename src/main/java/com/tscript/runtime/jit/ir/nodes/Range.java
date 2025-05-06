@@ -1,19 +1,25 @@
 package com.tscript.runtime.jit.ir.nodes;
 
-import com.tscript.runtime.jit.ir.IRNode;
 import com.tscript.runtime.jit.ir.IRVisitor;
+import com.tscript.runtime.jit.ir.types.IRRangeType;
+import com.tscript.runtime.jit.ir.types.IRType;
 
-public class Range implements IRNode {
+public class Range implements IRValue {
 
-    public IRNode from, to;
+    public IRValue from, to;
 
-    public Range(IRNode from, IRNode to) {
+    public Range(IRValue from, IRValue to) {
         this.from = from;
         this.to = to;
     }
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitRange(this, p);
+    }
+
+    @Override
+    public IRType getType() {
+        return new IRRangeType();
     }
 }

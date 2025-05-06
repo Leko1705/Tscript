@@ -3,16 +3,15 @@ package com.tscript.runtime.jit.tracing;
 import com.tscript.runtime.core.*;
 import com.tscript.runtime.jit.JITCompiler;
 import com.tscript.runtime.jit.JITTask;
-import com.tscript.runtime.jit.compilers.tasks.CompileTask2;
 import com.tscript.runtime.jit.ir.IRBlock;
 import com.tscript.runtime.jit.ir.IRBuilder;
-import com.tscript.runtime.jit.ir.IRNode;
 import com.tscript.runtime.jit.ir.nodes.*;
 import com.tscript.runtime.jit.ir.nodes.Range;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.Pool;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.typing.*;
+import com.tscript.runtime.typing.Type;
 import com.tscript.runtime.utils.Conversion;
 
 import java.util.*;
@@ -20,24 +19,17 @@ import java.util.*;
 public class Tracer2 extends InterpreterDecorator {
 
     private final Profiler profiler;
-    private final int initialFunctionStackIndex;
-    private final int loopStartIndex;
-    private int paramStorageSkipsLeft;
-
+    private final TracerConfiguration configuration;
     private final IRBuilder irBuilder;
 
     public Tracer2(Interpreter interpreter,
                    Profiler profiler,
                    IRBuilder irBuilder,
-                   int initialFunctionStackIndex,
-                   int loopStartIndex,
-                   int paramSkips) {
+                   TracerConfiguration configuration) {
         super(interpreter);
         this.profiler = profiler;
         this.irBuilder = irBuilder;
-        this.initialFunctionStackIndex = initialFunctionStackIndex;
-        this.loopStartIndex = loopStartIndex;
-        this.paramStorageSkipsLeft = paramSkips;
+        this.configuration = configuration;
     }
 
     @Override
@@ -60,9 +52,10 @@ public class Tracer2 extends InterpreterDecorator {
 
     @Override
     public void loadConst(byte b1, byte b2) {
+        super.loadConst(b1, b2);
         TObject top = top();
         if (top == null) return;
-        IRNode value = fromObject(top);
+        IRValue value = fromObject(top);
         irBuilder.push(value);
     }
 
@@ -129,7 +122,7 @@ public class Tracer2 extends InterpreterDecorator {
         TObject top = top();
 
         if (top instanceof Callable called) {
-            IRNode calledIRNode = irBuilder.pop();
+            IRValue calledIRNode = irBuilder.pop();
 
             List<TObject> missing = getMissingInplaceArgs(called, argCount);
             if (missing == null) return;
@@ -157,11 +150,11 @@ public class Tracer2 extends InterpreterDecorator {
         TObject top = top();
 
         if (top instanceof Callable called) {
-            IRNode calledIRNode = irBuilder.pop();
+            IRValue calledIRNode = irBuilder.pop();
 
-            IRNode[] flattenArgs = flatMappedCallArgs(called, argCount);
+            IRValue[] flattenArgs = flatMappedCallArgs(called, argCount);
             if (flattenArgs != null) {
-                for (IRNode flattenArg : flattenArgs) {
+                for (IRValue flattenArg : flattenArgs) {
                     irBuilder.push(flattenArg);
                 }
                 irBuilder.push(calledIRNode);
@@ -173,12 +166,12 @@ public class Tracer2 extends InterpreterDecorator {
         super.callMapped(argCount);
     }
 
-    private IRNode[] flatMappedCallArgs(Callable called, int argCount) {
+    private IRValue[] flatMappedCallArgs(Callable called, int argCount) {
         List<String> names = new ArrayList<>(argCount);
-        List<IRNode> values = new ArrayList<>(argCount);
+        List<IRValue> values = new ArrayList<>(argCount);
 
         for (int i = 0; i < argCount; i++) {
-            IRNode exp = irBuilder.pop();
+            IRValue exp = irBuilder.pop();
             if (exp instanceof ToInpArg t) {
                 names.add(null);
                 values.add(t.value);
@@ -193,11 +186,11 @@ public class Tracer2 extends InterpreterDecorator {
 
         if (names.size() > parameters.count()) return null;
 
-        LinkedHashMap<String, IRNode> finals = new LinkedHashMap<>();
+        LinkedHashMap<String, IRValue> finals = new LinkedHashMap<>();
 
         int index = 0;
 
-        Iterator<IRNode> valueItr = values.iterator();
+        Iterator<IRValue> valueItr = values.iterator();
         for (String name : names) {
             if (name != null) {
                 if (!parameters.hasName(name)) return null;
@@ -218,7 +211,7 @@ public class Tracer2 extends InterpreterDecorator {
 
         if (finals.size() < parameters.count()) return null;
 
-        return finals.values().toArray(new IRNode[0]);
+        return finals.values().toArray(new IRValue[0]);
     }
 
     @Override
@@ -242,7 +235,7 @@ public class Tracer2 extends InterpreterDecorator {
 
     @Override
     public void dup() {
-        IRNode top = irBuilder.pop();
+        IRValue top = irBuilder.pop();
         irBuilder.push(top);
         irBuilder.push(top);
         super.dup();
@@ -252,8 +245,9 @@ public class Tracer2 extends InterpreterDecorator {
     public void jumpTo(byte b1, byte b2) {
         super.jumpTo(b1, b2);
 
-        int ip = ip();
-        if (isLoopFocused() && inInitialFunction() && ip + 1 == loopStartIndex) {
+        final TThread thread = getCurrentThread();
+
+        if (configuration.isLoopFocused() && configuration.isTraceComplete(thread)) {
             complete();
             return;
         }
@@ -284,8 +278,7 @@ public class Tracer2 extends InterpreterDecorator {
     @Override
     public void storeLocal(byte address) {
         super.storeLocal(address);
-        if (paramStorageSkipsLeft > 0) {
-            paramStorageSkipsLeft--;
+        if (configuration.isParameterStorage()) {
             return;
         }
         irBuilder.storeLocal(address);
@@ -444,8 +437,8 @@ public class Tracer2 extends InterpreterDecorator {
 
     @Override
     public void binaryOperation(Opcode opcode) {
-        IRNode rhs = irBuilder.pop();
-        IRNode lhs = irBuilder.pop();
+        IRValue rhs = irBuilder.pop();
+        IRValue lhs = irBuilder.pop();
         irBuilder.push(lhs);
         irBuilder.push(rhs);
 
@@ -507,14 +500,16 @@ public class Tracer2 extends InterpreterDecorator {
     public void returnFunction() {
         super.returnFunction();
 
-        if (isFunctionFocused() && inInitialFunction()) {
+        final TThread thread = getCurrentThread();
+
+        if (configuration.isFunctionFocused() && configuration.isTraceComplete(thread)) {
             irBuilder.makeReturn();
             complete();
         }
         else {
-            irBuilder.appendToCurrentBlock(new StoreTemp(0, irBuilder.pop()));
+            irBuilder.appendToCurrentBlock(new StoreTemp(0, new WrapTObj(irBuilder.pop())));
             irBuilder.appendToCurrentBlock(new PopFrame());
-            irBuilder.push(new LoadTemp(0));
+            irBuilder.push(new UnpackObj(new LoadTemp(0)));
         }
     }
 
@@ -553,7 +548,7 @@ public class Tracer2 extends InterpreterDecorator {
         return pool.loadName(b1, b2);
     }
 
-    private IRNode fromObject(TObject obj) {
+    private IRValue fromObject(TObject obj) {
         if (obj instanceof TString s) return new Str(s.getValue());
         else if (obj instanceof TReal r) return new Real(r.getValue());
         else if (obj instanceof TBoolean b) return new Bool(b.getValue());
@@ -561,17 +556,17 @@ public class Tracer2 extends InterpreterDecorator {
         else if (obj == com.tscript.runtime.typing.Null.INSTANCE) return new NullValue();
         else if (obj instanceof com.tscript.runtime.typing.Range r) return new Range(new Int(r.getFrom()), new Int(r.getTo()));
         else if (obj instanceof TArray a) {
-            List<IRNode> exps = new ArrayList<>();
+            List<IRValue> exps = new ArrayList<>();
             for (TObject entry : a.getValue()){
-                exps.add(fromObject(entry));
+                exps.add(new WrapTObj(fromObject(entry)));
             }
             return new Array(exps);
         }
         else if (obj instanceof TDictionary d){
             Dict dict = new Dict();
             for (Map.Entry<TObject, TObject> entry : d.getValue().entrySet()){
-                dict.keys.add(fromObject(entry.getKey()));
-                dict.values.add(fromObject(entry.getValue()));
+                dict.keys.add(new WrapTObj(fromObject(entry.getKey())));
+                dict.values.add(new WrapTObj(fromObject(entry.getValue())));
             }
             return dict;
         }
@@ -586,34 +581,27 @@ public class Tracer2 extends InterpreterDecorator {
         return getCurrentThread().frameStack.element().ip;
     }
 
-    private void typeGuard(IRNode given, TObject expectedTypeInstance) {
+    private void typeGuard(IRValue given, TObject expectedTypeInstance) {
+        // if (true) return;
+
         irBuilder.push(given);
         irBuilder.typeof();
-        irBuilder.loadType(expectedTypeInstance.getType());
+
+        Type type = expectedTypeInstance.getType();
+        irBuilder.loadType(type);
+
         irBuilder.equals(true);
         irBuilder.createGuard(ip(), sp());
     }
 
-    private boolean inInitialFunction(){
-        return getCurrentThread().frameStack.size() == initialFunctionStackIndex;
-    }
-
-    private boolean isFunctionFocused() {
-        return loopStartIndex == -1;
-    }
-
-    private boolean isLoopFocused() {
-        return !isFunctionFocused();
-    }
-
     private void complete() {
         TThread thread = getCurrentThread();
-
-        IRBlock root = irBuilder.getRoot();
-        JITTask task = new CompileTask2(root, null, img -> { });
         JITCompiler jit = thread.getVM().getJitCompiler();
-        jit.handle(task);
 
+        IRBlock trace = irBuilder.getRoot();
+        JITTask task = configuration.completeTrace(thread, trace);
+
+        jit.handle(task);
         thread.setInterpreter(profiler);
     }
 

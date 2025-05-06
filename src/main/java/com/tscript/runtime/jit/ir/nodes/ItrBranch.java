@@ -8,16 +8,14 @@ public class ItrBranch implements IRNode {
 
     public IRBlock jumpBlock;
     public IRBlock noJumpBlock;
-    public int address;
 
-    public ItrBranch(IRBlock jumpBlock, IRBlock noJumpBlock, int address) {
+    public ItrBranch(IRBlock jumpBlock, IRBlock noJumpBlock) {
         this.jumpBlock = jumpBlock;
         this.noJumpBlock = noJumpBlock;
-        this.address = address;
     }
 
     @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitItrBranch(this, p);
     }
 }
