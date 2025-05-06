@@ -2,9 +2,7 @@ package com.tscript.runtime.jit.ir;
 
 import com.tscript.runtime.jit.ir.nodes.Goto;
 
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 public class IRBlock implements Iterable<IRNode> {
 
@@ -13,7 +11,6 @@ public class IRBlock implements Iterable<IRNode> {
     static {
         ENDLESS_LOOP.append(new Goto(ENDLESS_LOOP));
     }
-
 
     private final List<IRNode> code = new LinkedList<>();
 
@@ -29,4 +26,5 @@ public class IRBlock implements Iterable<IRNode> {
     public Iterator<IRNode> iterator() {
         return code.iterator();
     }
+
 }

@@ -1,17 +1,18 @@
 package com.tscript.runtime.jit.ir.nodes;
 
-import com.tscript.runtime.jit.ir.IRNode;
 import com.tscript.runtime.jit.ir.IRVisitor;
 import com.tscript.runtime.jit.ir.types.IRType;
 import com.tscript.runtime.jit.ir.types.IRUnknownType;
 
 public class LoadLocal implements IRValue {
 
+    public int ssaAddress;
     public final int address;
 
     public IRType type = IRUnknownType.INSTANCE;
 
-    public LoadLocal(int address) {
+    public LoadLocal(int ssaAddress, int address) {
+        this.ssaAddress = ssaAddress;
         this.address = address;
     }
 

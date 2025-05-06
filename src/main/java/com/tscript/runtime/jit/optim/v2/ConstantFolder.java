@@ -162,13 +162,13 @@ public class ConstantFolder extends IRParentDelegationScanner<Void> implements I
     @Override
     public Void visitStoreLocal(StoreLocal node, IRNode parent) {
         scan(node.value, node);
-        locals.get().put(node.address, validateFoldable(node.value));
+        locals.get().put(node.ssaAddress, validateFoldable(node.value));
         return null;
     }
 
     @Override
     public Void visitLoadLocal(LoadLocal node, IRNode parent) {
-        IRValue value = locals.get().computeIfAbsent(node.address, k -> null);
+        IRValue value = locals.get().computeIfAbsent(node.ssaAddress, k -> null);
         if (value != null && parent != null) {
             optimized |= parent.replace(node, value);
         }

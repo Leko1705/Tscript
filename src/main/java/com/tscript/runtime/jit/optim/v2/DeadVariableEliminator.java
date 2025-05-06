@@ -106,7 +106,7 @@ public class DeadVariableEliminator extends IRScanner<Void, Void> implements IRO
     public Void visitStoreLocal(StoreLocal node, Void unused) {
         scan(node.value, null);
 
-        List<Runnable> optims = removalCandidates.get().computeIfAbsent(node.address, k -> new LinkedList<>());
+        List<Runnable> optims = removalCandidates.get().computeIfAbsent(node.ssaAddress, k -> new LinkedList<>());
         optimizations.addAll(optims);
 
         IRValue value = node.value;
@@ -121,7 +121,7 @@ public class DeadVariableEliminator extends IRScanner<Void, Void> implements IRO
         }
 
         if (value instanceof LoadLocal l) {
-            if (node.address == l.address && canEliminate.element()){
+            if (node.ssaAddress == l.ssaAddress && canEliminate.element()){
                 optimizations.add(() -> currentBlock.getCode().remove(node));
                 optimized = true;
                 return null;
@@ -137,7 +137,7 @@ public class DeadVariableEliminator extends IRScanner<Void, Void> implements IRO
 
     @Override
     public Void visitLoadLocal(LoadLocal node, Void unused) {
-        int address = node.address;
+        int address = node.ssaAddress;
         List<Runnable> optims = removalCandidates.get().computeIfAbsent(address, k -> new LinkedList<>());
         optims.clear();
         return null;

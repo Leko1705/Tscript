@@ -39,13 +39,13 @@ public class TypeInferrer extends IRScanner<Void, Void> implements IROptimizer {
     @Override
     public Void visitStoreLocal(StoreLocal node, Void unused) {
         super.visitStoreLocal(node, unused);
-        getLocals().put(node.address, node.value.getType());
+        getLocals().put(node.ssaAddress, node.value.getType());
         return null;
     }
 
     @Override
     public Void visitLoadLocal(LoadLocal node, Void unused) {
-        node.type = getLocals().getOrDefault(node.address, IRUnknownType.INSTANCE);
+        node.type = getLocals().getOrDefault(node.ssaAddress, IRUnknownType.INSTANCE);
         return null;
     }
 

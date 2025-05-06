@@ -1,6 +1,5 @@
 package com.tscript.runtime.jit.ir;
 
-import com.tscript.runtime.core.Builtins;
 import com.tscript.runtime.core.Opcode;
 import com.tscript.runtime.jit.ir.nodes.*;
 import com.tscript.runtime.jit.caching.TypeCache;
@@ -29,27 +28,81 @@ public class IRBuilder {
 
     private IRBlock block;
 
+    private final Map<IRBlock, SSAState> blockSsaState;
+
+
     private final Map<Integer, IRBlock> blocks;
 
     private int currentIp;
 
     private int size;
 
-    private LimitExceededListener limitExceededListener;
+    private int nextFreeSsa = 0;
+
+    private final LimitExceededListener limitExceededListener;
+
+
+    private class SSAState {
+
+        private final Map<Integer, Integer> initialSsa = new HashMap<>();
+        private final Map<Integer, Phi> phis;
+        private final Map<Integer, Integer> realToSsa = new HashMap<>();
+
+        public SSAState(IRBlock owner) {
+            phis = new HashMap<>();
+        }
+
+        public int getCurrentSsa(int realAddress) {
+            if (realToSsa.containsKey(realAddress)) {
+                return realToSsa.get(realAddress);
+            }
+            int ssa = nextFreeSsa++;
+            realToSsa.put(realAddress, ssa);
+            initialSsa.put(realAddress, ssa);
+            return ssa;
+        }
+
+        public int updateSsa(int address) {
+            int ssa = nextFreeSsa++;
+            realToSsa.put(address, ssa);
+            if (!initialSsa.containsKey(address)) {
+                initialSsa.put(address, ssa);
+            }
+            return ssa;
+        }
+
+        public void mapTransitionFrom(IRBlock sourceBlock) {
+            final SSAState src = getSsaState(sourceBlock);
+            final SSAState dest = this;
+
+           for (Integer realAddress : src.realToSsa.keySet()) {
+               int ssaAddress = src.realToSsa.get(realAddress);
+
+               Phi phi = dest.getPhi(realAddress);
+
+               LoadLocal ll = new LoadLocal(ssaAddress, realAddress);
+               phi.options.put(sourceBlock, ll);
+           }
+        }
+
+        public int getInitialSsa(int realAddress) {
+            return initialSsa.get(realAddress);
+        }
+
+        public Phi getPhi(int address) {
+            return phis.computeIfAbsent(address, k -> new Phi());
+        }
+    }
 
 
     public IRBuilder(int ip) {
-        this.stack = new ArrayDeque<>();
-        this.block = new IRBlock();
-        this.root = block;
-        this.blocks = new LinkedHashMap<>();
-        this.currentIp = ip;
-        this.size = 0;
-        this.limitExceededListener = null;
+        this(ip, null);
     }
 
     public IRBuilder(int ip, LimitExceededListener l) {
         this.stack = new ArrayDeque<>();
+        this.blockSsaState = new HashMap<>();
+
         this.block = new IRBlock();
         this.root = block;
         this.blocks = new LinkedHashMap<>();
@@ -58,8 +111,26 @@ public class IRBuilder {
         this.limitExceededListener = l;
     }
 
+    boolean completed = false;
 
     public IRBlock getRoot() {
+        if (completed) {
+            return root;
+        }
+
+        for (IRBlock block : blockSsaState.keySet()) {
+            SSAState ssaState = blockSsaState.get(block);
+
+            for (int realAddress : ssaState.realToSsa.keySet()) {
+                Phi phi = ssaState.getPhi(realAddress);
+                if (!phi.options.isEmpty()) {
+                    int ssa = ssaState.getInitialSsa(realAddress);
+                    block.getCode().add(0, new StoreLocal(ssa, realAddress, phi));
+                }
+            }
+        }
+
+        completed = true;
         return root;
     }
 
@@ -208,13 +279,15 @@ public class IRBuilder {
     }
 
     public void loadLocal(int address) {
-        stack.push(new UnpackObj(new LoadLocal(address)));
+        int ssaAddress = getSsaState(block).getCurrentSsa(address);
+        stack.push(new UnpackObj(new LoadLocal(ssaAddress, address)));
         postHandleExpr();
     }
 
     public void storeLocal(int address) {
         IRValue value = stack.remove();
-        this.block.append(new StoreLocal(address, new WrapTObj(value)));
+        int ssaAddress = getSsaState(block).updateSsa(address);
+        this.block.append(new StoreLocal(ssaAddress, address, new WrapTObj(value)));
         postHandleStmt();
     }
 
@@ -424,6 +497,8 @@ public class IRBuilder {
         }
 
         block.append(new Branch(new UnpackObj(condition), jumpBlock, noJumpBlock, onTrue));
+        getSsaState(jumpBlock).mapTransitionFrom(block);
+        getSsaState(noJumpBlock).mapTransitionFrom(block);
 
         currentIp++;
         block = noJumpBlock;
@@ -431,10 +506,13 @@ public class IRBuilder {
 
     public void createGoto(int address) {
         if (address > currentIp) {
-            IRBlock newBlock = blocks.computeIfAbsent(address, k -> new IRBlock());
-            block.append(new Goto(newBlock));
+            IRBlock destBlock = blocks.computeIfAbsent(address, k -> new IRBlock());
+            block.append(new Goto(destBlock));
+            getSsaState(destBlock).mapTransitionFrom(block);
         }
         else if (address < currentIp) {
+            IRBlock destBlock = blocks.get(address);
+            getSsaState(destBlock).mapTransitionFrom(block);
             block.append(new Goto(blocks.get(address)));
         }
         else {
@@ -449,7 +527,8 @@ public class IRBuilder {
     }
 
     public void createGoto(IRBlock block) {
-        block.append(new Goto(block));
+        this.block.append(new Goto(block));
+        getSsaState(block).mapTransitionFrom(this.block);
     }
 
     public void setIp(int ip) {
@@ -492,6 +571,10 @@ public class IRBuilder {
         if (node instanceof Virtual) return true;
 
         return false;
+    }
+
+    private SSAState getSsaState(IRBlock block) {
+        return blockSsaState.computeIfAbsent(block, SSAState::new);
     }
 
 }
