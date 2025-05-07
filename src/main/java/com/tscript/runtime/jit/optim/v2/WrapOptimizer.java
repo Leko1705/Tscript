@@ -3,13 +3,14 @@ package com.tscript.runtime.jit.optim.v2;
 import com.tscript.runtime.jit.ir.*;
 import com.tscript.runtime.jit.ir.nodes.UnpackObj;
 import com.tscript.runtime.jit.ir.nodes.WrapTObj;
+import com.tscript.runtime.typing.Type;
 
 public class WrapOptimizer extends IRParentDelegationScanner<Void> implements IROptimizer {
 
     private boolean optimized = false;
 
     @Override
-    public IRBlock optimize(IRBlock block) {
+    public IRBlock optimize(IRBlock block, Type[] inputTypes) {
         optimized = false;
 
         IRWalker<IRNode, Void> walker = new IRTreeWalker<>();

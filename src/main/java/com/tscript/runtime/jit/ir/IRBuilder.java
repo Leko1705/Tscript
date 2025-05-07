@@ -28,7 +28,7 @@ public class IRBuilder {
 
     private IRBlock block;
 
-    private final Map<IRBlock, SSAState> blockSsaState;
+    private final Map<IRBlock, ArrayDeque<SSAState>> blockSsaState;
 
 
     private final Map<Integer, IRBlock> blocks;
@@ -48,7 +48,7 @@ public class IRBuilder {
         private final Map<Integer, Phi> phis;
         private final Map<Integer, Integer> realToSsa = new HashMap<>();
 
-        public SSAState(IRBlock owner) {
+        public SSAState() {
             phis = new HashMap<>();
         }
 
@@ -119,7 +119,7 @@ public class IRBuilder {
         }
 
         for (IRBlock block : blockSsaState.keySet()) {
-            SSAState ssaState = blockSsaState.get(block);
+            SSAState ssaState = getSsaState(block);
 
             for (int realAddress : ssaState.realToSsa.keySet()) {
                 Phi phi = ssaState.getPhi(realAddress);
@@ -250,6 +250,7 @@ public class IRBuilder {
                 block.append(new StoreTemp(i, new WrapTObj(stack.remove())));
             }
             block.append(new PushFrame(called));
+            pushSSAState(block);
             for (int i = 0; i < argc; i++) {
                 stack.push(new UnpackObj(new LoadTemp(i)));
             }
@@ -377,6 +378,7 @@ public class IRBuilder {
 
     public void makePopFrameReturn() {
         this.block.append(new PopFrame());
+        popSSAState(block);
     }
 
     public void containerRead() {
@@ -588,7 +590,15 @@ public class IRBuilder {
     }
 
     private SSAState getSsaState(IRBlock block) {
-        return blockSsaState.computeIfAbsent(block, SSAState::new);
+        return blockSsaState.computeIfAbsent(block, k -> new ArrayDeque<>(List.of(new SSAState()))).element();
+    }
+
+    private void pushSSAState(IRBlock block) {
+        blockSsaState.computeIfAbsent(block, k -> new ArrayDeque<>(List.of(new SSAState()))).push(new SSAState());
+    }
+
+    private void popSSAState(IRBlock block) {
+        blockSsaState.computeIfAbsent(block, k -> new ArrayDeque<>(List.of(new SSAState()))).remove();
     }
 
 }

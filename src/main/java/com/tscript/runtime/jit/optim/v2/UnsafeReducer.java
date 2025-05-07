@@ -25,7 +25,7 @@ public class UnsafeReducer extends IRScanner<Void, Void> implements IROptimizer 
 
 
     @Override
-    public IRBlock optimize(IRBlock block) {
+    public IRBlock optimize(IRBlock block, com.tscript.runtime.typing.Type[] inputTypes) {
         optimized = false;
         state = new State<>(new UnsafeState());
 

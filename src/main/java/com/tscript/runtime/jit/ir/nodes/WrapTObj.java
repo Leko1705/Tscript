@@ -3,6 +3,7 @@ package com.tscript.runtime.jit.ir.nodes;
 import com.tscript.runtime.jit.ir.IRVisitor;
 import com.tscript.runtime.jit.ir.types.IRType;
 import com.tscript.runtime.jit.ir.types.IRTypeDecorator;
+import com.tscript.runtime.jit.ir.types.WrappedType;
 
 public class WrapTObj implements IRValue {
 
@@ -19,12 +20,7 @@ public class WrapTObj implements IRValue {
 
     @Override
     public IRType getType() {
-        return new IRTypeDecorator(value.getType()){
-            @Override
-            public boolean isPrimitive() {
-                return false;
-            }
-        };
+        return new WrappedType(value.getType());
     }
 
     @Override

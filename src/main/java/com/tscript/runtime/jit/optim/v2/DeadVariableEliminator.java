@@ -7,6 +7,7 @@ import com.tscript.runtime.jit.ir.types.IRTypeType;
 import com.tscript.runtime.jit.ir.types.IRTypeVisitor;
 import com.tscript.runtime.jit.ir.types.IRTypeVisitorImpl;
 import com.tscript.runtime.jit.optim.State;
+import com.tscript.runtime.typing.Type;
 
 import java.util.*;
 
@@ -22,7 +23,7 @@ public class DeadVariableEliminator extends IRScanner<Void, Void> implements IRO
     private final Queue<Runnable> optimizations = new LinkedList<>();
 
     @Override
-    public IRBlock optimize(IRBlock block) {
+    public IRBlock optimize(IRBlock block, Type[] inputTypes) {
         optimized = false;
         canEliminate.push(true);
 

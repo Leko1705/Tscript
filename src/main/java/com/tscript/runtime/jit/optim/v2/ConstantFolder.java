@@ -104,7 +104,7 @@ public class ConstantFolder extends IRParentDelegationScanner<Void> implements I
     private Map<Integer, IRValue> temps;
 
     @Override
-    public IRBlock optimize(IRBlock block) {
+    public IRBlock optimize(IRBlock block, com.tscript.runtime.typing.Type[] inputTypes) {
         optimized = false;
 
         locals = new State<>(new HashMap<>());

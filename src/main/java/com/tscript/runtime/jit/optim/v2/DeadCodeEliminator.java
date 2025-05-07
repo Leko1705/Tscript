@@ -5,6 +5,7 @@ import com.tscript.runtime.jit.ir.IRScanner;
 import com.tscript.runtime.jit.ir.IRTreeWalker;
 import com.tscript.runtime.jit.ir.IRWalker;
 import com.tscript.runtime.jit.ir.nodes.*;
+import com.tscript.runtime.typing.Type;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -18,7 +19,7 @@ public class DeadCodeEliminator extends IRScanner<Void, Void> implements IROptim
     private IRBlock currentBlock;
 
     @Override
-    public IRBlock optimize(IRBlock block) {
+    public IRBlock optimize(IRBlock block, Type[] inputTypes) {
         optimized = false;
 
         IRWalker<Void, Void> walker = new IRTreeWalker<>() {
