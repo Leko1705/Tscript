@@ -146,8 +146,8 @@ public class IRBuilder {
         return stack.element();
     }
 
-    public void appendToCurrentBlock(IRNode stmt) {
-        block.append(stmt);
+    public void dup() {
+        stack.push(stack.element());
     }
 
     public void nullValue() {
@@ -278,6 +278,14 @@ public class IRBuilder {
         postHandleStmt();
     }
 
+    public void loadTemp(int address) {
+        stack.push(new UnpackObj(new LoadTemp(address)));
+    }
+
+    public void storeTemp(int address) {
+        this.block.append(new StoreTemp(address, new WrapTObj(stack.remove())));
+    }
+
     public void loadLocal(int address) {
         int ssaAddress = getSsaState(block).getCurrentSsa(address);
         stack.push(new UnpackObj(new LoadLocal(ssaAddress, address)));
@@ -365,6 +373,10 @@ public class IRBuilder {
     public void makeReturn() {
         this.block.append(new Return(new WrapTObj(stack.remove())));
         postHandleStmt();
+    }
+
+    public void makePopFrameReturn() {
+        this.block.append(new PopFrame());
     }
 
     public void containerRead() {
@@ -476,6 +488,8 @@ public class IRBuilder {
 
     public void itrNext() {
         stack.push(new ItrNext());
+        storeTemp(0);
+        loadTemp(0);
         postHandleExpr();
     }
 

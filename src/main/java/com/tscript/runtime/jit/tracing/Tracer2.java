@@ -235,9 +235,7 @@ public class Tracer2 extends InterpreterDecorator {
 
     @Override
     public void dup() {
-        IRValue top = irBuilder.pop();
-        irBuilder.push(top);
-        irBuilder.push(top);
+        irBuilder.dup();
         super.dup();
     }
 
@@ -507,9 +505,9 @@ public class Tracer2 extends InterpreterDecorator {
             complete();
         }
         else {
-            irBuilder.appendToCurrentBlock(new StoreTemp(0, new WrapTObj(irBuilder.pop())));
-            irBuilder.appendToCurrentBlock(new PopFrame());
-            irBuilder.push(new UnpackObj(new LoadTemp(0)));
+            irBuilder.storeTemp(0);
+            irBuilder.makePopFrameReturn();
+            irBuilder.loadTemp(0);
         }
     }
 
