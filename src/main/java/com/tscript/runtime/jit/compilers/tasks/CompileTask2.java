@@ -60,7 +60,7 @@ public class CompileTask2 implements JITTask {
 
     private List<IROptimizer> getOptimizers() {
         return List.of(
-                new ConstantFolder(), new TypeInferrer(), new WrapOptimizer(),
+                new TypeInferrer(), new WrapOptimizer(), new ConstantFolder(),
                 new UnsafeReducer(), new DeadVariableEliminator(), new DeadCodeEliminator()
         );
     }
