@@ -156,22 +156,22 @@ public class IRBuilder {
     }
 
     public void integer(int value) {
-        this.stack.push(new Int(value));
+        this.stack.push(new WrapTObj(new Int(value)));
         postHandleExpr();
     }
 
     public void real(double value) {
-        this.stack.push(new Real(value));
+        this.stack.push(new WrapTObj(new Real(value)));
         postHandleExpr();
     }
 
     public void string(String value) {
-        this.stack.push(new Str(value));
+        this.stack.push(new WrapTObj(new Str(value)));
         postHandleExpr();
     }
 
     public void bool(boolean value) {
-        this.stack.push(new Bool(value));
+        this.stack.push(new WrapTObj(new Bool(value)));
         postHandleExpr();
     }
 
@@ -180,7 +180,7 @@ public class IRBuilder {
         for (int i = 0; i < argc; i++) {
             exps.add(new WrapTObj(stack.remove()));
         }
-        this.stack.push(new Array(exps));
+        this.stack.push(new WrapTObj(new Array(exps)));
         postHandleExpr();
     }
 
@@ -192,14 +192,14 @@ public class IRBuilder {
             dict.keys.add(new WrapTObj(key));
             dict.values.add(new WrapTObj(value));
         }
-        this.stack.push(dict);
+        this.stack.push(new WrapTObj(dict));
         postHandleExpr();
     }
 
     public void range() {
         IRValue to = stack.remove();
         IRValue from = stack.pop();
-        stack.push(new Range(new WrapTObj(from), new WrapTObj(to)));
+        stack.push(new Range(from, to));
         postHandleExpr();
     }
 
@@ -214,7 +214,7 @@ public class IRBuilder {
     }
 
     public void loadType(int address) {
-        stack.push(new Type(address, true));
+        stack.push(new WrapTObj(new Type(address, true)));
         postHandleExpr();
     }
 
@@ -252,13 +252,13 @@ public class IRBuilder {
             block.append(new PushFrame(called));
             pushSSAState(block);
             for (int i = 0; i < argc; i++) {
-                stack.push(new UnpackObj(new LoadTemp(i)));
+                stack.push(new LoadTemp(i));
             }
         }
         else {
             List<IRValue> args = new ArrayList<>(argc);
             for (int i = 0; i < argc; i++) args.add(new WrapTObj(stack.remove()));
-            stack.push(new UnpackObj(new CallInp(new WrapTObj(called), args)));
+            stack.push(new CallInp(new WrapTObj(called), args));
         }
 
         postHandleExpr();
@@ -280,7 +280,7 @@ public class IRBuilder {
     }
 
     public void loadTemp(int address) {
-        stack.push(new UnpackObj(new LoadTemp(address)));
+        stack.push(new WrapTObj(new LoadTemp(address)));
     }
 
     public void storeTemp(int address) {
@@ -289,7 +289,7 @@ public class IRBuilder {
 
     public void loadLocal(int address) {
         int ssaAddress = getSsaState(block).getCurrentSsa(address);
-        stack.push(new UnpackObj(new LoadLocal(ssaAddress, address)));
+        stack.push(new WrapTObj(new LoadLocal(ssaAddress, address)));
         postHandleExpr();
     }
 
@@ -301,7 +301,7 @@ public class IRBuilder {
     }
 
     public void loadGlobal(int address) {
-        stack.push(new UnpackObj(new LoadGlobal(address)));
+        stack.push(new LoadGlobal(address));
         postHandleExpr();
     }
 
@@ -312,7 +312,7 @@ public class IRBuilder {
     }
 
     public void loadInternal(int address) {
-        stack.push(new UnpackObj(new LoadInternal(address)));
+        stack.push(new LoadInternal(address));
         postHandleExpr();
     }
 
@@ -323,7 +323,7 @@ public class IRBuilder {
     }
 
     public void loadExternal(String name) {
-        stack.push(new UnpackObj(new LoadExternal(new WrapTObj(stack.remove()), name)));
+        stack.push(new LoadExternal(new WrapTObj(stack.remove()), name));
         postHandleExpr();
     }
 
@@ -335,7 +335,7 @@ public class IRBuilder {
     }
 
     public void loadStatic(String name) {
-        stack.push(new UnpackObj(new LoadStatic(name)));
+        stack.push(new LoadStatic(name));
         postHandleExpr();
     }
 
@@ -346,7 +346,7 @@ public class IRBuilder {
     }
 
     public void loadSuper(String name) {
-        stack.push(new UnpackObj(new LoadSuper(name)));
+        stack.push(new LoadSuper(name));
         postHandleExpr();
     }
 
@@ -357,7 +357,7 @@ public class IRBuilder {
     }
 
     public void loadName(String name) {
-        stack.push(new UnpackObj(new LoadName(name)));
+        stack.push(new LoadName(name));
         postHandleExpr();
     }
 
@@ -384,7 +384,7 @@ public class IRBuilder {
     public void containerRead() {
         IRValue container = stack.remove();
         IRValue key = stack.remove();
-        stack.push(new UnpackObj(new ContainerRead(new WrapTObj(container), new WrapTObj(key))));
+        stack.push(new ContainerRead(new WrapTObj(container), new WrapTObj(key)));
         postHandleExpr();
     }
 
@@ -399,26 +399,26 @@ public class IRBuilder {
     public void equals(boolean shouldBeEqual) {
         IRValue rhs = stack.remove();
         IRValue lhs = stack.remove();
-        stack.push(new UnpackObj(new Equals(lhs, rhs, shouldBeEqual)));
+        stack.push(new Equals(new WrapTObj(lhs), new WrapTObj(rhs), shouldBeEqual));
         postHandleExpr();
     }
 
     public void negate() {
         IRValue value = stack.remove();
-        stack.push(new UnpackObj(new Neg(value)));
+        stack.push(new Neg(new WrapTObj(value)));
         postHandleExpr();
     }
 
     public void not() {
         IRValue value = stack.remove();
-        stack.push(new UnpackObj(new Not(value)));
+        stack.push(new Not(new WrapTObj(value)));
         postHandleExpr();
     }
 
     public void binaryOp(Opcode opcode) {
         IRValue rhs = stack.remove();
         IRValue lhs = stack.remove();
-        stack.push(new UnpackObj(new BinaryOp(new WrapTObj(lhs), new WrapTObj(rhs), opcode)));
+        stack.push(new BinaryOp(new WrapTObj(lhs), new WrapTObj(rhs), opcode));
         postHandleExpr();
     }
 
@@ -430,7 +430,7 @@ public class IRBuilder {
     public void setOwner() {
         IRValue member = stack.remove();
         IRValue owner = stack.remove();
-        stack.push(new UnpackObj(new SetOwner(new WrapTObj(owner), new WrapTObj(member))));
+        stack.push(new SetOwner(new WrapTObj(owner), new WrapTObj(member)));
         postHandleExpr();
     }
 
@@ -460,7 +460,7 @@ public class IRBuilder {
     }
 
     public void itrHasNext(boolean shouldHaveNext) {
-        stack.push(new UnpackObj(new ItrHasNext(shouldHaveNext)));
+        stack.push(new ItrHasNext(shouldHaveNext));
         postHandleExpr();
     }
 
@@ -512,7 +512,7 @@ public class IRBuilder {
             throw new IllegalStateException("Endless loop does not work on branching directly");
         }
 
-        block.append(new Branch(new UnpackObj(condition), jumpBlock, noJumpBlock, onTrue));
+        block.append(new Branch(new WrapTObj(condition), jumpBlock, noJumpBlock, onTrue));
         getSsaState(jumpBlock).mapTransitionFrom(block);
         getSsaState(noJumpBlock).mapTransitionFrom(block);
 
@@ -552,8 +552,12 @@ public class IRBuilder {
     }
 
     public void createGuard(int ipRecover, int spRecover) {
+        createGuard(ipRecover, spRecover, true);
+    }
+
+    public void createGuard(int ipRecover, int spRecover, boolean shouldHold) {
         IRValue condition = stack.remove();
-        block.append(new Guard(condition, ipRecover, spRecover));
+        block.append(new Guard(condition, ipRecover, spRecover, shouldHold));
         postHandleStmt();
     }
 
@@ -590,15 +594,20 @@ public class IRBuilder {
     }
 
     private SSAState getSsaState(IRBlock block) {
-        return blockSsaState.computeIfAbsent(block, k -> new ArrayDeque<>(List.of(new SSAState()))).element();
+        return getCallStack(block).element();
     }
 
     private void pushSSAState(IRBlock block) {
-        blockSsaState.computeIfAbsent(block, k -> new ArrayDeque<>(List.of(new SSAState()))).push(new SSAState());
+        Deque<SSAState> callStack = getCallStack(block);
+        callStack.push(new SSAState());
     }
 
     private void popSSAState(IRBlock block) {
-        blockSsaState.computeIfAbsent(block, k -> new ArrayDeque<>(List.of(new SSAState()))).remove();
+        Deque<SSAState> callStack = getCallStack(block);
+        callStack.remove();
     }
 
+    private Deque<SSAState> getCallStack(IRBlock block) {
+        return blockSsaState.computeIfAbsent(block, k -> new ArrayDeque<>(List.of(new SSAState())));
+    }
 }

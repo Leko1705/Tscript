@@ -113,12 +113,7 @@ public class DeadVariableEliminator extends IRScanner<Void, Void> implements IRO
         IRValue value = node.value;
 
         if (value instanceof WrapTObj wrapper) {
-            if (wrapper.value.getType().isPrimitive()){
-                value = null;
-            }
-            else {
-                value = wrapper.value;
-            }
+            value = wrapper.value;
         }
 
         if (value instanceof LoadLocal l) {

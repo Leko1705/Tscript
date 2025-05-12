@@ -1,6 +1,6 @@
 package com.tscript.runtime.jit.ir.types;
 
-public class IRRealType implements IRPrimitiveType {
+public class IRRealType implements IRType {
 
     @Override
     public <P, R> R accept(IRTypeVisitor<P, R> visitor, P p) {

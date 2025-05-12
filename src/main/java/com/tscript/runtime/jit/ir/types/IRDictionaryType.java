@@ -1,6 +1,6 @@
 package com.tscript.runtime.jit.ir.types;
 
-public class IRDictionaryType implements IRPrimitiveType {
+public class IRDictionaryType implements IRType {
 
     @Override
     public boolean isIterable() {

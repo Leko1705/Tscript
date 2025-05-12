@@ -247,18 +247,16 @@ public class Tracer2 extends InterpreterDecorator {
 
         if (configuration.isLoopFocused() && configuration.isTraceComplete(thread)) {
             complete();
-            return;
         }
-
-        int address = Conversion.from2Bytes(b1, b2);
-        irBuilder.createGoto(address);
     }
 
     @Override
     public void branch(byte b1, byte b2, boolean ifTrue) {
-        int address = Conversion.from2Bytes(b1, b2);
-        irBuilder.createBranch(address, ifTrue);
+        int prevIp = ip();
         super.branch(b1, b2, ifTrue);
+        boolean jumped = (ip() < prevIp);
+        boolean shouldHold = (ifTrue == jumped);
+        irBuilder.createGuard(prevIp, sp(), shouldHold);
     }
 
     @Override
@@ -386,8 +384,9 @@ public class Tracer2 extends InterpreterDecorator {
 
         boolean hasNext = (prevIp == curIp);
 
+
         irBuilder.itrHasNext(hasNext);
-        irBuilder.createGuard(ip()-1, sp()+1);
+        irBuilder.createGuard(ip()-1, sp()+1, hasNext);
     }
 
     @Override

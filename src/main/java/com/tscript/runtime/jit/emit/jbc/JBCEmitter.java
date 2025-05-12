@@ -2,6 +2,9 @@ package com.tscript.runtime.jit.emit.jbc;
 
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.emit.Emitter;
+import com.tscript.runtime.jit.emit.IREmitter;
+import com.tscript.runtime.jit.emit.IREmitterJBC;
+import com.tscript.runtime.jit.emit.JBCEmitterController;
 import com.tscript.runtime.jit.ir.IRBlock;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.util.Textifier;
@@ -27,8 +30,10 @@ public class JBCEmitter implements Emitter {
     }
 
     private byte[] generateImageJBC(String className, IRBlock block) {
-        JBCEmitterImpl emitter = new JBCEmitterImpl(className);
-        return emitter.emit(block);
+        //JBCEmitterImpl emitter = new JBCEmitterImpl(className);
+        JBCEmitterController controller = new JBCEmitterController(new IREmitterJBC(className));
+
+        return controller.emit(block);
     }
 
 

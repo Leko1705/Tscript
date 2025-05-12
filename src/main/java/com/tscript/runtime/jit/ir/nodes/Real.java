@@ -13,6 +13,11 @@ public class Real extends Literal<Double> {
     }
 
     @Override
+    public boolean canBePrimitive() {
+        return true;
+    }
+
+    @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
         return visitor.visitReal(this, p);
     }

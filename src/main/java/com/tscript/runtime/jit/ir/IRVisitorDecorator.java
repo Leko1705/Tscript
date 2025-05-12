@@ -123,8 +123,8 @@ public class IRVisitorDecorator<P, R> implements IRVisitor<P, R> {
     }
 
     @Override
-    public R visitUnpackObj(UnpackObj node, P p) {
-        return visitor.visitUnpackObj(node, p);
+    public R visitUnwrapTObj(UnwrapTObj node, P p) {
+        return visitor.visitUnwrapTObj(node, p);
     }
 
     @Override

@@ -115,8 +115,8 @@ public class IRParentDelegationScanner<R> extends IRScanner<IRNode, R> {
     }
 
     @Override
-    public R visitUnpackObj(UnpackObj node, IRNode parent) {
-        return super.visitUnpackObj(node, node);
+    public R visitUnwrapTObj(UnwrapTObj node, IRNode node2) {
+        return super.visitUnwrapTObj(node, node);
     }
 
     @Override

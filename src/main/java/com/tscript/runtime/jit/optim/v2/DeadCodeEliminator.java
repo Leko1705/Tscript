@@ -62,9 +62,6 @@ public class DeadCodeEliminator extends IRScanner<Void, Void> implements IROptim
         if (value instanceof WrapTObj w) {
             return w.value;
         }
-        if (value instanceof UnpackObj u) {
-            return u.value;
-        }
         return value;
     }
 }

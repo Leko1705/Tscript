@@ -186,33 +186,34 @@ public class ConstantFolder extends IRParentDelegationScanner<Void> implements I
     public Void visitGetType(GetType node, IRNode parent) {
         scan(node.value, node);
 
-        IRValue value = valueOf(node.value);
+        IRValue value = node.value;
+        IRType type = value.getType();
 
-        if (isType(value, IRIntegerType.class)) {
+        if (type.isType(IRIntegerType.class)) {
             optimized |= parent.replace(node, toTypeNode(TInteger.TYPE));
         }
-        else if (isType(value, IRRealType.class)) {
+        else if (type.isType(IRRealType.class)) {
             optimized |= parent.replace(node, toTypeNode(TReal.TYPE));
         }
-        else if (isType(value, IRBooleanType.class)) {
+        else if (type.isType(IRBooleanType.class)) {
             optimized |= parent.replace(node, toTypeNode(TBoolean.TYPE));
         }
-        else if (isType(value, IRStringType.class)) {
+        else if (type.isType(IRStringType.class)) {
             optimized |= parent.replace(node, toTypeNode(TString.TYPE));
         }
-        else if (isType(value, IRNullType.class)) {
+        else if (type.isType(IRNullType.class)) {
             optimized |= parent.replace(node, toTypeNode(Null.TYPE));
         }
-        else if (isType(value, IRArrayType.class)) {
+        else if (type.isType(IRArrayType.class)) {
             optimized |= parent.replace(node, toTypeNode(TArray.TYPE));
         }
-        else if (isType(value, IRDictionaryType.class)) {
+        else if (type.isType(IRDictionaryType.class)) {
             optimized |= parent.replace(node, toTypeNode(TDictionary.TYPE));
         }
-        else if (isType(value, IRRangeType.class)) {
+        else if (type.isType(IRRangeType.class)) {
             optimized |= parent.replace(node, toTypeNode(com.tscript.runtime.typing.Range.TYPE));
         }
-        else if (isType(value, IRTypeType.class) && value.getType() == IRTypeType.TYPE_TYPE) {
+        else if (type.isType(IRTypeType.class) && value.getType() == IRTypeType.TYPE_TYPE) {
             optimized |= parent.replace(node, toTypeNode(com.tscript.runtime.typing.Type.TYPE));
         }
 
@@ -228,7 +229,7 @@ public class ConstantFolder extends IRParentDelegationScanner<Void> implements I
         IRValue rhs = valueOf(node.rhs);
 
         if (lhs != IRUnknownType.INSTANCE && rhs != IRUnknownType.INSTANCE) {
-            if (!isType(lhs, lhs.getType().getClass())) {
+            if (!lhs.getType().isType(rhs.getType().getClass())) {
                 optimized |= parent.replace(node, new WrapTObj(new Bool(!node.shouldBeEqual)));
                 return null;
             }
@@ -487,11 +488,6 @@ public class ConstantFolder extends IRParentDelegationScanner<Void> implements I
         }
 
         @Override
-        public String visitUnpackObj(UnpackObj node, Void unused) {
-            return node.value.accept(this);
-        }
-
-        @Override
         public String visitWrapTObj(WrapTObj node, Void unused) {
             return node.value.accept(this);
         }
@@ -501,26 +497,11 @@ public class ConstantFolder extends IRParentDelegationScanner<Void> implements I
         if (value instanceof WrapTObj w) {
             return w.value;
         }
-        if (value instanceof UnpackObj u) {
-            return u.value;
-        }
         return value;
     }
 
     private static Type toTypeNode(com.tscript.runtime.typing.Type type) {
         return new Type(TypeCache.getId(type), false);
-    }
-
-
-    private boolean isType(IRValue value, Class<? extends IRType> type) {
-        return value.getType().accept(new IsIRType(), type);
-    }
-
-    private static class IsIRType extends IRTypeVisitorImpl<Class<? extends IRType>, Boolean> {
-        @Override
-        public Boolean defaultOperation(IRType type, Class<? extends IRType> aClass) {
-            return type.getClass() == aClass;
-        }
     }
 
 }

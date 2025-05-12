@@ -9,11 +9,6 @@ public class IRTypeDecorator implements IRType {
     }
 
     @Override
-    public boolean isPrimitive() {
-        return decorated.isPrimitive();
-    }
-
-    @Override
     public boolean isCallable() {
         return decorated.isCallable();
     }

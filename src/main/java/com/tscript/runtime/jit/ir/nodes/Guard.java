@@ -8,11 +8,13 @@ public class Guard implements IRNode {
     public IRValue condition;
     public int ipRecover;
     public int spRecover;
+    public boolean shouldHold;
 
-    public Guard(IRValue condition, int ipRecover, int spRecover) {
+    public Guard(IRValue condition, int ipRecover, int spRecover, boolean shouldHold) {
         this.condition = condition;
         this.ipRecover = ipRecover;
         this.spRecover = spRecover;
+        this.shouldHold = shouldHold;
     }
 
     @Override

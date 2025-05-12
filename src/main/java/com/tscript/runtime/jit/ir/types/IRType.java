@@ -2,10 +2,6 @@ package com.tscript.runtime.jit.ir.types;
 
 public interface IRType {
 
-    default boolean isPrimitive() {
-        return false;
-    }
-
     default boolean isCallable() {
         return false;
     }

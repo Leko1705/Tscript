@@ -129,7 +129,7 @@ public class IRVisitorImpl<P, R> implements IRVisitor<P, R> {
     }
 
     @Override
-    public R visitUnpackObj(UnpackObj node, P p) {
+    public R visitUnwrapTObj(UnwrapTObj node, P p) {
         return defaultOperation(node, p);
     }
 

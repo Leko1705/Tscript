@@ -1,9 +1,15 @@
 package com.tscript.runtime.jit.optim.v2;
 
+import com.tscript.runtime.core.Opcode;
 import com.tscript.runtime.jit.ir.*;
-import com.tscript.runtime.jit.ir.nodes.UnpackObj;
+import com.tscript.runtime.jit.ir.nodes.BinaryOp;
+import com.tscript.runtime.jit.ir.nodes.UnwrapTObj;
 import com.tscript.runtime.jit.ir.nodes.WrapTObj;
+import com.tscript.runtime.jit.ir.types.IRIntegerType;
+import com.tscript.runtime.jit.ir.types.IRType;
 import com.tscript.runtime.typing.Type;
+
+import java.util.Set;
 
 public class WrapOptimizer extends IRParentDelegationScanner<Void> implements IROptimizer {
 
@@ -28,39 +34,71 @@ public class WrapOptimizer extends IRParentDelegationScanner<Void> implements IR
     public Void visitWrapTObj(WrapTObj node, IRNode parent) {
         super.visitWrapTObj(node, parent);
 
-        if (parent instanceof WrapTObj wrapParent) {
-            optimized = wrapParent.replace(node, node.value);
-            return null;
+        if (node.value instanceof WrapTObj child) {
+            node.value = child.value;
+            optimized = true;
         }
 
-        if (parent instanceof UnpackObj) {
-            optimized = parent.replace(node, node.value);
-        }
-
-        if (!node.value.getType().isPrimitive()) {
-            optimized = parent.replace(node, node.value);
+        if (node.value instanceof UnwrapTObj child) {
+            optimized |= parent.replace(node, child.value);
         }
 
         return null;
     }
 
     @Override
-    public Void visitUnpackObj(UnpackObj node, IRNode parent) {
-        super.visitUnpackObj(node, parent);
+    public Void visitUnwrapTObj(UnwrapTObj node, IRNode parent) {
+        super.visitUnwrapTObj(node, parent);
 
-        while (node.value instanceof UnpackObj child) {
+        if (node.value instanceof UnwrapTObj child) {
             node.value = child.value;
             optimized = true;
         }
 
-        if (parent instanceof WrapTObj) {
-            optimized = parent.replace(node, node.value);
+        if (node.value instanceof WrapTObj child) {
+            optimized |= parent.replace(node, child.value);
         }
 
-        if (node.value.getType().isPrimitive()) {
-            optimized = parent.replace(node, node.value);
+        if (node.value.canBePrimitive()) {
+            optimized |= parent.replace(node, node.value);
         }
 
         return null;
     }
+
+    @Override
+    public Void visitBinaryOp(BinaryOp node, IRNode parent) {
+        super.visitBinaryOp(node, parent);
+
+        IRType lhsType = node.lhs.getType();
+        IRType rhsType = node.rhs.getType();
+
+        if (lhsType.isType(IRIntegerType.class) && rhsType.isType(IRIntegerType.class)) {
+            if (Set.of(Opcode.ADD, Opcode.SUB, Opcode.MUL, Opcode.DIV, Opcode.MOD).contains(node.operation)) {
+
+                if (node.lhs instanceof WrapTObj w){
+                    node.lhs = new UnwrapTObj(w.value);
+                    optimized = true;
+                }
+                else if (!node.lhs.canBePrimitive() && !(node.lhs instanceof UnwrapTObj)) {
+                    node.lhs = new UnwrapTObj(node);
+                    optimized = true;
+                }
+
+
+                if (node.rhs instanceof WrapTObj w){
+                    node.rhs = new UnwrapTObj(w.value);
+                    optimized = true;
+                }
+                else if (!node.rhs.canBePrimitive() && !(node.rhs instanceof UnwrapTObj)){
+                    node.rhs = new UnwrapTObj(node);
+                    optimized = true;
+                }
+
+            }
+        }
+
+        return null;
+    }
+
 }

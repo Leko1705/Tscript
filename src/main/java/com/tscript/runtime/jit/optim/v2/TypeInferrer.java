@@ -1,6 +1,8 @@
 package com.tscript.runtime.jit.optim.v2;
 
+import com.tscript.runtime.core.Opcode;
 import com.tscript.runtime.jit.ir.*;
+import com.tscript.runtime.jit.ir.nodes.BinaryOp;
 import com.tscript.runtime.jit.ir.nodes.LoadLocal;
 import com.tscript.runtime.jit.ir.nodes.StoreLocal;
 import com.tscript.runtime.jit.ir.types.*;
@@ -29,7 +31,7 @@ public class TypeInferrer extends IRScanner<Void, Void> implements IROptimizer {
                 if (pBlock == block) {
                     for (int i = 0; i < inputTypes.length; i++) {
                         IRType type = fromTType(inputTypes[i]);
-                        locals.put(i, new WrappedType(type));
+                        locals.put(i, type);
                     }
                 }
             }
@@ -54,6 +56,23 @@ public class TypeInferrer extends IRScanner<Void, Void> implements IROptimizer {
     @Override
     public Void visitLoadLocal(LoadLocal node, Void unused) {
         node.type = getLocals().getOrDefault(node.address, IRUnknownType.INSTANCE);
+        return null;
+    }
+
+    @Override
+    public Void visitBinaryOp(BinaryOp node, Void unused) {
+        super.visitBinaryOp(node, unused);
+
+        IRType lhsType = node.lhs.getType();
+        IRType rhsType = node.rhs.getType();
+
+        if (node.operation == Opcode.ADD) {
+            if (lhsType.isType(IRIntegerType.class) && rhsType.isType(IRIntegerType.class)) {
+                node.type = new IRIntegerType();
+            }
+
+        }
+
         return null;
     }
 

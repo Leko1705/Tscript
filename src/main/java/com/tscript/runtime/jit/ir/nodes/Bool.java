@@ -13,6 +13,11 @@ public class Bool extends Literal<Boolean> {
     }
 
     @Override
+    public boolean canBePrimitive() {
+        return true;
+    }
+
+    @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
         return visitor.visitBool(this, p);
     }

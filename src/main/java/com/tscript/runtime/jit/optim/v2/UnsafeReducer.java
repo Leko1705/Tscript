@@ -13,8 +13,8 @@ import java.util.Set;
 
 public class UnsafeReducer extends IRScanner<Void, Void> implements IROptimizer {
 
-
     private static class UnsafeState {
+        int lastNewLineNumber = -1;
         Runnable removeLastNewLine = null;
         Runnable removeLastPushFrame = null;
         boolean unsafeDetected = false;
@@ -40,6 +40,7 @@ public class UnsafeReducer extends IRScanner<Void, Void> implements IROptimizer 
             @Override
             public void onBlockExit(IRBlock block) {
                 clearLine();
+                state.get().lastNewLineNumber = -1;
             }
         };
 
@@ -86,9 +87,19 @@ public class UnsafeReducer extends IRScanner<Void, Void> implements IROptimizer 
 
     @Override
     public Void visitNewLine(NewLine node, Void unused) {
-        clearLine();
         UnsafeState currentState = state.get();
+
+        if (currentState.lastNewLineNumber == node.line) {
+            optimizations.add(removeNodeOperation(currentBlock, node));
+            return null;
+        }
+
+        if (currentState.removeLastNewLine != null) {
+            optimizations.add(currentState.removeLastNewLine);
+        }
+
         currentState.removeLastNewLine = removeNodeOperation(currentBlock, node);
+        currentState.lastNewLineNumber = node.line;
         return null;
     }
 

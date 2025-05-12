@@ -40,9 +40,9 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
     public byte[] emit(IRBlock block) {
         // prepare temp registers
         int tempRegs = MaxTempRegisters.compute(block);
-        if (tempRegs > 0){
-        jbc.newArray(TObject.class, tempRegs);
-        jbc.storeLocal(TEMPS_REG);
+            if (tempRegs > 0){
+            jbc.newArray(TObject.class, tempRegs);
+            jbc.storeLocal(TEMPS_REG);
         }
 
         jbc.label(getLabel(block));
@@ -72,7 +72,7 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
     public Void visitBranch(Branch node, Void unused) {
         scan(node.condition, null);
 
-        boolean requireSlowEvaluation = !(node.condition.getType().isPrimitive() && isBoolType(node.condition));
+        boolean requireSlowEvaluation = !( !(node.condition instanceof WrapTObj) && isBoolType(node.condition));
 
         if (requireSlowEvaluation) {
             jbc.callStatic(TNIUtils.class, "isTrue", Boolean.TYPE, TObject.class);
@@ -186,21 +186,6 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
     }
 
     @Override
-    public Void visitUnpackObj(UnpackObj node, Void unused) {
-
-        if (!node.value.getType().isPrimitive() && node.value.getType() != IRUnknownType.INSTANCE) {
-            scan(node.value, null);
-            ToPrimitiveCastGenerator castGenerator = new ToPrimitiveCastGenerator();
-            node.getType().accept(castGenerator, null);
-        }
-        else {
-            scan(node.value, null);
-        }
-
-        return null;
-    }
-
-    @Override
     public Void visitReturn(Return node, Void unused) {
         scan(node.value, null);
         jbc.genReturnObject();
@@ -276,15 +261,9 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
     @Override
     public Void visitLoadLocal(LoadLocal node, Void unused) {
 
-        if (node.getType().isPrimitive()) {
-            PrimitiveLoadLocal loadLocal = new PrimitiveLoadLocal(node.address);
-            node.getType().accept(loadLocal, null);
-        }
-        else {
-            genLoadLocalsArray();
-            jbc.pushInt(node.address);
-            jbc.loadArray();
-        }
+        genLoadLocalsArray();
+        jbc.pushInt(node.address);
+        jbc.loadArray();
 
         return null;
     }
@@ -292,7 +271,7 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
     @Override
     public Void visitStoreLocal(StoreLocal node, Void unused) {
 
-        if (node.value.getType().isPrimitive()) {
+        if (!(node.value instanceof WrapTObj)) {
             scan(node.value, null);
             PrimitiveStoreLocal storeLocal = new PrimitiveStoreLocal(node.address);
             node.value.getType().accept(storeLocal, null);
@@ -492,7 +471,7 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
 
     @Override
     public Void visitEquals(Equals node, Void unused) {
-        if (node.lhs.getType().isPrimitive() && node.rhs.getType().isPrimitive()) {
+        if (/*node.lhs.getType().isPrimitive() && node.rhs.getType().isPrimitive()*/ false) {
             if (isIntPrimitiveComp(node.lhs, node.rhs)) {
                 genSequentialValueLoading(node.lhs, node.rhs);
 
@@ -522,9 +501,9 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
     }
 
     private void genWrappedComparison(IRValue lhs, IRValue rhs) {
-        if (lhs.getType().isPrimitive())
+        if (!(lhs instanceof WrapTObj))
             lhs = new WrapTObj(lhs);
-        if (rhs.getType().isPrimitive())
+        if (!(rhs instanceof WrapTObj))
             rhs = new WrapTObj(rhs);
         genSequentialValueLoading(lhs, rhs);
         jbc.callInterface(TObject.class, "equals", Boolean.TYPE, Object.class);
@@ -540,14 +519,14 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
     @Override
     public Void visitBinaryOp(BinaryOp node, Void unused) {
 
-        if (node.lhs.getType().isPrimitive() && node.rhs.getType().isPrimitive()) {
+        if (!(node.lhs instanceof WrapTObj) && !(node.rhs instanceof WrapTObj)) {
             throw new UnsupportedOperationException("primitive operation not supported");
         }
 
         genLoadThread();
         IRValue value = node.lhs;
 
-        if (node.lhs.getType().isPrimitive()) {
+        if (!(node.lhs instanceof WrapTObj)) {
             value = new WrapTObj(value);
         }
         scan(value, null);
@@ -557,7 +536,7 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
         }
         else {
             value = node.rhs;
-            if (node.rhs.getType().isPrimitive()) {
+            if (!(node.rhs instanceof WrapTObj)) {
                 value = new WrapTObj(value);
             }
             scan(value, null);
@@ -570,7 +549,7 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
 
     @Override
     public Void visitNot(Not node, Void unused) {
-        if (node.value.getType().isPrimitive()){
+        if (!(node.value instanceof WrapTObj)){
             scan(node.value, null);
             jbc.invertBool();
         }
@@ -584,7 +563,7 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
 
     @Override
     public Void visitNeg(Neg node, Void unused) {
-        if (node.value.getType().isPrimitive()){
+        if (!(node.value instanceof WrapTObj)){
             scan(node.value, null);
             NegationGenerator negationGenerator = new NegationGenerator();
             node.value.getType().accept(negationGenerator, null);
@@ -653,7 +632,7 @@ public class JBCEmitterImpl extends IRScanner<Void, Void> {
 
     @Override
     public Void visitGuard(Guard node, Void unused) {
-        if (node.condition.getType().isPrimitive()) {
+        if (!(node.condition instanceof WrapTObj)) {
             scan(new WrapTObj(node.condition), null);
         }
         else {

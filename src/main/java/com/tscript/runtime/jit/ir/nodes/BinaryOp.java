@@ -17,6 +17,11 @@ public class BinaryOp extends Binary {
     }
 
     @Override
+    public boolean canBePrimitive() {
+        return true;
+    }
+
+    @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
         return visitor.visitBinaryOp(this, p);
     }

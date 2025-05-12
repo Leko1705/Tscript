@@ -28,6 +28,11 @@ public class Dict implements IRValue {
     }
 
     @Override
+    public boolean canBePrimitive() {
+        return true;
+    }
+
+    @Override
     public boolean replace(IRValue oldNode, IRValue newNode) {
 
         AtomicBoolean b = new AtomicBoolean(false);

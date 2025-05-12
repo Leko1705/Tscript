@@ -29,6 +29,11 @@ public class Array implements IRValue {
     }
 
     @Override
+    public boolean canBePrimitive() {
+        return true;
+    }
+
+    @Override
     public boolean replace(IRValue oldNode, IRValue newNode) {
         AtomicBoolean b = new AtomicBoolean(false);
         content.replaceAll(candidate -> {

@@ -13,6 +13,11 @@ public class Int extends Literal<Integer> {
     }
 
     @Override
+    public boolean canBePrimitive() {
+        return true;
+    }
+
+    @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
         return visitor.visitInteger(this, p);
     }

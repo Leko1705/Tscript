@@ -13,6 +13,11 @@ public class Str extends Literal<String> {
     }
 
     @Override
+    public boolean canBePrimitive() {
+        return true;
+    }
+
+    @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
         return visitor.visitString(this, p);
     }

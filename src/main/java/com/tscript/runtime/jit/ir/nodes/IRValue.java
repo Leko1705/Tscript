@@ -7,4 +7,8 @@ public interface IRValue extends IRNode {
 
     IRType getType();
 
+    default boolean canBePrimitive() {
+        return false;
+    }
+
 }

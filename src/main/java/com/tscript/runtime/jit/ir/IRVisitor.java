@@ -48,7 +48,7 @@ public interface IRVisitor<P, R> {
 
     R visitWrapTObj(WrapTObj node, P p);
 
-    R visitUnpackObj(UnpackObj node, P p);
+    R visitUnwrapTObj(UnwrapTObj node, P p);
 
     R visitEquals(Equals node, P p);
 

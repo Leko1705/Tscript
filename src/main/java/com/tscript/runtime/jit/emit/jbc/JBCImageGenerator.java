@@ -313,11 +313,6 @@ public class JBCImageGenerator implements Opcodes {
     }
 
 
-    public String descriptorOf(Class<?> clazz) {
-        return Type.getDescriptor(clazz);
-    }
-
-
     private void pushJBCInt(MethodVisitor mv, int value){
         if (value >= -1 && value <= 5) {
             switch (value) {
@@ -348,4 +343,7 @@ public class JBCImageGenerator implements Opcodes {
         return sb.toString();
     }
 
+    public MethodVisitor getMethodVisitor() {
+        return mv;
+    }
 }
