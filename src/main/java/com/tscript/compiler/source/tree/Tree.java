@@ -22,9 +22,9 @@ public interface Tree {
      *
      * @param visitor the visitor to be called
      * @param p a value to be passed to the visitor
-     * @return the result returned from calling the visitor
+     * @return the value returned from calling the visitor
      * @param <P> the type of additional data
-     * @param <R> the result type of this operation
+     * @param <R> the value type of this operation
      */
     <P, R> R accept(TreeVisitor<P, R> visitor, P p);
 
@@ -34,9 +34,9 @@ public interface Tree {
      * with {@code null} as additional argument.
      *
      * @param visitor the visitor to be called
-     * @return the result returned from calling the visitor
+     * @return the value returned from calling the visitor
      * @param <P> the type of default additional data
-     * @param <R> the result of this operation
+     * @param <R> the value of this operation
      */
     default <P, R> R accept(TreeVisitor<P, R> visitor){
         return accept(visitor, null);

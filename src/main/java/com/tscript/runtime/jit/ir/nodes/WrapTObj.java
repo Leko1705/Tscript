@@ -29,4 +29,9 @@ public class WrapTObj implements IRValue {
         }
         return false;
     }
+
+    @Override
+    public boolean isCallingInstruction() {
+        return value.isCallingInstruction();
+    }
 }

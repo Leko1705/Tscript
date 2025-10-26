@@ -1,58 +1,57 @@
 package com.tscript.runtime.jit.optim;
 
-import com.tscript.runtime.core.Builtins;
-import com.tscript.runtime.jit.graph.BranchNode;
-import com.tscript.runtime.jit.graph.Context;
-import com.tscript.runtime.jit.graph.Node;
-import com.tscript.runtime.jit.graph.expr.*;
-import com.tscript.runtime.jit.graph.traversal.TreeTraverseStrategy;
-import com.tscript.runtime.jit.optim.post.PostOptimizer;
-import com.tscript.runtime.tni.natfuncs.std.NativePrint;
-import com.tscript.runtime.typing.TObject;
+import com.tscript.runtime.core.Opcode;
+import com.tscript.runtime.jit.ir.*;
+import com.tscript.runtime.jit.ir.nodes.*;
+import com.tscript.runtime.jit.ir.types.*;
 
-/**
- * Removes NEW_LINE instructions and ENTER_TRY as well as LEAVE_TRY instructions
- * if possible.
- */
-public class UnsafeReducer implements Optimizer, PostOptimizer {
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
+import java.util.Set;
 
-    private boolean optimized;
-
-    private Node prev;
-
+public class UnsafeReducer extends IRScanner<Void, Void> implements IROptimizer {
 
     private static class UnsafeState {
-        Node prevFramePushNode = null;
-        Node prevNewLineNode = null;
+        int lastNewLineNumber = -1;
+        Runnable removeLastNewLine = null;
+        Runnable removeLastPushFrame = null;
         boolean unsafeDetected = false;
     }
 
-    private final State<UnsafeState> state = new State<>(new UnsafeState());
+    private boolean optimized;
+    private final Queue<Runnable> optimizations = new LinkedList<>();
+
+    private IRBlock currentBlock;
+    private State<UnsafeState> state;
+
 
     @Override
-    public Node optimize(Node graph, com.tscript.runtime.typing.Type[] inputTypes) {
-        return optimize(graph);
-    }
-
-    @Override
-    public Node optimize(Node graph) {
+    public IRBlock optimize(IRBlock block, com.tscript.runtime.typing.Type[] inputTypes) {
         optimized = false;
+        state = new State<>(new UnsafeState());
 
-        Trav trav = new Trav();
-        Handler handler = new Handler();
+        IRWalker<Void, Void> walker = new IRTreeWalker<>() {
+            @Override
+            public void onBlockEnter(IRBlock block) {
+                currentBlock = block;
+            }
+            @Override
+            public void onBlockExit(IRBlock block) {
+                clearLine();
+                state.get().lastNewLineNumber = -1;
+            }
+        };
 
-        Context context = new Context(graph);
+        walker.walk(this, block);
 
-        while (context.getNext() != null){
-            Node current = context.getNext();
-            Expression expr = current.getExpr();
-            expr.accept(handler);
-            prev = current;
-            current.step(trav, context);
+        while (!optimizations.isEmpty()) {
+            Runnable optimization = optimizations.poll();
+            optimization.run();
+            optimized = true;
         }
 
-        handler.clearLine();
-        return graph;
+        return block;
     }
 
     @Override
@@ -60,277 +59,279 @@ public class UnsafeReducer implements Optimizer, PostOptimizer {
         return optimized;
     }
 
-    private static class Trav extends TreeTraverseStrategy {
-        @Override
-        public boolean isThenFirst(BranchNode node, Context context) {
-            return false;
+
+    private void handleUnsafe(){
+        UnsafeReducer.UnsafeState unsafeState = state.get();
+        unsafeState.removeLastNewLine = null;
+        unsafeState.unsafeDetected = true;
+        unsafeState.removeLastPushFrame = null;
+    }
+
+    private void clearLine(){
+        UnsafeReducer.UnsafeState unsafeState = state.get();
+        if (unsafeState.removeLastNewLine != null) {
+            optimizations.add(unsafeState.removeLastNewLine);
         }
     }
 
-    private class Handler extends ExpressionScanner<Void, Void> {
+    private boolean clearFramePush() {
+        UnsafeState prevState = state.get();
+        if (prevState.removeLastPushFrame != null){
+            optimizations.add(prevState.removeLastPushFrame);
+            return true;
+        }
+        return false;
+    }
 
-        private void handleUnsafe(){
-            UnsafeState unsafeState = state.get();
-            unsafeState.prevNewLineNode = null;
-            unsafeState.unsafeDetected = true;
-            unsafeState.prevFramePushNode = null;
+
+    @Override
+    public Void visitNewLine(NewLine node, Void unused) {
+        UnsafeState currentState = state.get();
+
+        if (currentState.lastNewLineNumber == node.line) {
+            optimizations.add(removeNodeOperation(currentBlock, node));
+            return null;
         }
 
-        private void clearLine(){
-            UnsafeState unsafeState = state.get();
-            if (unsafeState.prevNewLineNode != null) {
-                optimized = true;
-                unsafeState.prevNewLineNode.setNext(unsafeState.prevNewLineNode.getNext().getNext());
+        if (currentState.removeLastNewLine != null) {
+            optimizations.add(currentState.removeLastNewLine);
+        }
+
+        currentState.removeLastNewLine = removeNodeOperation(currentBlock, node);
+        currentState.lastNewLineNumber = node.line;
+        return null;
+    }
+
+    @Override
+    public Void visitPushFrame(PushFrame node, Void unused) {
+        super.visitPushFrame(node, unused);
+        UnsafeState newState = new UnsafeState();
+        newState.removeLastPushFrame = removeNodeOperation(currentBlock, node);
+        state.storeAndSet(newState);
+        return null;
+    }
+
+    @Override
+    public Void visitPopFrame(PopFrame node, Void unused) {
+        clearLine();
+        boolean optimized = clearFramePush();
+        if (optimized) {
+            optimizations.add(removeNodeOperation(currentBlock, node));
+        }
+        state.restore();
+        return null;
+    }
+
+
+    @Override
+    public Void visitLoadAbstract(LoadAbstract node, Void unused) {
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitGuard(Guard node, Void unused) {
+        super.visitGuard(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitContainerRead(ContainerRead node, Void unused) {
+        super.visitContainerRead(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitContainerWrite(ContainerWrite node, Void unused) {
+        super.visitContainerWrite(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitImportModule(ImportModule node, Void unused) {
+        if (node.index > -1) {
+            handleUnsafe();
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitItr(Itr node, Void unused) {
+        super.visitItr(node, unused);
+        if (!node.iterable.getType().isIterable()) {
+            handleUnsafe();
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitItrNext(ItrNext node, Void unused) {
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitLoadName(LoadName node, Void unused) {
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitLoadExternal(LoadExternal node, Void unused) {
+        super.visitLoadExternal(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitStoreExternal(StoreExternal node, Void unused) {
+        super.visitStoreExternal(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitLoadStatic(LoadStatic node, Void unused) {
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitStoreStatic(StoreStatic node, Void unused) {
+        super.visitStoreStatic(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitLoadSuper(LoadSuper node, Void unused) {
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitStoreSuper(StoreSuper node, Void unused) {
+        super.visitStoreSuper(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitUseMembers(UseMembers node, Void unused) {
+        super.visitUseMembers(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitUse(Use node, Void unused) {
+        super.visitUse(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitSetOwner(SetOwner node, Void unused) {
+        super.visitSetOwner(node, unused);
+        handleUnsafe();
+        return null;
+    }
+
+    @Override
+    public Void visitBinaryOp(BinaryOp node, Void unused) {
+        super.visitBinaryOp(node, unused);
+
+        IRType leftType = node.lhs.getType();
+        IRType rightType = node.rhs.getType();
+
+        if (leftType.isType(IRStringType.class) || rightType.isType(IRStringType.class)) {
+            return null;
+        }
+
+        if (leftType.isNumeric() && rightType.isNumeric()) {
+            if (Set.of(Opcode.ADD, Opcode.SUB, Opcode.MUL, Opcode.DIV, Opcode.POW,
+                    Opcode.LT, Opcode.GT, Opcode.LEQ, Opcode.GEQ).contains(node.operation)) {
+                return null;
             }
         }
 
-        @Override
-        public Void visitNewLine(NewLine expr, Void unused) {
-            clearLine();
-            state.get().prevNewLineNode = prev;
-            return null;
-        }
-
-        @Override
-        public Void visitCallInp(CallInp expr, Void unused) {
-            super.visitCallInp(expr, null);
-            if (expr.called instanceof Builtin builtin) {
-                TObject obj = Builtins.load(builtin.index());
-
-                if (obj instanceof NativePrint && expr.args.size() == 1){
-                    return null;
-                }
+        if (leftType.isType(IRIntegerType.class) && rightType.isType(IRIntegerType.class)) {
+            if (Set.of(Opcode.IDIV, Opcode.MOD, Opcode.SLA, Opcode.SRL,
+                    Opcode.SRA, Opcode.AND, Opcode.OR, Opcode.XOR).contains(node.operation)) {
+                return null;
             }
-            handleUnsafe();
-            return null;
         }
 
-        @Override
-        public Void visitCallMap(CallMap expr, Void unused) {
-            super.visitCallMap(expr, unused);
-            handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitPushFrame(PushFrame expr, Void unused) {
-            super.visitPushFrame(expr, unused);
-            UnsafeState newState = new UnsafeState();
-            newState.prevFramePushNode = prev;
-            state.storeAndSet(newState);
-            return null;
-        }
-
-        @Override
-        public Void visitPushSuperFrame(PushSuperFrame expr, Void unused) {
-            return super.visitPushSuperFrame(expr, unused);
-        }
-
-        @Override
-        public Void visitPopFrame(PopFrame expr, Void unused) {
-            super.visitPopFrame(expr, unused);
-
-            UnsafeState prevState = state.get();
-            clearLine();
-            if (prevState.prevFramePushNode != null){
-                prevState.prevFramePushNode.setNext(prevState.prevFramePushNode.getNext().getNext());
-                prev.setNext(prev.getNext().getNext());
+        if (leftType.isType(IRBooleanType.class) && rightType.isType(IRBooleanType.class)) {
+            if (Set.of(Opcode.AND, Opcode.OR, Opcode.XOR).contains(node.operation)) {
+                return null;
             }
-
-            state.restore();
-            return null;
         }
 
-        @Override
-        public Void visitBinaryOp(BinaryOp expr, Void unused) {
-            super.visitBinaryOp(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
+        handleUnsafe();
+        return null;
+    }
 
-        @Override
-        public Void visitAbstract(Abstract expr, Void unused) {
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
+    @Override
+    public Void visitNeg(Neg node, Void unused) {
+        super.visitNeg(node, unused);
 
-        @Override
-        public Void visitBoolGuard(BoolGuard expr, Void unused) {
-            super.visitBoolGuard(expr, unused);
+        boolean isInt = node.value.getType().isType(IRIntegerType.class);
+        boolean isReal = node.value.getType().isType(IRRealType.class);
+
+        if (!isInt && !isReal) {
             handleUnsafe();
-            return null;
         }
+        return null;
+    }
 
-        @Override
-        public Void visitContainerRead(ContainerRead expr, Void unused) {
-            super.visitContainerRead(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
+    @Override
+    public Void visitNot(Not node, Void unused) {
+        super.visitNot(node, unused);
 
-        @Override
-        public Void visitContainerWrite(ContainerWrite expr, Void unused) {
-            super.visitContainerWrite(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
+        boolean isBool = node.value.getType().isType(IRBooleanType.class);
+        boolean isInt = node.value.getType().isType(IRIntegerType.class);
 
-        @Override
-        public Void visitImportModule(ImportModule expr, Void unused) {
-            if (expr.index > -1)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitItr(Itr expr, Void unused) {
-            super.visitItr(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitLoadName(LoadName expr, Void unused) {
-            super.visitLoadName(expr, unused);
-            if (expr.canFail())
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitLoadExternal(LoadExternal expr, Void unused) {
-            if (expr.index != -1)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitStoreExternal(StoreExternal expr, Void unused) {
-            super.visitStoreExternal(expr, unused);
-            if (expr.index != -1)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitItrNext(ItrNext expr, Void unused) {
+        if (!isBool && !isInt) {
             handleUnsafe();
-            return null;
         }
+        return null;
+    }
 
-        @Override
-        public Void visitLoadStatic(LoadStatic expr, Void unused) {
-            super.visitLoadStatic(expr, unused);
-            if (expr.index != -1)
-                handleUnsafe();
-            return null;
-        }
+    @Override
+    public Void visitNative(Native node, Void unused) {
+        handleUnsafe();
+        return null;
+    }
 
-        @Override
-        public Void visitStoreStatic(StoreStatic expr, Void unused) {
-            super.visitStoreStatic(expr, unused);
-            if (expr.index != -1)
-                handleUnsafe();
-            return null;
-        }
+    @Override
+    public Void visitRange(Range node, Void unused) {
+        super.visitRange(node, unused);
 
-        @Override
-        public Void visitLoadSuper(LoadSuper expr, Void unused) {
-            super.visitLoadSuper(expr, unused);
-            if (expr.index != -1)
-                handleUnsafe();
-            return null;
-        }
+        boolean leftIsInt = node.from.getType().isType(IRIntegerType.class);
+        boolean rightIsInt = node.to.getType().isType(IRIntegerType.class);
 
-        @Override
-        public Void visitStoreSuper(StoreSuper expr, Void unused) {
-            super.visitStoreSuper(expr, unused);
-            if (expr.index != -1)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitUseMembers(UseMembers expr, Void unused) {
-            super.visitUseMembers(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitUse(Use expr, Void unused) {
-            super.visitUse(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitMethod(Method expr, Void unused) {
-            super.visitMethod(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitNeg(Neg expr, Void unused) {
-            super.visitNeg(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitNot(Not expr, Void unused) {
-            super.visitNot(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitNative(Native expr, Void unused) {
-            super.visitNative(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitRange(Range expr, Void unused) {
-            super.visitRange(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitExtended(Extended expr, Void unused) {
-            super.visitExtended(expr, unused);
-            if (expr.canFail)
-                handleUnsafe();
-            return null;
-        }
-
-        @Override
-        public Void visitTypeGuard(TypeGuard expr, Void unused) {
+        if (!(leftIsInt && rightIsInt)) {
             handleUnsafe();
-            return null;
         }
+        return null;
+    }
 
-        @Override
-        public Void visitItrNextGuard(ItrNextGuard expr, Void unused) {
-            handleUnsafe();
-            return null;
-        }
+    @Override
+    public Void visitExtend(Extend node, Void unused) {
+        super.visitExtend(node, unused);
+        handleUnsafe();
+        return null;
+    }
 
+    private static Runnable removeNodeOperation(IRBlock owner, IRNode node) {
+        return () -> {
+            List<IRNode> code = owner.getCode();
+            code.remove(node);
+        };
     }
 
 }

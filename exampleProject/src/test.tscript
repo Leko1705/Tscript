@@ -1,22 +1,14 @@
 module test;
 
-function bar() {
-    var x = 0;
-
-    return x;
+function foo(x) {
+    return 1 + x;
 }
 
-function foo() {
-    var x = 0;
-    for i in 0:1 do {
-        x += 1;
+for var i in 0:300 do {
+    if i < 200 then {
+        print(foo(i));
     }
-    return x;
+    else {
+        print(foo(i-1));
+    }
 }
-
-for var i in 0:30_000_000 do {
-    foo();
-    i += 1;
-}
-
-print("DONE");

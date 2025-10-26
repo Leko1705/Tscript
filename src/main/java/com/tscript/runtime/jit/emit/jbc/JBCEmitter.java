@@ -2,7 +2,6 @@ package com.tscript.runtime.jit.emit.jbc;
 
 import com.tscript.runtime.jit.NativeImage;
 import com.tscript.runtime.jit.emit.Emitter;
-import com.tscript.runtime.jit.emit.IREmitter;
 import com.tscript.runtime.jit.emit.IREmitterJBC;
 import com.tscript.runtime.jit.emit.JBCEmitterController;
 import com.tscript.runtime.jit.ir.IRBlock;

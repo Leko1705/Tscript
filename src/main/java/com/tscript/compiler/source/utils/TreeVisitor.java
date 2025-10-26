@@ -33,7 +33,7 @@ public interface TreeVisitor<P, R> {
      * Visits an {@code ArgumentTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitArgument(ArgumentTree node, P p);
 
@@ -41,7 +41,7 @@ public interface TreeVisitor<P, R> {
      * Visits an {@code ArrayTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitArray(ArrayTree node, P p);
 
@@ -49,7 +49,7 @@ public interface TreeVisitor<P, R> {
      * Visits an {@code AssignTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitAssign(AssignTree node, P p);
 
@@ -57,7 +57,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code BinaryOperationTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitBinaryOperation(BinaryOperationTree node, P p);
 
@@ -65,7 +65,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code BlockTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitBlock(BlockTree node, P p);
 
@@ -73,7 +73,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code BooleanTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitBoolean(BooleanTree node, P p);
 
@@ -81,7 +81,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code BreakTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitBreak(BreakTree node, P p);
 
@@ -89,7 +89,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code CallTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitCall(CallTree node, P p);
 
@@ -97,7 +97,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code CaseTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitCase(CaseTree node, P p);
 
@@ -105,7 +105,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ClassTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitClass(ClassTree node, P p);
 
@@ -113,7 +113,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ClosureTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitClosure(ClosureTree node, P p);
 
@@ -121,7 +121,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ConstructorTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitConstructor(ConstructorTree node, P p);
 
@@ -129,7 +129,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ContainerAccessTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitContainerAccess(ContainerAccessTree node, P p);
 
@@ -137,7 +137,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ContinueTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitContinue(ContinueTree node, P p);
 
@@ -145,7 +145,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code DictionaryTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitDictionary(DictionaryTree node, P p);
 
@@ -153,7 +153,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code DoWhileTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitDoWhileLoop(DoWhileTree node, P p);
 
@@ -161,7 +161,7 @@ public interface TreeVisitor<P, R> {
      * Visits an {@code ExpressionStatementTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitExpressionStatement(ExpressionStatementTree node, P p);
 
@@ -169,7 +169,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code FloatTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitFloat(FloatTree node, P p);
 
@@ -177,7 +177,7 @@ public interface TreeVisitor<P, R> {
      * Visits an {@code ForLoopTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitForLoop(ForLoopTree node, P p);
 
@@ -185,7 +185,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code FromImportTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitFromImport(FromImportTree node, P p);
 
@@ -193,7 +193,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code FunctionTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitFunction(FunctionTree node, P p);
 
@@ -201,7 +201,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code GetTypeTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitGetType(GetTypeTree node, P p);
 
@@ -209,7 +209,7 @@ public interface TreeVisitor<P, R> {
      * Visits an {@code IfElseTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitIfElse(IfElseTree node, P p);
 
@@ -217,7 +217,7 @@ public interface TreeVisitor<P, R> {
      * Visits an {@code ImportTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitImport(ImportTree node, P p);
 
@@ -225,7 +225,7 @@ public interface TreeVisitor<P, R> {
      * Visits an {@code IntegerTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitInteger(IntegerTree node, P p);
 
@@ -233,7 +233,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code IsTypeofTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitIsTypeofTree(IsTypeofTree node, P p);
 
@@ -241,7 +241,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code LambdaTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitLambda(LambdaTree node, P p);
 
@@ -249,7 +249,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code MemberAccessTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitMemberAccess(MemberAccessTree node, P p);
 
@@ -257,7 +257,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ModifiersTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitModifiers(ModifiersTree node, P p);
 
@@ -265,7 +265,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code NamespaceTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitNamespace(NamespaceTree node, P p);
 
@@ -273,7 +273,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code NotTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitNot(NotTree node, P p);
 
@@ -281,7 +281,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code NullTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitNull(NullTree node, P p);
 
@@ -289,7 +289,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ParameterTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitParameter(ParameterTree node, P p);
 
@@ -297,7 +297,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code RangeTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitRange(RangeTree node, P p);
 
@@ -305,7 +305,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ReturnTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitReturn(ReturnTree node, P p);
 
@@ -313,7 +313,7 @@ public interface TreeVisitor<P, R> {
      * Visits the {@code RootTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitRoot(RootTree node, P p);
 
@@ -321,7 +321,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code SignTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitSign(SignTree node, P p);
 
@@ -329,7 +329,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code StringTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitString(StringTree node, P p);
 
@@ -337,7 +337,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code SuperTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitSuper(SuperTree node, P p);
 
@@ -345,7 +345,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code SwitchTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitSwitch(SwitchTree node, P p);
 
@@ -353,7 +353,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ThisTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitThis(ThisTree node, P p);
 
@@ -361,7 +361,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code ThrowTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitThrow(ThrowTree node, P p);
 
@@ -369,7 +369,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code TryCatchTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitTryCatch(TryCatchTree node, P p);
 
@@ -377,7 +377,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code UseTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitUse(UseTree node, P p);
 
@@ -385,7 +385,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code VarDefsTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitVarDefs(VarDefsTree node, P p);
 
@@ -393,7 +393,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code VarDefTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitVarDef(VarDefTree node, P p);
 
@@ -401,7 +401,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code VariableTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitVariable(VariableTree node, P p);
 
@@ -409,7 +409,7 @@ public interface TreeVisitor<P, R> {
      * Visits a {@code WhileDoTree} node.
      * @param node the node being visited
      * @param p a parameter value
-     * @return a result value
+     * @return a value value
      */
     R visitWhileDoLoop(WhileDoTree node, P p);
 

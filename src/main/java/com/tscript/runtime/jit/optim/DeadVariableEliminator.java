@@ -1,48 +1,59 @@
 package com.tscript.runtime.jit.optim;
 
-import com.tscript.runtime.jit.graph.BranchNode;
-import com.tscript.runtime.jit.graph.Context;
-import com.tscript.runtime.jit.graph.Node;
-import com.tscript.runtime.jit.graph.expr.*;
-import com.tscript.runtime.jit.graph.traversal.TreeTraverseStrategy;
+import com.tscript.runtime.jit.ir.*;
+import com.tscript.runtime.jit.ir.nodes.*;
+import com.tscript.runtime.jit.ir.types.IRType;
+import com.tscript.runtime.jit.ir.types.IRTypeType;
+import com.tscript.runtime.jit.ir.types.IRTypeVisitor;
+import com.tscript.runtime.jit.ir.types.IRTypeVisitorImpl;
+import com.tscript.runtime.typing.Type;
 
 import java.util.*;
 
-public class DeadVariableEliminator implements Optimizer {
+public class DeadVariableEliminator extends IRScanner<Void, Void> implements IROptimizer {
 
     private boolean optimized;
-    private Node prev;
 
-    private final State<Map<Integer, List<Node>>> removalCandidates = new State<>(new HashMap<>());
-    private final Map<Integer, List<Node>> temps = new HashMap<>();
+    private final State<Map<Integer, List<Runnable>>> removalCandidates = new State<>(new HashMap<>());
+    private final Map<Integer, List<Runnable>> temps = new HashMap<>();
     private final Deque<Boolean> canEliminate = new ArrayDeque<>();
 
+    private IRBlock currentBlock;
+    private final Queue<Runnable> optimizations = new LinkedList<>();
+
     @Override
-    public Node optimize(Node graph) {
+    public IRBlock optimize(IRBlock block, Type[] inputTypes) {
         optimized = false;
+        canEliminate.push(true);
 
-        Context context = new Context(graph);
-        Handler handler = new Handler();
-        Trav trav = new Trav();
+        IRWalker<Void, Void> walker = new IRTreeWalker<>(){
+            @Override
+            public void onBlockEnter(IRBlock block) {
+                currentBlock = block;
+            }
+        };
+        walker.walk(this, block);
 
-        while (context.getNext() != null){
-            Node current = context.getNext();
-            Expression expr = current.getExpr();
-            expr.accept(handler);
-            prev = current;
-            current.step(trav, context);
-        }
         removeUnusedLocals();
         removeUnusedTemps();
 
-        return graph;
+        while (!optimizations.isEmpty()) {
+            Runnable optimization = optimizations.poll();
+            optimization.run();
+        }
+
+        return block;
     }
 
+    @Override
+    public boolean isOptimized() {
+        return optimized;
+    }
 
     private void removeUnusedLocals(){
-        for (List<Node> indices : removalCandidates.get().values()) {
-            for (Node candidate : indices) {
-                candidate.setNext(candidate.getNext().getNext());
+        for (List<Runnable> indices : removalCandidates.get().values()) {
+            for (Runnable optimization : indices) {
+                optimizations.add(optimization);
                 optimized = true;
             }
             indices.clear();
@@ -50,126 +61,109 @@ public class DeadVariableEliminator implements Optimizer {
     }
 
     private void removeUnusedTemps(){
-        for (List<Node> indices : temps.values()) {
-            for (Node candidate : indices) {
-                candidate.setNext(candidate.getNext().getNext());
+        for (List<Runnable> indices : temps.values()) {
+            for (Runnable optimization : indices) {
+                optimizations.add(optimization);
                 optimized = true;
             }
             indices.clear();
         }
     }
 
+    @Override
+    public Void visitPushFrame(PushFrame node, Void unused) {
+        super.visitPushFrame(node, unused);
+        scan(node.called, null);
+        removalCandidates.storeAndSet(new HashMap<>());
+
+        IRTypeVisitor<Void, Boolean> isTypeChecker = new IRTypeVisitorImpl<>() {
+            @Override
+            public Boolean defaultOperation(IRType type, Void unused) {
+                return false;
+            }
+
+            @Override
+            public Boolean visitTypeType(IRTypeType typeType, Void unused) {
+                return true;
+            }
+        };
+
+        boolean isTypeInit = node.called.getType().accept(isTypeChecker, null);
+
+        canEliminate.push(!isTypeInit);
+        return null;
+    }
 
     @Override
-    public boolean isOptimized() {
-        return optimized;
+    public Void visitPopFrame(PopFrame node, Void unused) {
+        removeUnusedLocals();
+        removalCandidates.restore();
+        canEliminate.remove();
+        return null;
     }
 
+    @Override
+    public Void visitStoreLocal(StoreLocal node, Void unused) {
+        scan(node.value, null);
 
-    private static class Trav extends TreeTraverseStrategy {
-        @Override
-        public boolean isThenFirst(BranchNode node, Context context) {
-            return false;
-        }
-    }
+        List<Runnable> optims = removalCandidates.get().computeIfAbsent(node.ssaAddress, k -> new LinkedList<>());
+        optimizations.addAll(optims);
 
+        IRValue value = node.value;
 
-    private class Handler extends ExpressionScanner<Void, Void> {
-
-        @Override
-        public Void visitPushFrame(PushFrame expr, Void unused) {
-            scan(expr.called, null);
-            removalCandidates.storeAndSet(new HashMap<>());
-            canEliminate.push(!expr.isTypeInit);
-            return null;
+        if (value instanceof WrapTObj wrapper) {
+            value = wrapper.value;
         }
 
-        @Override
-        public Void visitPushSuperFrame(PushSuperFrame expr, Void unused) {
-            removalCandidates.storeAndSet(new HashMap<>());
-            canEliminate.push(true);
-            return null;
-        }
-
-        @Override
-        public Void visitPopFrame(PopFrame expr, Void unused) {
-            removeUnusedLocals();
-            removalCandidates.restore();
-            canEliminate.remove();
-            return null;
-        }
-
-        @Override
-        public Void visitStoreLocal(StoreLocal expr, Void unused) {
-            scan(expr.what, null);
-
-            if (expr.what instanceof LoadLocal l){
-                if (expr.index == l.index){
-                    prev.setNext(prev.getNext().getNext());
-                    optimized = true;
-                }
-            }
-
-            if (expr.what == ItrNext.INSTANCE)
+        if (value instanceof LoadLocal l) {
+            if (node.ssaAddress == l.ssaAddress && canEliminate.element()){
+                optimizations.add(() -> currentBlock.getCode().remove(node));
+                optimized = true;
                 return null;
-
-            int address = expr.index;
-            if (!removalCandidates.get().containsKey(address))
-                removalCandidates.get().put(address, new LinkedList<>());
-            removalCandidates.get().get(address).add(prev);
-
-            return null;
-        }
-
-        @Override
-        public Void visitLoadLocal(LoadLocal expr, Void unused) {
-            int address = expr.index;
-            if (!removalCandidates.get().containsKey(address))
-                removalCandidates.get().put(address, new LinkedList<>());
-            removalCandidates.get().get(expr.index).clear();
-            return null;
-        }
-
-        @Override
-        public Void visitStoreTemp(StoreTemp expr, Void unused) {
-            scan(expr.what, null);
-
-            if (expr.what instanceof LoadTemp l){
-                if (expr.index == l.index && canEliminate.element()){
-                    prev.setNext(prev.getNext().getNext());
-                    optimized = true;
-                }
             }
-            int address = expr.index;
-            if (!temps.containsKey(address))
-                temps.put(address, new LinkedList<>());
-            temps.get(address).add(prev);
-
-            return null;
         }
 
-        @Override
-        public Void visitLoadTemp(LoadTemp expr, Void unused) {
-            int address = expr.index;
-            if (!temps.containsKey(address))
-                temps.put(address, new LinkedList<>());
-            temps.get(address).clear();
-            return null;
+        if (!node.value.isCallingInstruction()){
+            optims.add(() -> currentBlock.getCode().remove(node));
         }
 
-        @Override
-        public Void visitStoreGlobal(StoreGlobal expr, Void unused) {
-            scan(expr.what, null);
-
-            if (expr.what instanceof LoadGlobal l){
-                if (expr.index == l.index()){
-                    prev.setNext(prev.getNext().getNext());
-                    optimized = true;
-                }
-            }
-
-            return null;
-        }
+        return null;
     }
 
+    @Override
+    public Void visitLoadLocal(LoadLocal node, Void unused) {
+        int address = node.ssaAddress;
+        List<Runnable> optims = removalCandidates.get().computeIfAbsent(address, k -> new LinkedList<>());
+        optims.clear();
+        return null;
+    }
+
+    @Override
+    public Void visitStoreTemp(StoreTemp node, Void unused) {
+        scan(node.value, null);
+
+        List<Runnable> optims = temps.computeIfAbsent(node.address, k -> new LinkedList<>());
+        optimizations.addAll(optims);
+
+        if (node.value instanceof LoadTemp l) {
+            if (node.address == l.address && canEliminate.element()){
+                optimizations.add(() -> currentBlock.getCode().remove(node));
+                optimized = true;
+                return null;
+            }
+        }
+
+        if (!node.value.isCallingInstruction()){
+            optims.add(() -> currentBlock.getCode().remove(node));
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitLoadTemp(LoadTemp node, Void unused) {
+        int address = node.address;
+        List<Runnable> optims = temps.computeIfAbsent(address, k -> new LinkedList<>());
+        optims.clear();
+        return null;
+    }
 }

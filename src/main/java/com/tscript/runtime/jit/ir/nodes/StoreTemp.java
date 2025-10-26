@@ -14,6 +14,15 @@ public class StoreTemp implements IRNode {
     }
 
     @Override
+    public boolean replace(IRValue oldNode, IRValue newNode) {
+        if (oldNode == value) {
+            value = newNode;
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public <P, R> R accept(IRVisitor<P, R> visitor, P p) {
         return visitor.visitStoreTemp(this, p);
     }

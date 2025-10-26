@@ -13,7 +13,7 @@ public record JITCompilerImpl(JITCache cache) implements JITCompiler {
     }
 
     @Override
-    public void handle(JITTask task) {
+    public void schedule(JITTask task) {
         task.run();
     }
 

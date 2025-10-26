@@ -6,9 +6,13 @@ import com.tscript.runtime.core.Opcode;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.jit.caching.TypeCache;
 import com.tscript.runtime.jit.emit.jbc.JBCImageGenerator;
-import com.tscript.runtime.jit.emit.jbc.MaxTempRegisters;
 import com.tscript.runtime.jit.ir.IRBlock;
-import com.tscript.runtime.jit.lower.jbc.JBCUtils;
+import com.tscript.runtime.jit.ir.IRScanner;
+import com.tscript.runtime.jit.ir.IRTreeWalker;
+import com.tscript.runtime.jit.ir.IRVisitor;
+import com.tscript.runtime.jit.ir.nodes.LoadTemp;
+import com.tscript.runtime.jit.ir.nodes.StoreTemp;
+import com.tscript.runtime.jit.emit.jbc.JBCUtils;
 import com.tscript.runtime.jit.tracing.ImageFrame;
 import com.tscript.runtime.typing.*;
 import org.objectweb.asm.Label;
@@ -32,17 +36,38 @@ public class IREmitterJBC implements IREmitter, Opcodes {
     
     private final Deque<Runnable> operandStack;
 
+    private final Map<Integer, Integer> efficientTempRegister;
+
 
     public IREmitterJBC(String className) {
         this.jbc = new JBCImageGenerator(className);
         this.labels = new HashMap<>();
         this.operandStack = new ArrayDeque<>();
+        this.efficientTempRegister = new HashMap<>();
     }
 
 
     @Override
     public void init(IRBlock block) {
-        int tempRegs = MaxTempRegisters.compute(block);
+        this.efficientTempRegister.clear();
+
+        IRTreeWalker<Void, Void> walker = new IRTreeWalker<>();
+        IRVisitor<Void, Void> tempRegisterMapper = new IRScanner<>(){
+            @Override
+            public Void visitLoadTemp(LoadTemp node, Void unused) {
+                efficientTempRegister.putIfAbsent(node.address, efficientTempRegister.size());
+                return null;
+            }
+            @Override
+            public Void visitStoreTemp(StoreTemp node, Void unused) {
+                efficientTempRegister.putIfAbsent(node.address, efficientTempRegister.size());
+                return null;
+            }
+        };
+        walker.walk(tempRegisterMapper, block);
+
+
+        int tempRegs = efficientTempRegister.size();
         if (tempRegs > 0){
             jbc.newArray(TObject.class, tempRegs);
             jbc.storeLocal(TEMPS_REG);
@@ -175,23 +200,18 @@ public class IREmitterJBC implements IREmitter, Opcodes {
     }
 
     @Override
-    public void emitLoadType(int address, boolean fromModule) {
-        pushStack("loadType", () -> {
-            if (fromModule) {
-                genLoadThread();
-                jbc.pushInt(address);
-                jbc.callStatic(JBCUtils.class, "loadType", TObject.class, TThread.class, Integer.TYPE);
-            }
-            else {
-                jbc.pushInt(address);
-                jbc.callStatic(TypeCache.class, "getType", TObject.class, Integer.TYPE);
-            }
-        });
+    public void emitLoadType(int address) {
+        pushStack("loadType", () -> jbc.pushInt(address));
     }
 
     @Override
     public void emitGetType() {
-        pushStack("getType", () -> jbc.callInterface(TObject.class, "getType", Type.class));
+        Runnable value = popStack();
+
+        pushStack("getType", () -> {
+            value.run();
+            jbc.callInterface(TObject.class, "getType", Type.class);
+        });
     }
 
     @Override
@@ -206,6 +226,7 @@ public class IREmitterJBC implements IREmitter, Opcodes {
         genLoadFrame();
         value.run();
         jbc.callStatic(JBCUtils.class, "getIterator", TObject.class, TThread.class, ImageFrame.class, TObject.class);
+        jbc.pop();
         assertStackIsEmpty();
     }
 
@@ -264,23 +285,20 @@ public class IREmitterJBC implements IREmitter, Opcodes {
     public void emitPushFrame() {
         Runnable value = popStack();
 
-        pushStack("pushFrame", () -> {
-            value.run();
-            genLoadFrame();
-            jbc.pushInt(0);
-            jbc.callStatic(JBCUtils.class, "pushFrame", ImageFrame.class, TObject.class, ImageFrame.class, Integer.TYPE);
-            genStoreFrame();
-        });
+        value.run();
+        genLoadFrame();
+        jbc.pushInt(0);
+        jbc.callStatic(JBCUtils.class, "pushFrame", ImageFrame.class, TObject.class, ImageFrame.class, Integer.TYPE);
+        genStoreFrame();
+
+        assertStackIsEmpty();
     }
 
     @Override
     public void emitPopFrame() {
-        pushStack("popFrame", () -> {
-            genLoadFrame();
-            jbc.dup();
-            jbc.getField(ImageFrame.class, "next", ImageFrame.class);
-            genStoreFrame();
-        });
+        genLoadFrame();
+        jbc.getField(ImageFrame.class, "next", ImageFrame.class);
+        genStoreFrame();
     }
 
     @Override
@@ -500,22 +518,34 @@ public class IREmitterJBC implements IREmitter, Opcodes {
     }
 
     @Override
-    public void emitGuardWrapped(int ipRecover, int spRecover) {
+    public void emitGuardWrapped(int guardId, int ipRecover, int spRecover) {
         Runnable value = popStack();
         value.run();
         genLoadThread();
         genLoadFrame();
+        jbc.pushInt(guardId);
         jbc.pushInt(ipRecover);
         jbc.pushInt(spRecover);
         jbc.pushBoolean(true);
-        jbc.callStatic(JBCUtils.class, "guardBool", Void.TYPE, TObject.class, TThread.class, ImageFrame.class, Integer.TYPE, Integer.TYPE, Boolean.TYPE);
+        jbc.callStatic(JBCUtils.class, "guardBool", Void.TYPE, TObject.class, TThread.class, ImageFrame.class, Integer.TYPE, Integer.TYPE, Integer.TYPE, Boolean.TYPE);
         assertStackIsEmpty();
     }
 
     @Override
-    public void emitGuardPrimitiveBoolean(int ipRecover, int spRecover) {
+    public void emitGuardItrHasNext(int guardId, int ipRecover, int spRecover, boolean shouldHaveNext) {
+        genLoadThread();
+        genLoadFrame();
+        jbc.pushInt(guardId);
+        jbc.pushInt(ipRecover);
+        jbc.pushInt(spRecover);
+        jbc.pushBoolean(shouldHaveNext);
+        jbc.callStatic(JBCUtils.class, "guardItrHasNext", Void.TYPE, TThread.class, ImageFrame.class, Integer.TYPE, Integer.TYPE, Integer.TYPE, Boolean.TYPE);
+    }
+
+    @Override
+    public void emitGuardPrimitiveBoolean(int guardId, int ipRecover, int spRecover) {
         emitWrapBoolean();
-        emitGuardWrapped(ipRecover, spRecover);
+        emitGuardWrapped(guardId, ipRecover, spRecover);
     }
 
     @Override
@@ -573,7 +603,7 @@ public class IREmitterJBC implements IREmitter, Opcodes {
     public void emitLoadTemp(int address) {
         pushStack("loadTemp", () -> {
             genLoadTemps();
-            jbc.pushInt(address);
+            jbc.pushInt(efficientTempRegister.get(address));
             jbc.loadArray();
         });
     }
@@ -581,7 +611,7 @@ public class IREmitterJBC implements IREmitter, Opcodes {
     @Override
     public void emitStoreTemp(int address) {
         genLoadTemps();
-        jbc.pushInt(address);
+        jbc.pushInt(efficientTempRegister.get(address));
         popStack().run();
         jbc.storeArray();
         assertStackIsEmpty();
@@ -601,7 +631,7 @@ public class IREmitterJBC implements IREmitter, Opcodes {
         genLoadFrame();
         popStack().run();
         jbc.pushInt(address);
-        jbc.callStatic(JBCUtils.class, "StoreGlobal", Void.TYPE, ImageFrame.class, TObject.class, Integer.TYPE);
+        jbc.callStatic(JBCUtils.class, "storeGlobal", Void.TYPE, ImageFrame.class, TObject.class, Integer.TYPE);
         assertStackIsEmpty();
     }
 

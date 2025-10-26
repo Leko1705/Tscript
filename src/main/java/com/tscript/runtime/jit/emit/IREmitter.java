@@ -36,7 +36,7 @@ public interface IREmitter {
 
     void emitMakeRange(boolean fromWrapped);
 
-    void emitLoadType(int address, boolean fromModule);
+    void emitLoadType(int address);
 
     void emitGetType();
 
@@ -102,9 +102,11 @@ public interface IREmitter {
 
     void emitBranchIterator(int jumpLabel, int nonJumpLabel);
 
-    void emitGuardWrapped(int ipRecover, int spRecover);
+    void emitGuardWrapped(int guardId, int ipRecover, int spRecover);
 
-    void emitGuardPrimitiveBoolean(int ipRecover, int spRecover);
+    void emitGuardItrHasNext(int guardId, int ipRecover, int spRecover, boolean shouldHaveNext);
+
+    void emitGuardPrimitiveBoolean(int guardId, int ipRecover, int spRecover);
 
     void emitStoreLocal(int index);
 

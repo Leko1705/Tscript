@@ -20,7 +20,7 @@ public class ParallelJIT implements JITCompiler {
 
 
     @Override
-    public void handle(JITTask task) {
+    public void schedule(JITTask task) {
         handler.queue.add(task);
     }
 
@@ -28,7 +28,6 @@ public class ParallelJIT implements JITCompiler {
     public JITCache getCache() {
         return underlying.getCache();
     }
-
 
     @Override
     public void boot() {

@@ -97,7 +97,7 @@ public class JBCEmitterController extends IRScanner<Void, Void> {
 
     @Override
     public Void visitType(Type node, Void unused) {
-        emitter.emitLoadType(node.address, node.fromModule);
+        emitter.emitLoadType(node.address);
         return null;
     }
 
@@ -286,6 +286,8 @@ public class JBCEmitterController extends IRScanner<Void, Void> {
         }
 
         else {
+            scan(node.lhs, unused);
+            scan(node.rhs, unused);
             emitter.emitCompareDynamic(node.shouldBeEqual);
         }
 
@@ -375,13 +377,18 @@ public class JBCEmitterController extends IRScanner<Void, Void> {
 
     @Override
     public Void visitGuard(Guard node, Void unused) {
+        if (node.condition instanceof ItrHasNext itrHasNext) {
+            emitter.emitGuardItrHasNext(node.guardId, node.ipRecover, node.spRecover, itrHasNext.shouldHaveNext);
+            return null;
+        }
+
         scan(node.condition, unused);
 
         if (isPrimitiveType(IRBooleanType.class, node.condition)) {
-            emitter.emitGuardPrimitiveBoolean(node.ipRecover, node.spRecover);
+            emitter.emitGuardPrimitiveBoolean(node.guardId, node.ipRecover, node.spRecover);
         }
         else {
-            emitter.emitGuardWrapped(node.ipRecover, node.spRecover);
+            emitter.emitGuardWrapped(node.guardId, node.ipRecover, node.spRecover);
         }
 
         return null;
@@ -616,7 +623,6 @@ public class JBCEmitterController extends IRScanner<Void, Void> {
         emitter.emitUseMembers();
         return null;
     }
-
 
     private static boolean isPrimitiveType(Class<? extends IRType> type, IRValue value) {
         return !(value instanceof WrapTObj) && value.getType().isType(type);

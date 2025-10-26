@@ -11,4 +11,7 @@ public interface IRValue extends IRNode {
         return false;
     }
 
+    default boolean isCallingInstruction() {
+        return false;
+    }
 }

@@ -48,4 +48,9 @@ public class CallInp implements IRValue {
         return b.get();
 
     }
+
+    @Override
+    public boolean isCallingInstruction() {
+        return true;
+    }
 }

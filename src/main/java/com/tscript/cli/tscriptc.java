@@ -25,7 +25,7 @@ public class tscriptc implements Callable<Integer> {
     @CommandLine.Option(names = {"-f", "--file"}, description = "input file", paramLabel = "file or directory", required = true)
     File file;
 
-    @CommandLine.Option(names = {"-o", "--output"}, description = "output directory for compilation result")
+    @CommandLine.Option(names = {"-o", "--output"}, description = "output directory for compilation value")
     public File outputDirectory;
 
     @CommandLine.Option(names = {"-i", "--inspect"}, description = "sets inspection mode")

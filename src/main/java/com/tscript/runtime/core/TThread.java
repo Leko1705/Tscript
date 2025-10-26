@@ -220,6 +220,10 @@ public class TThread extends Thread implements Environment, TObject {
         this.interpreter = interpreter;
     }
 
+    public Interpreter getInterpreter() {
+        return interpreter;
+    }
+
     protected void push(TObject object){
         frameStack.element().push(object);
     }

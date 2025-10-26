@@ -149,7 +149,7 @@ public class Errors {
     }
 
     public static CompileException canNotAssignToCallResult(Location location) {
-        return new CompileException("can not assign to a call result", location, Phase.CHECKING);
+        return new CompileException("can not assign to a call value", location, Phase.CHECKING);
     }
 
     public static CompileException canNotReassignToConstant(Location location) {

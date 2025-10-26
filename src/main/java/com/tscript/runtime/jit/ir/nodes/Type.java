@@ -7,11 +7,9 @@ import com.tscript.runtime.jit.ir.types.IRTypeType;
 public class Type implements IRValue {
 
     public int address;
-    public boolean fromModule;
 
-    public Type(int address, boolean fromModule) {
+    public Type(int address) {
         this.address = address;
-        this.fromModule = fromModule;
     }
 
     @Override

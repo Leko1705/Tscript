@@ -6,7 +6,7 @@ import com.tscript.runtime.debugger.BreakPoint;
 import com.tscript.runtime.debugger.DebugInterpreter;
 import com.tscript.runtime.debugger.Debugger;
 import com.tscript.runtime.jit.JITCompiler;
-import com.tscript.runtime.jit.caching.BaseCache;
+import com.tscript.runtime.jit.caching.HashMapCache;
 import com.tscript.runtime.jit.compilers.*;
 import com.tscript.runtime.jit.tracing.Profiler;
 import com.tscript.runtime.stroage.Module;
@@ -202,6 +202,6 @@ public class TscriptVM implements VirtualMachine {
     }
 
     private static JITCompiler getInitialJIT(){
-        return new JITCompilerImpl(new BaseCache());
+        return new JITCompilerImpl(new HashMapCache());
     }
 }

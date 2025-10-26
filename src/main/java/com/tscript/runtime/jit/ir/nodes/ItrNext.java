@@ -17,4 +17,9 @@ public class ItrNext implements IRValue {
     public IRType getType() {
         return type;
     }
+
+    @Override
+    public boolean isCallingInstruction() {
+        return true;
+    }
 }

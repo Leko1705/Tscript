@@ -1,14 +1,13 @@
 package com.tscript.runtime.jit;
 
 import com.tscript.runtime.jit.caching.JITCache;
-import com.tscript.runtime.jit.graph.Node;
-import com.tscript.runtime.typing.Type;
-
-import java.util.concurrent.CompletableFuture;
 
 public interface JITCompiler {
 
-    void handle(JITTask task);
+    int HOTNESS_THRESHOLD = 100;
+
+
+    void schedule(JITTask task);
 
     JITCache getCache();
 

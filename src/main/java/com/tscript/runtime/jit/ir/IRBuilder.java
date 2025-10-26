@@ -26,73 +26,17 @@ public class IRBuilder {
 
     private final IRBlock root;
 
-    private IRBlock block;
+    private final BlockManager blockManager;
 
-    private final Map<IRBlock, ArrayDeque<SSAState>> blockSsaState;
-
-
-    private final Map<Integer, IRBlock> blocks;
+    private final Deque<SsaState> callStack;
 
     private int currentIp;
 
     private int size;
 
-    private int nextFreeSsa = 0;
-
     private final LimitExceededListener limitExceededListener;
 
-
-    private class SSAState {
-
-        private final Map<Integer, Integer> initialSsa = new HashMap<>();
-        private final Map<Integer, Phi> phis;
-        private final Map<Integer, Integer> realToSsa = new HashMap<>();
-
-        public SSAState() {
-            phis = new HashMap<>();
-        }
-
-        public int getCurrentSsa(int realAddress) {
-            if (realToSsa.containsKey(realAddress)) {
-                return realToSsa.get(realAddress);
-            }
-            int ssa = nextFreeSsa++;
-            realToSsa.put(realAddress, ssa);
-            initialSsa.put(realAddress, ssa);
-            return ssa;
-        }
-
-        public int updateSsa(int address) {
-            int ssa = nextFreeSsa++;
-            realToSsa.put(address, ssa);
-            if (!initialSsa.containsKey(address)) {
-                initialSsa.put(address, ssa);
-            }
-            return ssa;
-        }
-
-        public void mapTransitionFrom(IRBlock sourceBlock) {
-            final SSAState src = getSsaState(sourceBlock);
-            final SSAState dest = this;
-
-           for (Integer realAddress : src.realToSsa.keySet()) {
-               int ssaAddress = src.realToSsa.get(realAddress);
-
-               Phi phi = dest.getPhi(realAddress);
-
-               LoadLocal ll = new LoadLocal(ssaAddress, realAddress);
-               phi.options.put(sourceBlock, ll);
-           }
-        }
-
-        public int getInitialSsa(int realAddress) {
-            return initialSsa.get(realAddress);
-        }
-
-        public Phi getPhi(int address) {
-            return phis.computeIfAbsent(address, k -> new Phi());
-        }
-    }
+    private int nextFreeGuardId;
 
 
     public IRBuilder(int ip) {
@@ -100,12 +44,16 @@ public class IRBuilder {
     }
 
     public IRBuilder(int ip, LimitExceededListener l) {
-        this.stack = new ArrayDeque<>();
-        this.blockSsaState = new HashMap<>();
+        nextFreeGuardId = 0;
 
-        this.block = new IRBlock();
-        this.root = block;
-        this.blocks = new LinkedHashMap<>();
+        this.blockManager = new BlockManager();
+        this.root = blockManager.currentBlock();
+        blockManager.associateAddress(ip, root);
+
+        this.stack = new ArrayDeque<>();
+
+        this.callStack = new ArrayDeque<>(List.of(root.ssa));
+
         this.currentIp = ip;
         this.size = 0;
         this.limitExceededListener = l;
@@ -118,13 +66,12 @@ public class IRBuilder {
             return root;
         }
 
-        for (IRBlock block : blockSsaState.keySet()) {
-            SSAState ssaState = getSsaState(block);
+        for (IRBlock block : blockManager.getAllBlocks()) {
 
-            for (int realAddress : ssaState.realToSsa.keySet()) {
-                Phi phi = ssaState.getPhi(realAddress);
+            for (int realAddress : block.getRealAddresses()) {
+                Phi phi = block.getPhi(realAddress);
                 if (!phi.options.isEmpty()) {
-                    int ssa = ssaState.getInitialSsa(realAddress);
+                    int ssa = block.getInitialSsa(realAddress);
                     block.getCode().add(0, new StoreLocal(ssa, realAddress, phi));
                 }
             }
@@ -214,12 +161,12 @@ public class IRBuilder {
     }
 
     public void loadType(int address) {
-        stack.push(new WrapTObj(new Type(address, true)));
+        stack.push(new WrapTObj(new Type(address)));
         postHandleExpr();
     }
 
     public void loadType(com.tscript.runtime.typing.Type type) {
-        stack.push(new Type(TypeCache.getId(type), false));
+        stack.push(new Type(TypeCache.getId(type)));
         postHandleExpr();
     }
 
@@ -247,10 +194,10 @@ public class IRBuilder {
 
         if (isGuaranteedVirtual || isVirtual(called)) {
             for (int i = 0; i < argc; i++) {
-                block.append(new StoreTemp(i, new WrapTObj(stack.remove())));
+                blockManager.currentBlock().append(new StoreTemp(i, new WrapTObj(stack.remove())));
             }
-            block.append(new PushFrame(called));
-            pushSSAState(block);
+            blockManager.currentBlock().append(new PushFrame(called));
+            callStack.push(new SsaState(blockManager.getNextFreeSsa()));
             for (int i = 0; i < argc; i++) {
                 stack.push(new LoadTemp(i));
             }
@@ -275,7 +222,7 @@ public class IRBuilder {
     }
 
     public void newLine(int line) {
-        this.block.append(new NewLine(line));
+        blockManager.currentBlock().append(new NewLine(line));
         postHandleStmt();
     }
 
@@ -284,19 +231,19 @@ public class IRBuilder {
     }
 
     public void storeTemp(int address) {
-        this.block.append(new StoreTemp(address, new WrapTObj(stack.remove())));
+        blockManager.currentBlock().append(new StoreTemp(address, new WrapTObj(stack.remove())));
     }
 
     public void loadLocal(int address) {
-        int ssaAddress = getSsaState(block).getCurrentSsa(address);
+        int ssaAddress = getSsaState().getSsa(address);
         stack.push(new WrapTObj(new LoadLocal(ssaAddress, address)));
         postHandleExpr();
     }
 
     public void storeLocal(int address) {
         IRValue value = stack.remove();
-        int ssaAddress = getSsaState(block).updateSsa(address);
-        this.block.append(new StoreLocal(ssaAddress, address, new WrapTObj(value)));
+        int ssaAddress = getSsaState().updateSsa(address);
+        blockManager.currentBlock().append(new StoreLocal(ssaAddress, address, new WrapTObj(value)));
         postHandleStmt();
     }
 
@@ -307,7 +254,7 @@ public class IRBuilder {
 
     public void storeGlobal(int address) {
         IRValue value = stack.remove();
-        this.block.append(new StoreGlobal(address, new WrapTObj(value)));
+        blockManager.currentBlock().append(new StoreGlobal(address, new WrapTObj(value)));
         postHandleStmt();
     }
 
@@ -318,7 +265,7 @@ public class IRBuilder {
 
     public void storeInternal(int address) {
         IRValue value = stack.remove();
-        this.block.append(new StoreInternal(address, new WrapTObj(value)));
+        blockManager.currentBlock().append(new StoreInternal(address, new WrapTObj(value)));
         postHandleStmt();
     }
 
@@ -330,7 +277,7 @@ public class IRBuilder {
     public void storeExternal(String name) {
         IRValue accessed = stack.remove();
         IRValue value = stack.remove();
-        this.block.append(new StoreExternal(name, new WrapTObj(accessed), new WrapTObj(value)));
+        blockManager.currentBlock().append(new StoreExternal(name, new WrapTObj(accessed), new WrapTObj(value)));
         postHandleStmt();
     }
 
@@ -341,7 +288,7 @@ public class IRBuilder {
 
     public void storeStatic(String name) {
         IRValue value = stack.remove();
-        this.block.append(new StoreStatic(name, new WrapTObj(value)));
+        blockManager.currentBlock().append(new StoreStatic(name, new WrapTObj(value)));
         postHandleStmt();
     }
 
@@ -352,7 +299,7 @@ public class IRBuilder {
 
     public void storeSuper(String name) {
         IRValue value = stack.remove();
-        this.block.append(new StoreSuper(name, new WrapTObj(value)));
+        blockManager.currentBlock().append(new StoreSuper(name, new WrapTObj(value)));
         postHandleStmt();
     }
 
@@ -367,18 +314,18 @@ public class IRBuilder {
     }
 
     public void makeExprStmt() {
-        this.block.append(new ExprStmt(stack.remove()));
+        blockManager.currentBlock().append(new ExprStmt(stack.remove()));
         postHandleStmt();
     }
 
     public void makeReturn() {
-        this.block.append(new Return(new WrapTObj(stack.remove())));
+        blockManager.currentBlock().append(new Return(new WrapTObj(stack.remove())));
         postHandleStmt();
     }
 
     public void makePopFrameReturn() {
-        this.block.append(new PopFrame());
-        popSSAState(block);
+        blockManager.currentBlock().append(new PopFrame());
+        callStack.remove();
     }
 
     public void containerRead() {
@@ -392,7 +339,7 @@ public class IRBuilder {
         IRValue container = stack.remove();
         IRValue key = stack.remove();
         IRValue value = stack.remove();
-        this.block.append(new ContainerWrite(new WrapTObj(container), new WrapTObj(key), new WrapTObj(value)));
+        blockManager.currentBlock().append(new ContainerWrite(new WrapTObj(container), new WrapTObj(key), new WrapTObj(value)));
         postHandleStmt();
     }
 
@@ -436,26 +383,26 @@ public class IRBuilder {
 
     public void use(String name) {
         IRValue value = stack.remove();
-        block.append(new Use(new WrapTObj(value), name));
+        blockManager.currentBlock().append(new Use(new WrapTObj(value), name));
         postHandleStmt();
     }
 
     public void useMembers() {
         IRValue value = stack.remove();
-        block.append(new UseMembers(new WrapTObj(value)));
+        blockManager.currentBlock().append(new UseMembers(new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void extend(String name) {
         IRValue value = stack.remove();
         IRValue owner = stack.remove();
-        block.append(new Extend(new WrapTObj(owner), name, new WrapTObj(value)));
+        blockManager.currentBlock().append(new Extend(new WrapTObj(owner), name, new WrapTObj(value)));
         postHandleStmt();
     }
 
     public void getItr() {
-        block.append(new Itr(new WrapTObj(stack.remove())));
-        blocks.put(currentIp, block);
+        blockManager.currentBlock().append(new Itr(new WrapTObj(stack.remove())));
+        blockManager.associateAddress(currentIp, blockManager.currentBlock());
         postHandleStmt();
     }
 
@@ -466,26 +413,26 @@ public class IRBuilder {
 
     public void itrBranch(int address) {
 
-        IRBlock noJumpBlock = blocks.computeIfAbsent(currentIp+1, k -> new IRBlock());
+        IRBlock noJumpBlock = blockManager.computeBlockForAddress(currentIp+1);
         IRBlock jumpBlock;
 
         if (address > currentIp) {
-            jumpBlock = blocks.computeIfAbsent(address, k -> new IRBlock());
+            jumpBlock = blockManager.computeBlockForAddress(address);
         }
         else if (address < currentIp) {
-            jumpBlock = blocks.get(address);
+            jumpBlock = blockManager.requireBlockForAddress(address);
         }
         else {
             throw new IllegalStateException("Endless loop does not work on branching directly");
         }
 
-        block.append(new ItrBranch(jumpBlock, noJumpBlock));
+        blockManager.currentBlock().append(new ItrBranch(jumpBlock, noJumpBlock));
 
         size++;
         if (checkLimitExceeded()) return;
 
         currentIp++;
-        block = noJumpBlock;
+        blockManager.setCurrentBlock(noJumpBlock);
     }
 
     public void itrNext() {
@@ -499,52 +446,53 @@ public class IRBuilder {
     public void createBranch(int address, boolean onTrue) {
         IRValue condition = stack.remove();
 
-        IRBlock noJumpBlock = blocks.computeIfAbsent(currentIp+1, k -> new IRBlock());
+        IRBlock noJumpBlock = blockManager.computeBlockForAddress(currentIp+1);
         IRBlock jumpBlock;
 
         if (address > currentIp) {
-            jumpBlock = blocks.computeIfAbsent(address, k -> new IRBlock());
+            jumpBlock = blockManager.computeBlockForAddress(address);
         }
         else if (address < currentIp) {
-            jumpBlock = blocks.get(address);
+            jumpBlock = blockManager.requireBlockForAddress(address);
         }
         else {
             throw new IllegalStateException("Endless loop does not work on branching directly");
         }
 
-        block.append(new Branch(new WrapTObj(condition), jumpBlock, noJumpBlock, onTrue));
-        getSsaState(jumpBlock).mapTransitionFrom(block);
-        getSsaState(noJumpBlock).mapTransitionFrom(block);
+        blockManager.currentBlock().append(new Branch(new WrapTObj(condition), jumpBlock, noJumpBlock, onTrue));
+        getSsaState().mapTransitionFrom(blockManager.currentBlock());
+        getSsaState().mapTransitionFrom(blockManager.currentBlock());
 
         currentIp++;
-        block = noJumpBlock;
+        blockManager.setCurrentBlock(noJumpBlock);
     }
 
     public void createGoto(int address) {
         if (address > currentIp) {
-            IRBlock destBlock = blocks.computeIfAbsent(address, k -> new IRBlock());
-            block.append(new Goto(destBlock));
-            getSsaState(destBlock).mapTransitionFrom(block);
+            IRBlock destBlock = blockManager.computeBlockForAddress(address);
+            blockManager.currentBlock().append(new Goto(destBlock));
+            getSsaState().mapTransitionFrom(blockManager.currentBlock());
         }
         else if (address < currentIp) {
-            IRBlock destBlock = blocks.get(address);
-            getSsaState(destBlock).mapTransitionFrom(block);
-            block.append(new Goto(blocks.get(address)));
+            IRBlock destBlock = blockManager.requireBlockForAddress(address);
+            Objects.requireNonNull(destBlock);
+            getSsaState().mapTransitionFrom(blockManager.currentBlock());
+            blockManager.currentBlock().append(new Goto(destBlock));
         }
         else {
-            block.append(new Goto(IRBlock.ENDLESS_LOOP));
+            blockManager.currentBlock().append(new Goto(IRBlock.ENDLESS_LOOP));
         }
 
         size++;
         if (checkLimitExceeded()) return;
 
         currentIp++;
-        block = blocks.computeIfAbsent(currentIp, k -> new IRBlock());
+        blockManager.setCurrentBlock(blockManager.computeBlockForAddress(currentIp));
     }
 
     public void createGoto(IRBlock block) {
-        this.block.append(new Goto(block));
-        getSsaState(block).mapTransitionFrom(this.block);
+        blockManager.currentBlock().append(new Goto(block));
+        getSsaState().mapTransitionFrom(blockManager.currentBlock());
     }
 
     public void setIp(int ip) {
@@ -557,13 +505,13 @@ public class IRBuilder {
 
     public void createGuard(int ipRecover, int spRecover, boolean shouldHold) {
         IRValue condition = stack.remove();
-        block.append(new Guard(condition, ipRecover, spRecover, shouldHold));
+        blockManager.currentBlock().append(new Guard(nextFreeGuardId++, condition, ipRecover, spRecover, shouldHold));
         postHandleStmt();
     }
 
 
     private void postHandleExpr() {
-        blocks.put(currentIp, block);
+        blockManager.associateAddress(currentIp, blockManager.currentBlock());
         currentIp++;
     }
 
@@ -572,10 +520,10 @@ public class IRBuilder {
         size++;
         if (checkLimitExceeded()) return;
 
-        if (blocks.containsKey(currentIp)) {
-            IRBlock nextBlock = blocks.get(currentIp);
-            block.append(new Goto(nextBlock));
-            block = nextBlock;
+        if (blockManager.hasBlockForAddress(currentIp)) {
+            IRBlock nextBlock = blockManager.requireBlockForAddress(currentIp);
+            blockManager.currentBlock().append(new Goto(nextBlock));
+            blockManager.setCurrentBlock(nextBlock);
         }
     }
 
@@ -593,21 +541,8 @@ public class IRBuilder {
         return false;
     }
 
-    private SSAState getSsaState(IRBlock block) {
-        return getCallStack(block).element();
+    private SsaState getSsaState() {
+        return callStack.element();
     }
 
-    private void pushSSAState(IRBlock block) {
-        Deque<SSAState> callStack = getCallStack(block);
-        callStack.push(new SSAState());
-    }
-
-    private void popSSAState(IRBlock block) {
-        Deque<SSAState> callStack = getCallStack(block);
-        callStack.remove();
-    }
-
-    private Deque<SSAState> getCallStack(IRBlock block) {
-        return blockSsaState.computeIfAbsent(block, k -> new ArrayDeque<>(List.of(new SSAState())));
-    }
 }
