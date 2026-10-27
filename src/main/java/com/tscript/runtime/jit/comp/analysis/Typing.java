@@ -316,6 +316,13 @@ public class Typing {
 
         @Override
         public IRType visitGetSuper(GetSuper node, Void unused) {
+            // the super object of an instance of a class is an instance of exactly its super class
+            // (see VirtualType.newInstance)
+            if (type(node.getValue()) instanceof ComplexType complex
+                    && complex.getType() instanceof com.tscript.runtime.core.VirtualType type
+                    && type.getSuperType() instanceof com.tscript.runtime.core.VirtualType superType) {
+                return new ComplexType(superType);
+            }
             return UNKNOWN;
         }
 

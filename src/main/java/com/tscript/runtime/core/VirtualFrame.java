@@ -19,6 +19,12 @@ public class VirtualFrame implements Frame {
     public final TObject[] locals;
 
     private int line = -1;
+
+    /**
+     * true if the return value of this frame is not pushed onto the stack of the calling frame
+     * (frames of super constructors materialized by the JIT: CALL_SUPER leaves nothing on the stack)
+     */
+    public boolean discardsResult = false;
     public final ArrayDeque<Integer> safeSpots = new ArrayDeque<>();
 
     public final Map<String, TObject> names = new HashMap<>();

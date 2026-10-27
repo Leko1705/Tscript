@@ -690,24 +690,44 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
             callUtils("newInstance", "(I)" + TOBJECT_DESC);
             store(object);
         }
-        // methods of the objects (owned by them) referenced by the state or the members
+        // super objects and methods of the objects referenced by the state or the members
         List<IRValue> referenced = new ArrayList<>(carrier.getStateValues());
         for (VirtualObjectState state : objects) referenced.addAll(carrier.getVirtualObjectValues(state));
-        for (IRValue value : referenced) {
-            if (value instanceof NewFunction function && !slots.containsKey(function)) {
-                function.accept(this);
-                store(function);
-            }
-        }
+        for (IRValue value : referenced) materializePart(value);
         for (VirtualObjectState state : objects) {
             List<IRValue> values = carrier.getVirtualObjectValues(state);
             for (int i = 0; i < values.size(); i++) {
+                int key = state.members()[i];
                 mv.visitVarInsn(ALOAD, THREAD_SLOT);
                 load(state.object(), Repr.OBJ);
-                pushInt(state.members()[i]);
+                for (int depth = 0; depth < VirtualObjectState.depthOf(key); depth++) {
+                    mv.visitMethodInsn(INVOKEINTERFACE, TOBJECT, "getSuper", "()" + TOBJECT_DESC, true);
+                }
+                pushInt(VirtualObjectState.indexOf(key));
                 load(values.get(i), Repr.OBJ);
                 callUtils("storeField", "(" + THREAD_DESC + TOBJECT_DESC + "I" + TOBJECT_DESC + ")V");
             }
+        }
+    }
+
+    /**
+     * Makes a super object or a method of a created object available (see {@link #emitVirtualObjects}).
+     */
+    private void materializePart(IRValue value) {
+        if (slots.containsKey(value)) return;
+        if (value instanceof GetSuper getSuper) {
+            materializePart(getSuper.getValue());
+            if (!slots.containsKey(getSuper.getValue())) return;
+            getSuper.accept(this);
+            store(getSuper);
+        }
+        else if (value instanceof NewFunction function) {
+            if (function.getOwner() != null) {
+                materializePart(function.getOwner());
+                if (!slots.containsKey(function.getOwner())) return;
+            }
+            function.accept(this);
+            store(function);
         }
     }
 

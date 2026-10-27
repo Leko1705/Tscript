@@ -534,9 +534,10 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void returnFunction() {
         TObject returnValue = thread.pop();
-        thread.frameStack.remove();
+        Frame returned = thread.frameStack.remove();
         thread.returnValue = returnValue;
         if (thread.frameStack.size() <= thread.frameStackExitThreshold) return;
+        if (returned instanceof VirtualFrame frame && frame.discardsResult) return;
         thread.push(returnValue);
     }
 

@@ -1,5 +1,7 @@
 package com.tscript.runtime.jit.tracing;
 
+import com.tscript.runtime.core.Opcode;
+
 import com.tscript.runtime.core.VirtualFrame;
 import com.tscript.runtime.core.VirtualFunction;
 import com.tscript.runtime.jit.caching.ObjectCache;
@@ -85,8 +87,9 @@ public final class Deoptimization implements TObject {
 
     /**
      * Materializes the frames of inlined functions (callers first).
+     * @param rootMetadata the function of the root frame
      */
-    public List<VirtualFrame> inlinedFrames() {
+    public List<VirtualFrame> inlinedFrames(VirtualFunction.VirtualMetadata rootMetadata) {
         List<FrameState> states = new ArrayList<>();
         for (FrameState s = info.state(); !s.isRoot(); s = s.caller()) {
             states.add(0, s);
@@ -97,6 +100,14 @@ public final class Deoptimization implements TObject {
             TObject owner = values[state.offset()];
             VirtualFrame frame = new VirtualFrame(metadata, owner);
             apply(state, frame);
+            // an inlined super constructor: its caller continues after CALL_SUPER without a result
+            FrameState caller = state.caller();
+            VirtualFunction.VirtualMetadata callerMetadata = caller.isRoot() ? rootMetadata
+                    : (VirtualFunction.VirtualMetadata) ObjectCache.getObject(caller.metadataId());
+            byte[][] instructions = callerMetadata.instructions();
+            int callIp = caller.ip() - 1;
+            frame.discardsResult = callIp >= 0 && callIp < instructions.length
+                    && Opcode.of(instructions[callIp][0]) == Opcode.CALL_SUPER;
             frames.add(frame);
         }
         return frames;

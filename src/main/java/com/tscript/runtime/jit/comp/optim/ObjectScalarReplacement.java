@@ -20,6 +20,11 @@ import java.util.*;
  * replaced as well. Guards (and exits) whose state refers to the object record the values of its
  * members ({@link VirtualObjectState}), so that the object can be created when compiled code is
  * left there.
+ * <p>
+ * Instances of classes with super classes consist of one object per class (see
+ * {@link com.tscript.runtime.core.VirtualType#newInstance()}). The super objects are reached with
+ * {@code GetSuper}; their members are identified by the depth of the super object and the index
+ * (see {@link VirtualObjectState#key(int, int)}).
  */
 public class ObjectScalarReplacement implements IROptimizer {
 
@@ -85,11 +90,36 @@ public class ObjectScalarReplacement implements IROptimizer {
             return value;
         }
 
-        boolean isObject(IRValue value) {
+        /**
+         * @return the depth of the (super) object the value is an alias of (0 for the object
+         * itself), -1 if it is no alias of the object
+         */
+        int depth(IRValue value) {
             value = resolve(value);
-            if (value == object) return true;
-            if (value instanceof Pi pi && isObject(pi.getValue())) return true;
-            return value instanceof FunctionOwner owner && isMethod(owner.getValue());
+            if (value == object) return 0;
+            if (value instanceof Pi pi) return depth(pi.getValue());
+            if (value instanceof GetSuper getSuper) {
+                int depth = depth(getSuper.getValue());
+                return depth < 0 ? -1 : depth + 1;
+            }
+            if (value instanceof FunctionOwner owner && isMethod(owner.getValue())) {
+                return depth(((NewFunction) resolve(owner.getValue())).getOwner());
+            }
+            return -1;
+        }
+
+        boolean isObject(IRValue value) {
+            return depth(value) >= 0;
+        }
+
+        /**
+         * @return the node the alias stands for: the object or one of its super objects (GetSuper)
+         */
+        IRValue base(IRValue value) {
+            value = resolve(value);
+            if (value instanceof Pi pi) return base(pi.getValue());
+            if (value instanceof FunctionOwner owner) return base(((NewFunction) resolve(owner.getValue())).getOwner());
+            return value;
         }
 
         boolean isMethod(IRValue value) {
@@ -116,25 +146,32 @@ public class ObjectScalarReplacement implements IROptimizer {
                 }
                 if (e instanceof Anchor anchor) {
                     IRValue value = anchor.getValue();
-                    if (methods.contains(value)) {
+                    if (value instanceof NewFunction function && isObject(function.getOwner())) {
+                        // a method of the object (or of one of its super objects)
+                        methods.add(function);
+                        removedAnchors.add(anchor);
+                    }
+                    else if (value instanceof GetSuper && isObject(value)) {
+                        // a super object: stays as a value that is only created on deoptimization
                         removedAnchors.add(anchor);
                     }
                     else if (value instanceof LoadMember load && isObject(load.getObject())) {
                         if (!isIndexed(load.access)) return false;
-                        IRValue member = members.get(load.index);
-                        if (member == null) member = initialValue(load.index);
+                        int key = VirtualObjectState.key(depth(load.getObject()), load.index);
+                        IRValue member = members.get(key);
+                        if (member == null) member = initialValue(key);
                         if (member == null) return false;
                         replacements.put(load, resolve(member));
                     }
                     else if (isObject(value)) {
                         // the owner of an inlined method or a type narrowing of the object
-                        replacements.put(value, object);
+                        replacements.put(value, base(value));
                     }
                 }
                 else if (e instanceof StoreMember store) {
                     if (isObject(store.getObject())) {
                         if (!isIndexed(store.access) || isObject(store.getValue())) return false;
-                        members.put(store.index, resolve(store.getValue()));
+                        members.put(VirtualObjectState.key(depth(store.getObject()), store.index), resolve(store.getValue()));
                         stores.add(store);
                     }
                     else if (isAlias(store.getValue())) {
@@ -154,8 +191,10 @@ public class ObjectScalarReplacement implements IROptimizer {
         /**
          * @return the value of the member before the constructor wrote it, null if it can not be expressed
          */
-        IRValue initialValue(int index) {
-            TObject template = object.type.getInstanceMemberTemplate(index);
+        IRValue initialValue(int key) {
+            com.tscript.runtime.typing.Type type = object.type;
+            for (int i = 0; i < VirtualObjectState.depthOf(key); i++) type = type.getSuperType();
+            TObject template = ((com.tscript.runtime.core.VirtualType) type).getInstanceMemberTemplate(VirtualObjectState.indexOf(key));
             if (template == null || template == Null.INSTANCE) return graph.builder().nullValue();
             return null;
         }
@@ -186,6 +225,7 @@ public class ObjectScalarReplacement implements IROptimizer {
             for (Map.Entry<IRValue, IRValue> entry : replacements.entrySet()) {
                 if (isAlias(entry.getValue())) aliases.add(entry.getKey());
             }
+            for (Anchor anchor : removedAnchors) aliases.add(anchor.getValue());
             Deque<IRValue> work = new ArrayDeque<>(aliases);
             while (!work.isEmpty()) {
                 IRValue alias = work.poll();
@@ -198,11 +238,15 @@ public class ObjectScalarReplacement implements IROptimizer {
                     }
                     if (user instanceof NewFunction function && methods.contains(function)) continue;
                     if (user instanceof IsType || user instanceof IsCallee) continue; // folded once replaced
+                    if (user instanceof GetSuper getSuper && !isMethod) {
+                        if (aliases.add(getSuper)) work.add(getSuper);
+                        continue;
+                    }
                     if (user instanceof Pi || user instanceof FunctionOwner) {
                         IRValue value = (IRValue) user;
                         if (user instanceof FunctionOwner && !isMethod) return true;
                         if (aliases.add(value)) {
-                            replacements.putIfAbsent(value, object);
+                            replacements.putIfAbsent(value, base(value));
                             work.add(value);
                         }
                         continue;

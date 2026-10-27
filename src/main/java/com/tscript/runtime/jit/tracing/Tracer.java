@@ -54,7 +54,7 @@ public class Tracer extends InterpreterDecorator {
      */
     private record CallerFrame(VirtualFrame frame, VirtualFunction.VirtualMetadata metadata,
                                Set<Integer> loopHeaders, Map<Integer, IRValue> locals, List<IRValue> stack,
-                               int line, int resumeIp, IRValue owner) {}
+                               int line, int resumeIp, IRValue owner, boolean discardResult) {}
 
     private static final class OpenLoop {
         final LoopHeadNode loop;
@@ -977,11 +977,15 @@ public class Tracer extends InterpreterDecorator {
     }
 
     /**
-     * @return true if the instantiation of the given class should be inlined: the class has no
-     * super class (super constructor calls are not traced) and a public constructor that may be inlined
+     * @return true if the instantiation of the given class should be inlined: all classes of its
+     * hierarchy are classes of the program and it has a public constructor that may be inlined
      */
     private boolean shouldInlineConstructor(VirtualType type, int argCount) {
-        if (type.getSuperType() != null || type.isAbstract()) return false;
+        if (type.isAbstract()) return false;
+        // the super objects are created with the object (see VirtualType.newInstance)
+        for (com.tscript.runtime.typing.Type t = type.getSuperType(); t != null; t = t.getSuperType()) {
+            if (!(t instanceof VirtualType)) return false;
+        }
         if (type.getConstructorVisibility() != Visibility.PUBLIC) return false;
         Function constructor = type.getDeclaredConstructor();
         if (constructor == null) return argCount == 0;
@@ -992,7 +996,9 @@ public class Tracer extends InterpreterDecorator {
         if (!(callee instanceof VirtualFunction function)) return false;
         var config = process.getCompiler().getConfiguration();
         if (callers.size() >= config.maxInlineDepth()) return false;
-        if (function.getParameters(getCurrentThread()).count() != argCount) return false;
+        // missing arguments are filled with the default values of the parameters (see Callable.call)
+        Parameters parameters = function.getParameters(getCurrentThread());
+        if (argCount > parameters.count() || argCount <= parameters.getLastNonDefinedParameterIndex()) return false;
 
         VirtualFunction.VirtualMetadata target = function.getMetadata();
         if (target == metadata) return false;
@@ -1017,8 +1023,20 @@ public class Tracer extends InterpreterDecorator {
      * Continues recording in a new (inlined) frame of the given function.
      */
     private void enterFrame(VirtualFunction function, IRValue calleeOwner, List<IRValue> args) {
+        enterFrame(function, calleeOwner, args, false);
+    }
 
-        callers.push(new CallerFrame(frame, metadata, loopHeaders, locals, stack, line, ip + 1, owner));
+    /**
+     * @param discardResult true if the return value is not pushed onto the stack of the caller (super constructors)
+     */
+    private void enterFrame(VirtualFunction function, IRValue calleeOwner, List<IRValue> args, boolean discardResult) {
+        List<TObject> defaults = function.getParameters(getCurrentThread()).getTail(args.size());
+        if (!defaults.isEmpty()) {
+            args = new ArrayList<>(args);
+            for (TObject value : defaults) args.add(constant(value));
+        }
+
+        callers.push(new CallerFrame(frame, metadata, loopHeaders, locals, stack, line, ip + 1, owner, discardResult));
 
         frame = null; // adopted when the interpreter executes the first instruction of the function
         metadata = function.getMetadata();
@@ -1061,8 +1079,9 @@ public class Tracer extends InterpreterDecorator {
             if (!callers.isEmpty()) {
                 // return from an inlined function
                 IRValue result = popValue();
+                boolean discard = callers.peek().discardResult();
                 leaveInlined();
-                push(result);
+                if (!discard) push(result);
             }
             else if (allowReturn) {
                 builder.returnValue(popValue());
@@ -1316,8 +1335,36 @@ public class Tracer extends InterpreterDecorator {
 
     @Override
     public void callSuper(byte argCount) {
-        unsupported("CALL_SUPER");
+        rec(() -> recordSuperCall(argCount));
         super.callSuper(argCount);
+    }
+
+    /**
+     * The constructor of the super class runs with the super object as its owner. It is inlined
+     * (or does nothing if the super class has the default constructor).
+     */
+    private void recordSuperCall(int argCount) {
+        TObject owner = getCurrentThread().getFrame().getOwner();
+        if (!(owner instanceof VirtualObject instance) || !(instance.getType().getSuperType() instanceof VirtualType superType)) {
+            abort("super constructor call of an unknown class");
+            return;
+        }
+        State state = state();
+        List<IRValue> args = new ArrayList<>(argCount);
+        for (int i = 0; i < argCount; i++) args.add(popValue());
+
+        // the super class depends on the class of the owner
+        IRValue ownerObject = narrowTo(ownerValue(), IRType.from(owner, false), state);
+        Function constructor = superType.getDeclaredConstructor();
+        if (constructor == null) {
+            if (argCount != 0) abort("arguments for the default constructor");
+            return;
+        }
+        if (!shouldInline(constructor, argCount)) {
+            abort("super constructor can not be inlined");
+            return;
+        }
+        enterFrame((VirtualFunction) constructor, builder.getSuper(ownerObject), args, true);
     }
 
     @Override

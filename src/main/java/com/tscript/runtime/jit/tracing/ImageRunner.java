@@ -103,7 +103,7 @@ public final class ImageRunner {
                 if (!deopt.hasInlinedFrames()) return new VirtualFrame[]{frame};
                 List<VirtualFrame> frames = new ArrayList<>();
                 frames.add(frame);
-                frames.addAll(deopt.inlinedFrames());
+                frames.addAll(deopt.inlinedFrames(function.getMetadata()));
                 return frames.toArray(new VirtualFrame[0]);
             }
             TObject result = side.run(thread, ImageFrame.forState(function, locals, deopt.rootStack()));
@@ -170,7 +170,7 @@ public final class ImageRunner {
         while (true) {
             deopt.applyTo(frame);
             if (deopt.hasInlinedFrames()) {
-                for (VirtualFrame inlined : deopt.inlinedFrames()) thread.frameStack.push(inlined);
+                for (VirtualFrame inlined : deopt.inlinedFrames(frame.getMetadata())) thread.frameStack.push(inlined);
                 return false;
             }
             if (deopt.info.loopExit()) return false;
