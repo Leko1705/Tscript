@@ -26,7 +26,7 @@ public class ArrayType implements ParameterizedType {
 
     @Override
     public Class<?> getJvmType() {
-        return List.class;
+        return com.tscript.runtime.typing.TObject.class;
     }
 
     @Override
@@ -42,6 +42,16 @@ public class ArrayType implements ParameterizedType {
     @Override
     public List<IRType> getParameters() {
         return List.of(parameter);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof ArrayType a && parameter.equals(a.parameter);
+    }
+
+    @Override
+    public int hashCode() {
+        return 13 * parameter.hashCode() + 3;
     }
 
     @Override

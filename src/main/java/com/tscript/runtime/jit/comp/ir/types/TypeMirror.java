@@ -1,6 +1,7 @@
 package com.tscript.runtime.jit.comp.ir.types;
 
 import com.tscript.runtime.jit.comp.ir.IRType;
+import com.tscript.runtime.typing.TObject;
 import com.tscript.runtime.typing.Type;
 
 import java.util.List;
@@ -21,7 +22,7 @@ public class TypeMirror implements ParameterizedType {
 
     @Override
     public Class<?> getJvmType() {
-        return Integer.TYPE;
+        return TObject.class;
     }
 
     @Override
@@ -37,6 +38,16 @@ public class TypeMirror implements ParameterizedType {
     @Override
     public List<IRType> getParameters() {
         return List.of(type);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof TypeMirror m && type.equals(m.type);
+    }
+
+    @Override
+    public int hashCode() {
+        return 7 * type.hashCode() + 1;
     }
 
     @Override

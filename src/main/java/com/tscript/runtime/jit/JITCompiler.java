@@ -1,5 +1,6 @@
 package com.tscript.runtime.jit;
 
+import com.tscript.runtime.jit.caching.images.ImageCache;
 import com.tscript.runtime.jit.comp.emit.Emitter;
 import com.tscript.runtime.jit.comp.emit.JBCEmitter;
 import com.tscript.runtime.jit.comp.levels.L1;
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 public class JITCompiler {
 
@@ -27,6 +29,9 @@ public class JITCompiler {
     private final JITConfiguration configuration;
     private final Map<Key<?>, Object> utilities;
     private final Scheduler scheduler;
+    private final boolean enabled;
+    private final int maxImageDepth;
+    private volatile ImageCache imageCache;
 
 
     public JITCompiler() {
@@ -37,21 +42,52 @@ public class JITCompiler {
         this.utilities = new ConcurrentHashMap<>();
         this.configuration = Objects.requireNonNull(configuration);
         this.scheduler = Objects.requireNonNull(configuration.createScheduler());
+        this.enabled = !configuration.optimizationLevels().isEmpty();
+        this.maxImageDepth = configuration.maxImageDepth();
     }
 
     @SuppressWarnings("unchecked")
     public <T> T get(Key<T> key) {
+        Object utility = utilities.get(key);
+        if (utility != null) return (T) utility;
         return (T) utilities.computeIfAbsent(key, k -> k.create(this));
+    }
+
+    public ImageCache imageCache() {
+        ImageCache cache = imageCache;
+        if (cache == null) imageCache = cache = get(ImageCache.KEY);
+        return cache;
+    }
+
+    public int maxImageDepth() {
+        return maxImageDepth;
     }
 
     public CompletableFuture<NativeImage> schedule(CompileTask task) {
         CompletableFuture<NativeImage> future = new CompletableFuture<>();
-        scheduler.schedule(() -> future.complete(task.run(this)));
+        scheduler.schedule(() -> {
+            try {
+                future.complete(task.run(this));
+            }
+            catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
         return future;
     }
 
     public JITConfiguration getConfiguration() {
         return configuration;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void debug(Supplier<String> message) {
+        if (configuration.debug()) {
+            System.err.println("[jit] " + message.get());
+        }
     }
 
     public void boot(){
@@ -62,11 +98,21 @@ public class JITCompiler {
     }
 
 
+    /**
+     * The default configuration. Thresholds can be tuned with the system properties
+     * {@code tscript.jit.threshold} (L1) and {@code tscript.jit.threshold2} (L2);
+     * {@code tscript.jit.debug=true} enables diagnostic output.
+     */
     private static class StandardConfiguration implements JITConfiguration {
+
+        private final int l1Threshold = Integer.getInteger("tscript.jit.threshold", 100);
+        private final int l2Threshold = Integer.getInteger("tscript.jit.threshold2", 1000);
+        private final boolean debug = Boolean.getBoolean("tscript.jit.debug");
+        private final List<CompilationLevel> levels = List.of(new L1(l1Threshold), new L2(l2Threshold));
 
         @Override
         public List<CompilationLevel> optimizationLevels() {
-            return List.of(new L1(100), new L2(100));
+            return levels;
         }
 
         @Override
@@ -83,6 +129,11 @@ public class JITCompiler {
         public int specializationLimit() {
             return 5;
         }
+
+        @Override
+        public boolean debug() {
+            return debug;
+        }
     }
 
     private static class NoJitConfig implements JITConfiguration {
@@ -94,7 +145,7 @@ public class JITCompiler {
 
         @Override
         public Scheduler createScheduler() {
-            return r -> new CompletableFuture<>();
+            return r -> {};
         }
 
         @Override

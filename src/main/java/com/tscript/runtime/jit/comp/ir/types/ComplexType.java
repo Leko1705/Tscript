@@ -31,7 +31,17 @@ public class ComplexType implements IRType {
     @Override
     public boolean overlapsWith(IRType type) {
         if (type instanceof UnionType) return type.overlapsWith(this);
-        return type instanceof ComplexType c && type == c.type || type == UnknownType.INSTANCE;
+        return type instanceof ComplexType c && this.type == c.type || type == UnknownType.INSTANCE;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof ComplexType c && type == c.type;
+    }
+
+    @Override
+    public int hashCode() {
+        return System.identityHashCode(type);
     }
 
     @Override

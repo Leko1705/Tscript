@@ -1,53 +1,27 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValue;
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
-import java.util.List;
-
-public class Range extends IRValue {
-
-    private IRValue from;
-
-    private IRValue to;
+/**
+ * Creates an (immutable) range object.
+ */
+public class Range extends BinaryOp {
 
     public Range(IRValue from, IRValue to) {
-        this.from = from;
-        this.to = to;
-        from.getUsers().add(this);
-        to.getUsers().add(this);
+        super(from, to);
     }
 
     public IRValue getFrom() {
-        return from;
+        return getLeft();
     }
 
     public IRValue getTo() {
-        return to;
-    }
-
-    @Override
-    public List<IRValue> getInputs() {
-        return List.of(getFrom(), getTo());
-    }
-
-    @Override
-    protected void updateSpecificFields(IRValue oldInput, IRValue newInput) {
-        if (oldInput == from) {
-            from = newInput;
-        }
-        if (oldInput == to) {
-            to = newInput;
-        }
+        return getRight();
     }
 
     @Override
     public <P, R> R accept(IRValueVisitor<P, R> visitor, P p) {
         return visitor.visitRange(this, p);
-    }
-
-    @Override
-    public String toString() {
-        return  "(" + getFrom().toString() + ":" + getTo().toString() + ")";
     }
 }

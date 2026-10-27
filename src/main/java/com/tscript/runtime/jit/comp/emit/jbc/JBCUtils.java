@@ -1,544 +1,233 @@
 package com.tscript.runtime.jit.comp.emit.jbc;
 
-import com.tscript.projectfile.ProjectFile;
 import com.tscript.runtime.core.*;
-import com.tscript.runtime.jit.JITSensitive;
-import com.tscript.runtime.jit.tracing.SnapshotShape;
-import com.tscript.runtime.jit.tracing.Snapshots;
-import com.tscript.runtime.jit.tracing.FallbackException;
 import com.tscript.runtime.jit.ImageFrame;
-import com.tscript.runtime.stroage.FunctionArea;
-import com.tscript.runtime.stroage.Module;
-import com.tscript.runtime.stroage.TypeArea;
-import com.tscript.runtime.stroage.loading.ModuleLoader;
-import com.tscript.runtime.stroage.loading.ModuleLoadingException;
-import com.tscript.runtime.tni.NativeFunction;
+import com.tscript.runtime.jit.JITSensitive;
+import com.tscript.runtime.jit.caching.ObjectCache;
+import com.tscript.runtime.jit.tracing.DeoptInfo;
+import com.tscript.runtime.jit.tracing.Deoptimization;
+import com.tscript.runtime.jit.tracing.ImageAbortException;
 import com.tscript.runtime.tni.TNIUtils;
 import com.tscript.runtime.typing.*;
 
-import java.io.File;
 import java.util.*;
 
+/**
+ * Runtime support routines called by the generated JVM bytecode.
+ * Routines that may report a runtime error throw {@link ImageAbortException} afterwards.
+ */
 @SuppressWarnings("unused")
-public class JBCUtils {
+public final class JBCUtils {
+
+    private JBCUtils() {
+    }
+
+    /* ---------------- boxing ---------------- */
 
     @JITSensitive
-    public static TObject loadNative(TThread thread, String name) {
-        ProjectFile projectFile = thread.getVM().projectFile;
+    public static TObject boxInt(int value) {
+        return new TInteger(value);
+    }
 
-        if (projectFile == null){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchNativeFunctionFound(name));
-            return null;
+    @JITSensitive
+    public static TObject boxReal(double value) {
+        return new TReal(value);
+    }
+
+    @JITSensitive
+    public static TObject boxBool(boolean value) {
+        return TBoolean.of(value);
+    }
+
+    @JITSensitive
+    public static TObject boxStr(String value) {
+        return new TString(value);
+    }
+
+    @JITSensitive
+    public static int unboxInt(TObject value) {
+        return ((TInteger) value).getValue();
+    }
+
+    @JITSensitive
+    public static double unboxReal(TObject value) {
+        return ((TReal) value).getValue();
+    }
+
+    @JITSensitive
+    public static boolean unboxBool(TObject value) {
+        return ((TBoolean) value).getValue();
+    }
+
+    @JITSensitive
+    public static String unboxStr(TObject value) {
+        return ((TString) value).getValue();
+    }
+
+    @JITSensitive
+    public static boolean isNull(TObject value) {
+        return value == Null.INSTANCE;
+    }
+
+    /* ---------------- entry values ---------------- */
+
+    @JITSensitive
+    public static TObject local(ImageFrame frame, int index) {
+        return frame.locals[index];
+    }
+
+    @JITSensitive
+    public static TObject stackValue(ImageFrame frame, int index) {
+        return frame.stack[index];
+    }
+
+    @JITSensitive
+    public static TObject argument(ImageFrame frame, int index) {
+        return frame.args[index];
+    }
+
+    @JITSensitive
+    public static TObject constant(int id) {
+        return (TObject) ObjectCache.getObject(id);
+    }
+
+    /* ---------------- operations ---------------- */
+
+    @JITSensitive
+    public static String display(TObject value) {
+        return value.getDisplayName();
+    }
+
+    @JITSensitive
+    public static boolean areEqual(TObject first, TObject second) {
+        return TNIUtils.areEqual(first, second);
+    }
+
+    @JITSensitive
+    public static boolean isTrue(TObject value) {
+        return TNIUtils.isTrue(value);
+    }
+
+    @JITSensitive
+    public static boolean isSelf(TObject value, ImageFrame frame) {
+        return value instanceof com.tscript.runtime.typing.Function f
+                && f.getMetadata() == frame.metadata
+                && f.getOwner() == frame.owner;
+    }
+
+    @JITSensitive
+    public static TObject binary(TThread thread, TObject left, TObject right, int opcode) {
+        Opcode op = Opcode.values()[opcode];
+        TObject result = ALU.performBinaryOperation(left, right, op, thread);
+        if (result == null) {
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidBinaryOperation(left, right, op));
+            throw ImageAbortException.INSTANCE;
         }
-        NativeFunction func = projectFile.getNative(name);
+        return result;
+    }
 
-        if (func == null){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.noSuchNativeFunctionFound(name));
-            return null;
+    @JITSensitive
+    public static TObject unary(TThread thread, TObject value, int opcode) {
+        Opcode op = Opcode.values()[opcode];
+        TObject result = ALU.performUnaryOperation(value, op);
+        if (result == null) {
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidUnaryOperation(value, op));
+            throw ImageAbortException.INSTANCE;
         }
-
-        return func;
+        return result;
     }
 
     @JITSensitive
-    public static TObject loadVirtual(TThread thread, int index){
-        Module module = thread.topVirtualFrame().getModule();
-        FunctionArea functionArea = module.getFunctionArea();
-        return functionArea.loadFunction(index);
+    public static TObject range(int from, int to) {
+        return new Range(new TInteger(from), new TInteger(to));
     }
 
     @JITSensitive
-    public static TObject loadType(TThread thread, int index){
-        Module module = thread.topVirtualFrame().getModule();
-        TypeArea typeArea = module.getTypeArea();
-        return typeArea.loadType(thread, index);
+    public static TObject newArray(TObject[] values) {
+        return new TArray(new ArrayList<>(Arrays.asList(values)));
     }
 
     @JITSensitive
-    public static TObject setOwner(TThread thread, TObject candidate, TObject owner) {
-        if (!(candidate instanceof Function func)){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.typeExpected("Function", candidate.getType().getName()));
-            return null;
+    public static TObject newDict(TObject[] keysAndValues) {
+        Map<TObject, TObject> content = new LinkedHashMap<>();
+        for (int i = 0; i < keysAndValues.length; i += 2) {
+            content.put(keysAndValues[i], keysAndValues[i + 1]);
         }
-        func.setOwner(owner);
-        return func;
+        return new TDictionary(content);
+    }
+
+    /* ---------------- state access ---------------- */
+
+    @JITSensitive
+    public static TObject loadGlobal(ImageFrame frame, int index) {
+        return frame.metadata.module().loadMember(index).get();
     }
 
     @JITSensitive
-    public static TObject getIterator(TThread thread, TObject candidate) {
-        if (!(candidate instanceof IterableObject iterable)){
+    public static void storeGlobal(TThread thread, ImageFrame frame, int line, int index, TObject value) {
+        frame.syncLine(line);
+        int depth = thread.frameStack.size();
+        frame.metadata.module().loadMember(index).set(value, thread);
+        checkNoError(thread, depth);
+    }
+
+    @JITSensitive
+    public static TObject getIterator(TThread thread, ImageFrame frame, int line, TObject candidate) {
+        if (!(candidate instanceof IterableObject iterable)) {
+            frame.syncLine(line);
             thread.reportRuntimeError(InternalRuntimeErrorMessages.notIterable(candidate));
-            return null;
+            throw ImageAbortException.INSTANCE;
         }
         return iterable.iterator();
     }
 
     @JITSensitive
-    public static TObject iteratorNext(ImageFrame frame, TObject itrObj) {
-        IteratorObject itr = (IteratorObject) itrObj;
-        if (!itr.hasNext()){
-            return null;
+    public static boolean hasNext(TObject iterator) {
+        return ((IteratorObject) iterator).hasNext();
+    }
+
+    @JITSensitive
+    public static TObject next(TObject iterator) {
+        return ((IteratorObject) iterator).next();
+    }
+
+    @JITSensitive
+    public static TObject containerRead(TThread thread, ImageFrame frame, int line, TObject container, TObject key) {
+        frame.syncLine(line);
+        if (!(container instanceof ContainerAccessibleObject accessible)) {
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.notAccessible(container));
+            throw ImageAbortException.INSTANCE;
         }
-        return itr.next();
-    }
-
-    @JITSensitive
-    public static boolean iteratorHasNext(ImageFrame frame, TObject itr) {
-        return ((IteratorObject)itr).hasNext();
-    }
-
-    @JITSensitive
-    public static TObject not(TThread thread, TObject candidate) {
-        return performUnaryOperation(Opcode.NOT, thread, candidate);
-    }
-
-    @JITSensitive
-    public static TObject pos(TThread thread, TObject candidate) {
-        return performUnaryOperation(Opcode.POS, thread, candidate);
-    }
-
-    @JITSensitive
-    public static TObject neg(TThread thread, TObject candidate) {
-        return performUnaryOperation(Opcode.NEG, thread, candidate);
-    }
-
-    @JITSensitive
-    public static TObject binary(TThread thread, TObject left, TObject right, byte opc) {
-        Opcode opcode = Opcode.of(opc);
-        TObject result = ALU.performBinaryOperation(left, right, opcode, thread);
-        if (result == null){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidBinaryOperation(left, right, opcode));
-            return null;
-        }
-        return result;
-    }
-
-    private static TObject performUnaryOperation(Opcode opcode, TThread thread, TObject value) {
-        TObject result = ALU.performUnaryOperation(value, opcode);
-        if (result == null){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.invalidUnaryOperation(value, opcode));
-            return null;
-        }
+        int depth = thread.frameStack.size();
+        TObject result = accessible.readFromContainer(thread, key);
+        if (result == null) throw ImageAbortException.INSTANCE;
+        checkNoError(thread, depth);
         return result;
     }
 
     @JITSensitive
-    public static TObject callInp(TThread thread, TObject caller, TObject[] args) {
-
-        if (isStackOverflowError(thread))
-            return null;
-
-        if (!(caller instanceof Callable c)) {
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.notCallable(caller));
-            return null;
+    public static void containerWrite(TThread thread, ImageFrame frame, int line, TObject container, TObject key, TObject value) {
+        frame.syncLine(line);
+        if (!(container instanceof ContainerWriteableObject writeable)) {
+            thread.reportRuntimeError(InternalRuntimeErrorMessages.notWriteable(container));
+            throw ImageAbortException.INSTANCE;
         }
-
-        return thread.call(c, Arrays.asList(args));
+        int depth = thread.frameStack.size();
+        writeable.writeToContainer(thread, key, value);
+        checkNoError(thread, depth);
     }
 
-    @JITSensitive
-    public static TObject callMap(TThread thread, TObject caller, TObject[] args) {
-
-        if (isStackOverflowError(thread))
-            return null;
-
-        if (!(caller instanceof Callable c)) {
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.notCallable(caller));
-            return null;
-        }
-
-        Argument[] arguments = (Argument[]) args;
-
-        List<String> names = new ArrayList<>(args.length);
-        List<TObject> values = new ArrayList<>(args.length);
-
-        for (Argument arg : arguments) {
-            names.add(arg.getValue().getFirst());
-            values.add(arg.getValue().getSecond());
-        }
-
-        return c.call(thread, names, values);
-    }
-
-    private static boolean isStackOverflowError(TThread thread){
-        if (thread.frameStack.size() == 30_000){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.stackOverflowError());
-            return true;
-        }
-        return false;
-    }
-
-    @JITSensitive
-    public static TObject readContainer(TThread thread, TObject candidate, TObject key) {
-        if (!(candidate instanceof ContainerAccessibleObject accessible)){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.notAccessible(candidate));
-            return null;
-        }
-        return accessible.readFromContainer(thread, key);
-    }
-
-    @JITSensitive
-    public static boolean writeContainer(TThread thread, TObject candidate, TObject key, TObject value) {
-        if (!(candidate instanceof ContainerWriteableObject writeable)){
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.notWriteable(candidate));
-            return false;
-        }
-        return writeable.writeToContainer(thread, key, value);
-    }
-
-
-    /* ------------------------ load/store fast ------------------------ */
-
-
-    @JITSensitive
-    public static boolean storeFast(TThread thread, TObject obj, TObject what, int address, int layer){
-        return getMember(obj, address, layer).set(what, thread);
-    }
-
-    @JITSensitive
-    public static boolean storeFast(TThread thread, TObject obj, TObject what, int address){
-        return obj.loadMember(address).set(what, thread);
-    }
-
-    @JITSensitive
-    public static TObject loadFast(TObject obj, int address, int layer){
-        return getMember(obj, address, layer).get();
-    }
-
-    @JITSensitive
-    public static TObject loadFast(TObject obj, int address){
-        return obj.loadMember(address).get();
-    }
-
-
-
-    /* ------------------------ load/store ------------------------ */
-
-
-
-    @JITSensitive
-    public static boolean store(TThread thread, TObject obj, TObject what, String name, int layer){
-        return getMember(obj, name, layer).set(what, thread);
-    }
-
-    @JITSensitive
-    public static boolean store(TThread thread, TObject obj, TObject what, String name){
-        return obj.loadMember(name).set(what, thread);
-    }
-
-    @JITSensitive
-    public static TObject load(TObject obj, String name, int layer){
-        return getMember(obj, name, layer).get();
-    }
-
-    @JITSensitive
-    public static TObject load(TObject obj, String name){
-        return obj.loadMember(name).get();
-    }
-
-
-    /* ------------------------ load/store static ------------------------ */
-
-
-    @JITSensitive
-    public static TObject loadStatic(TObject obj, String name, int layer){
-        return getStaticMember(obj, name, layer).get();
-    }
-
-    @JITSensitive
-    public static TObject loadStatic(TObject obj, String name){
-        return obj.getType().loadMember(name).get();
-    }
-
-    @JITSensitive
-    public static boolean storeStatic(TThread thread, TObject obj, TObject what, String name, int layer){
-        return getStaticMember(obj, name, layer).set(what, thread);
-    }
-
-    @JITSensitive
-    public static boolean storeStatic(TThread thread, TObject obj, TObject what, String name){
-        return obj.getType().loadMember(name).set(what, thread);
-    }
-
-
-    /* ------------------------ load/store static fast ------------------------ */
-
-
-
-    @JITSensitive
-    public static TObject loadStaticFast(TObject obj, int address, int layer){
-        return getStaticMember(obj, address, layer).get();
-    }
-
-    @JITSensitive
-    public static TObject loadStaticFast(TObject obj, int address){
-        return obj.getType().loadMember(address).get();
-    }
-
-    @JITSensitive
-    public static boolean storeStaticFast(TThread thread, TObject obj, TObject what, int address, int layer){
-        return getStaticMember(obj, address, layer).set(what, thread);
-    }
-
-    @JITSensitive
-    public static boolean storeStaticFast(TThread thread, TObject obj, TObject what, int address){
-        return obj.getType().loadMember(address).set(what, thread);
-    }
-
-    @JITSensitive
-    public static TObject importModule(TThread thread, String name){
-        try {
-            File[] rootPaths = thread.getVM().getRootPaths();
-            ModuleLoader loader = thread.getVM().getSharedModuleLoader();
-            return loader.loadModule(rootPaths, name.split("[.]"));
-        }
-        catch (ModuleLoadingException ex) {
-            thread.reportRuntimeError(ex.getMessage());
-            return null;
+    private static void checkNoError(TThread thread, int depth) {
+        if (!thread.isRunning() || thread.frameStack.size() != depth) {
+            throw ImageAbortException.INSTANCE;
         }
     }
 
-    @JITSensitive
-    public static TObject importModule(TThread thread, int index){
-        try {
-            return thread.getVM().getSharedModuleLoader().loadModule(index);
-        }
-        catch (ModuleLoadingException e) {
-            throw new AssertionError(e);
-        }
-    }
+    /* ---------------- deoptimization ---------------- */
 
     @JITSensitive
-    public static TObject extend(TThread thread, TObject obj, TObject what, String name) {
-        Member member = Member.of(Visibility.PRIVATE, true, name, what);
-
-        try {
-            obj.addMember(member);
-        }
-        catch (UnsupportedOperationException ex){
-            thread.reportRuntimeError("can not extend " + obj.getType().getDisplayName());
-            return null;
-        }
-        return obj;
-    }
-
-    @JITSensitive
-    public static boolean use(TThread thread, ImageFrame frame, TObject obj, String name){
-        if (frame.names == null)
-            frame.names = new HashMap<>();
-        if (frame.names.containsKey(name)) {
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.nameAlreadyExists(name));
-            return false;
-        }
-        frame.names.put(name, obj);
-        return true;
-    }
-
-    @JITSensitive
-    public static boolean useMembers(TThread thread, ImageFrame frame, TObject obj){
-        if (frame.names == null)
-            frame.names = new HashMap<>();
-
-        Set<String> added = new HashSet<>();
-        for (Member member : obj.getMembers()){
-            boolean success = use(thread, frame, member.get(), member.getName());
-            if (!success){
-                for (String name : added) frame.names.remove(name);
-                return false;
-            }
-            added.add(member.getName());
-        }
-        return true;
-    }
-
-    @JITSensitive
-    public static TObject loadName(TThread thread, ImageFrame frame, String name){
-        if (frame.names != null){
-            TObject obj = frame.names.get(name);
-            if (obj != null)
-                return obj;
-        }
-
-        if (frame.owner != null){
-            Member found = frame.owner.loadMember(name);
-            if (found != null) return found.get();
-
-            TObject curr = frame.owner;
-            while (curr != null){
-                TObject superObj = curr.getSuper();
-                Member member = TNIUtils.searchMember(superObj, name);
-                if (member != null && member.getVisibility().ordinal() <= Visibility.PROTECTED.ordinal()){
-                    return member.get();
-                }
-                curr = curr.getSuper();
-            }
-        }
-
-        Module module = frame.metadata.module();
-        Member member = module.loadMember(name);
-        if (member != null)
-            return member.get();
-
-        int builtinIndex = Builtins.indexOf(name);
-        if (builtinIndex != -1)
-            return Builtins.load(builtinIndex);
-
-        thread.reportRuntimeError(InternalRuntimeErrorMessages.canNotFind(name));
-        return null;
-    }
-
-    private static Member getStaticMember(TObject obj, String name, int layer){
-        return traverseType(obj.getType(), layer).loadMember(name);
-    }
-
-    private static Member getStaticMember(TObject obj,int index, int layer){
-        return traverseType(obj.getType(), layer).loadMember(index);
-    }
-
-
-
-    private static Member getMember(TObject obj, String name, int layer){
-        return traverseObject(obj, layer).loadMember(name);
-    }
-
-    private static Member getMember(TObject obj, int address, int layer){
-        return traverseObject(obj, layer).loadMember(address);
-    }
-
-
-
-    private static TObject traverseObject(TObject obj, int layer){
-        if (layer > 0){
-            while (layer != 0){
-                obj = obj.getSuper();
-                layer--;
-            }
-        }
-        else if (layer < 0){
-            VirtualObject vobj = (VirtualObject) obj;
-            while (layer != 0){
-                vobj = vobj.subObject;
-                layer--;
-            }
-            obj = vobj;
-        }
-        return obj;
-    }
-
-    @JITSensitive
-    public static TObject searchMemberDownward(TObject obj, String name){
-        VirtualObject vobj = (VirtualObject) obj;
-        Member member = null;
-        while (vobj != null && (member = vobj.subObject.loadMember(name)) == null){
-            vobj = vobj.subObject;
-        }
-        if (vobj == null) return null;
-        return member.get();
-    }
-
-    private static Type traverseType(Type type, int layer){
-        if (layer > 0){
-            while (layer != 0){
-                type = type.getSuperType();
-                layer--;
-            }
-        }
-        else if (layer < 0){
-            throw new ExecutionException(
-                    "JIT execution error --> layer for static access is < 0 ");
-        }
-        return type;
-    }
-
-
-    @JITSensitive
-    public static ImageFrame pushFrame(TObject called, ImageFrame prevFrame){
-
-        if (called instanceof VirtualFunction vfunc) {
-            return new ImageFrame(vfunc, prevFrame);
-        }
-        else if (called instanceof VirtualType type) {
-            ImageFrame frame = pushFrame(type.getConstructor(), prevFrame);
-            frame.owner = prevFrame.owner;
-            return frame;
-        }
-        else {
-            throw new IllegalStateException("require Virtual Function");
-        }
-    }
-
-    @JITSensitive
-    public static ImageFrame pushSuperFrame(ImageFrame prevFrame){
-        TObject curr = prevFrame.owner;
-        Type superType = curr.getType().getSuperType();
-        Function constructor = superType.getConstructor().dup();
-        constructor.setOwner(curr.getSuper());
-        return pushFrame(constructor, prevFrame);
-    }
-
-    // popFrame is generated by the code generator
-
-
-    @JITSensitive
-    public static void storeGlobal(ImageFrame frame, TObject what, int index){
-        Module module = frame.metadata.module();
-        module.loadMember(index).set(what, null); // thread not necessary because never fails
-    }
-
-    @JITSensitive
-    public static TObject loadGlobal(ImageFrame frame, int index){
-        Module module = frame.metadata.module();
-        return module.loadMember(index).get();
-    }
-
-    @JITSensitive
-    public static void snapshotThenFallback(TThread thread, ImageFrame frame, int snapshotShapeId,
-                                            int guardId, List<TObject> localUpdate,
-                                            List<TObject> stackUpdate){
-        createSnapshot(thread, frame, snapshotShapeId, localUpdate, stackUpdate);
-        fallback(thread, frame, guardId);
-    }
-
-    @JITSensitive
-    public static void createSnapshot(TThread thread, ImageFrame frame, int snapshotShapeId,
-                                      List<TObject> localUpdate, List<TObject> stackUpdate) {
-
-        SnapshotShape shape = thread.getVM().getJitCompiler().get(Snapshots.KEY).get(snapshotShapeId);
-
-        TObject[] locals = new TObject[frame.metadata.locals()];
-        int[] localMapping = shape.localsMapping();
-
-        for (int i = 0; i < localMapping.length; i++) {
-            TObject value = localUpdate.get(i);
-            locals[localMapping[i]] = value;
-        }
-
-        TObject[] stack = new TObject[frame.metadata.stackSize()];
-        int[] stackMapping = shape.stackMapping();
-
-        for (int i = 0; i < stackMapping.length; i++) {
-            TObject value = stackUpdate.get(i);
-            stack[stackMapping[i]] = value;
-        }
-
-        frame.snapshot = shape.inflate(locals, stack);
-    }
-
-    @JITSensitive
-    public static void fallback(TThread thread, ImageFrame frame, int guardId) {
-
-        List<ImageFrame> frames = new ArrayList<>();
-        while (frame != null){
-            frames.add(frame);
-            frame = frame.next;
-        }
-
-        for (int i = frames.size() - 1; i >= 0; i--){
-            ImageFrame imgFrame = frames.get(i);
-            thread.frameStack.push(imgFrame.virtualize());
-        }
-
-        throw new FallbackException(guardId);
+    public static TObject deopt(int infoId, TObject[] locals, TObject[] stack) {
+        return new Deoptimization((DeoptInfo) ObjectCache.getObject(infoId), locals, stack);
     }
 
 }

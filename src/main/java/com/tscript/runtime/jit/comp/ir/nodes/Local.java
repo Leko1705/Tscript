@@ -1,16 +1,36 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
-public class Local extends IndexedAccessValue {
+/**
+ * Represents the value of a local variable of the interpreter frame at trace entry.
+ */
+public class Local extends IRValue {
 
-    public Local(int address) {
-        super(address);
+    public final int index;
+
+    public Local(int index) {
+        this.index = index;
+    }
+
+    public int getIndex() {
+        return index;
     }
 
     @Override
     public boolean isConstant() {
-        return true;
+        return false;
+    }
+
+    @Override
+    protected boolean dataEquals(IRValue other) {
+        return index == ((Local) other).index;
+    }
+
+    @Override
+    protected int dataHashCode() {
+        return index;
     }
 
     @Override
@@ -20,6 +40,6 @@ public class Local extends IndexedAccessValue {
 
     @Override
     public String toString() {
-        return "Local(" + index + ")";
+        return name() + "#" + id + "(" + index + ")";
     }
 }

@@ -1,9 +1,11 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValue;
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
+import com.tscript.runtime.jit.comp.ir.*;
 import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
+/**
+ * Real division. The result is always a real (see ALU: DIV).
+ */
 public class Div extends BinaryOp {
 
     public Div(IRValue left, IRValue right) {
@@ -16,45 +18,16 @@ public class Div extends BinaryOp {
     }
 
     @Override
-    public String toString() {
-        return "(" + getLeft().toString() + " / " + getRight().toString() + ")";
-    }
-
-    @Override
     public IRValue canonicalize(CanonicalizerTool tool) {
         IRValue lhs = getLeft();
         IRValue rhs = getRight();
 
-        if (lhs instanceof Int s && rhs instanceof Int l) {
-            return tool.builder().real(s.value.doubleValue() / l.value);
+        if (tool.isNumericLiteral(lhs) && tool.isNumericLiteral(rhs)) {
+            return tool.builder().real(tool.asDouble(lhs) / tool.asDouble(rhs));
         }
-        if (lhs instanceof Int s && rhs instanceof Real l) {
-            return tool.builder().real(l.value / s.value);
-        }
-        if (lhs instanceof Real s && rhs instanceof Int l) {
-            return tool.builder().real(s.value / l.value);
-        }
-        if (lhs instanceof Real s && rhs instanceof Real l) {
-            return tool.builder().real(l.value / s.value);
-        }
-
-        if (!lhs.isConstant() && rhs.isConstant()) {
-            return tool.builder().div(rhs, lhs);
-        }
-
-        if (tool.isIntegerOf(lhs, 0) && tool.isNumeric(rhs)) {
+        if (tool.isReal(lhs) && (tool.isIntegerOf(rhs, 1) || tool.isRealOf(rhs, 1.0))) {
             return lhs;
         }
-        if (tool.isIntegerOf(rhs, 1) && tool.isNumeric(lhs)) {
-            return lhs;
-        }
-        if (tool.isRealOf(lhs, 0.0) && tool.isNumeric(rhs)) {
-            return lhs;
-        }
-        if (tool.isRealOf(rhs, 1.0) && tool.isNumeric(lhs)) {
-            return lhs;
-        }
-
         return this;
     }
 }

@@ -1,25 +1,30 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValue;
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
-import java.util.List;
-
+/**
+ * The value of a function argument at trace entry. Images of function traces are specialized
+ * on the runtime types of their arguments, therefore every parameter carries a known type.
+ */
 public class Parameter extends IRValue {
 
     public final int index;
-    public Parameter(int index) {
+    public final IRType type;
+
+    public Parameter(int index, IRType type) {
         this.index = index;
+        this.type = type;
     }
 
     @Override
-    public List<IRValue> getInputs() {
-        return List.of();
+    protected boolean dataEquals(IRValue other) {
+        return index == ((Parameter) other).index;
     }
 
     @Override
-    public boolean isConstant() {
-        return true;
+    protected int dataHashCode() {
+        return index;
     }
 
     @Override
@@ -29,6 +34,6 @@ public class Parameter extends IRValue {
 
     @Override
     public String toString() {
-        return "Parameter(" + index + ")";
+        return name() + "#" + id + "(" + index + ": " + type + ")";
     }
 }

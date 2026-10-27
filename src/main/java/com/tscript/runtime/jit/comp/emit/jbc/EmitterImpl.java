@@ -1,1166 +1,883 @@
 package com.tscript.runtime.jit.comp.emit.jbc;
 
+import com.tscript.runtime.core.Builtins;
 import com.tscript.runtime.core.Opcode;
-import com.tscript.runtime.jit.JITCompiler;
-import com.tscript.runtime.jit.tracing.SnapshotShape;
-import com.tscript.runtime.jit.tracing.Snapshots;
-import com.tscript.runtime.jit.comp.analysis.Boxing;
+import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.ImageFrame;
+import com.tscript.runtime.jit.caching.ObjectCache;
 import com.tscript.runtime.jit.comp.ir.*;
 import com.tscript.runtime.jit.comp.ir.nodes.*;
 import com.tscript.runtime.jit.comp.ir.types.*;
-
+import com.tscript.runtime.jit.tracing.DeoptInfo;
+import com.tscript.runtime.jit.tracing.ImageRunner;
+import com.tscript.runtime.typing.Null;
+import com.tscript.runtime.typing.TObject;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import java.util.*;
 
-public class EmitterImpl
-        implements IRControlVisitor<Void, Void>,
-        IRValueVisitor<Void, Void>, IREffectVisitor<Void, Void> {
+import static com.tscript.runtime.jit.comp.emit.jbc.JBCImageGenerator.*;
 
-    public int nextGuardId = 0;
+/**
+ * Translates a trace graph into JVM bytecode.
+ * <p>
+ * Scheduling: the effect chain is emitted in order. Fixed values are evaluated at their
+ * {@link Anchor}. Floating values are evaluated lazily at their first use and cached in a
+ * JVM local variable, so that later uses (which are always dominated by the first one, since a
+ * trace is linear) can reuse them. Values first computed on a deoptimization path are not
+ * cached beyond that path.
+ * <p>
+ * Representation: values whose type is Integer, Real, Boolean or String are kept unboxed as
+ * int, double, boolean and java.lang.String. All other values are TObjects.
+ * <p>
+ * Loops: phis live in JVM local variables. They are initialized before the loop header label
+ * and assigned in parallel at the loop end, which jumps back to the header.
+ */
+public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<Void, Void>, Opcodes {
 
-    private final JBC jbc;
+    private enum Repr {
+        INT("I", ILOAD, ISTORE, 1),
+        REAL("D", DLOAD, DSTORE, 2),
+        BOOL("Z", ILOAD, ISTORE, 1),
+        STR("Ljava/lang/String;", ALOAD, ASTORE, 1),
+        OBJ("Lcom/tscript/runtime/typing/TObject;", ALOAD, ASTORE, 1);
+
+        final String desc;
+        final int load, store, size;
+
+        Repr(String desc, int load, int store, int size) {
+            this.desc = desc;
+            this.load = load;
+            this.store = store;
+            this.size = size;
+        }
+    }
+
+    private static final String UTILS = "com/tscript/runtime/jit/comp/emit/jbc/JBCUtils";
+    private static final String TOBJECT = "com/tscript/runtime/typing/TObject";
+    private static final String TOBJECT_DESC = "L" + TOBJECT + ";";
+    private static final String THREAD_DESC = org.objectweb.asm.Type.getDescriptor(TThread.class);
+    private static final String FRAME = org.objectweb.asm.Type.getInternalName(ImageFrame.class);
+    private static final String FRAME_DESC = "L" + FRAME + ";";
+
+    private final JBCImageGenerator generator;
+    private final MethodVisitor mv;
     private final Graph graph;
-    private final JITCompiler compiler;
-    private final Set<IRNode> visited;
-    private long nextJumpLabel = 0;
-
-    private final Deque<Integer> freeRegisterAddresses = new ArrayDeque<>();
-    private final Map<IRValue, Integer> registers;
-
     private final Graph.TypeMap typeMap;
 
-    public EmitterImpl(String className, JITCompiler compiler, Graph graph) {
-        this.jbc = new JBC(className);
+    private Map<IRValue, Integer> slots = new HashMap<>();
+    private int nextSlot = FIRST_FREE_SLOT;
+    private Label loopLabel = null;
+
+    public EmitterImpl(String className, Graph graph) {
+        this.generator = new JBCImageGenerator(className);
+        this.mv = generator.getMethodVisitor();
         this.graph = graph;
-        this.compiler = compiler;
-        this.visited = new HashSet<>();
-        this.registers = new HashMap<>();
         this.typeMap = graph.typeMap();
     }
 
     public byte[] emit() {
-        if (graph.exitControls().isEmpty()) {
-            throw new IllegalStateException("IRGraph must have at least one exit control");
+        IRControl exit = graph.exitControl();
+        if (exit == null) {
+            throw new IllegalStateException("IRGraph must have an exit control");
         }
-        for (IRControl ctrl : graph.exitControls()) {
-            ctrl.accept(this);
-        }
-
-        return jbc.build();
-    }
-
-    private boolean visited(IRNode node) {
-        if (visited.contains(node)) {
-            return true;
-        }
-        visited.add(node);
-        return false;
-    }
-
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    private boolean preferLoadRegister(IRValue value) {
-        if (registers.containsKey(value)) {
-
-            int addr = registers.get(value);
-            jbc.emitLoadTemp(typeMap.getType(value).getJvmType(), addr);
-
-            if (value.getUsers().isEmpty()) {
-                freeRegisterAddresses.addLast(addr);
-                registers.remove(value);
-            }
-            return true;
-        }
-        return value.getUsers().isEmpty();
-    }
-
-    private Void storeRegisterIfRequired(IRValue value) {
-        if (value.getUsers().size() > 1){
-            int addr = registers.computeIfAbsent(value, k -> freeRegisterAddresses.isEmpty() ? registers.size() : freeRegisterAddresses.removeFirst());
-            jbc.emitStoreTemp(addr, false);
-            jbc.emitLoadTemp(typeMap.getType(value).getJvmType(), addr);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitStart(StartControl node, Void unused) {
-        if (visited(node)) return null;
-        for (IREffect effect : graph.getEffectsOf(node)) {
-            effect.accept(this);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitReturn(Return node, Void unused) {
-        if (visited(node)) return null;
-        for (IRControl pred : node.getPredecessors()) {
-            pred.accept(this);
-        }
-        for (IREffect effect : graph.getEffectsOf(node)) {
-            effect.accept(this);
-        }
-        box(node.getValue());
-        jbc.emitReturn();
-        return null;
-    }
-
-    @Override
-    public Void visitMerge(MergeControl node, Void unused) {
-        if (visited(node)) return null;
-
-        long label = nextJumpLabel++;
-
-        for (IRControl pred : node.getPredecessors()) {
-            pred.accept(this);
-            jbc.emitGoto(label);
+        if (!(exit instanceof Return) && !(exit instanceof LoopEndNode) && !(exit instanceof Exit)) {
+            throw new UnsupportedOperationException("unsupported exit control " + exit);
         }
 
-        jbc.emitLabel(label);
+        typeMap.flush();
+        emitPrologue();
 
-        for (IREffect effect : graph.getEffectsOf(node)) {
+        for (IREffect effect : graph.effects()) {
             effect.accept(this);
         }
 
-        return null;
-    }
-
-    @Override
-    public Void visitIfElse(IfElse node, Void unused) {
-        if (visited(node)) return null;
-
-        for (IRControl pred : node.getPredecessors()) {
-            pred.accept(this);
+        if (exit instanceof Return ret) {
+            load(ret.getValue(), Repr.OBJ);
+            mv.visitInsn(ARETURN);
         }
-
-        for (IREffect effect : graph.getEffectsOf(node)) {
-            effect.accept(this);
-        }
-
-        // 2. Emit condition
-        node.getCondition().accept(this);
-
-        // 3. Branching: emit jumps for bytecode
-        long elseLabel = nextJumpLabel++;
-        long endLabel = nextJumpLabel++;
-
-        if (Boxing.isBoxed(node.getCondition(), graph)) {
-            jbc.emitBranchWrapped(elseLabel);
+        else if (exit instanceof Exit x) {
+            emitDeopt(new DeoptInfo(x.getState(), false, true, false), x.getLocals(), x.getStack());
         }
         else {
-            jbc.emitBranchPrimitive(elseLabel);
-        }
-
-        // 4. Emit 'if' branch
-        node.getIfBranch().accept(this);
-        jbc.emitGoto(endLabel);
-
-        // 5. Emit 'else' branch
-        jbc.emitLabel(elseLabel);
-        node.getElseBranch().accept(this);
-
-        // 6. Mark end
-        jbc.emitLabel(endLabel);
-
-        return null;
-    }
-
-    @Override
-    public Void visitInteger(Int node, Void unused) {
-        jbc.emitLoadInt(node.getValue());
-        return null;
-    }
-
-    @Override
-    public Void visitReal(Real node, Void unused) {
-        jbc.emitLoadDouble(node.getValue());
-        return null;
-    }
-
-    @Override
-    public Void visitString(Str node, Void unused) {
-        jbc.emitLoadString(node.getValue());
-        return null;
-    }
-
-    @Override
-    public Void visitBool(Bool node, Void unused) {
-        jbc.emitLoadBoolean(node.getValue());
-        return null;
-    }
-
-    @Override
-    public Void visitNull(NullValue node, Void unused) {
-        jbc.emitLoadTNull();
-        return null;
-    }
-
-    @Override
-    public Void visitArray(Array node, Void unused) {
-        ListIterator<IRValue> itr = node.getValues().listIterator(node.getValues().size());
-        while (itr.hasPrevious()) {
-            IRValue value = itr.previous();
-            value.accept(this);
-        }
-        jbc.emitMakeArray(node.getValues().size());
-        return null;
-    }
-
-    @Override
-    public Void visitDict(Dict node, Void unused) {
-        for (int i = node.getKeys().size()-1; i >= 0; i--) {
-            node.getKeys().get(i).accept(this);
-            node.getValues().get(i).accept(this);
-        }
-        jbc.emitMakeDictionary(node.getKeys().size());
-        return null;
-    }
-
-    @Override
-    public Void visitRange(Range node, Void unused) {
-        node.getFrom().accept(this);
-        node.getTo().accept(this);
-        jbc.emitMakeRange(true);  // TODO fix this
-        return null;
-    }
-
-    @Override
-    public Void visitThis(This node, Void unused) {
-        jbc.emitLoadThis();
-        return null;
-    }
-
-    @Override
-    public Void visitAdd(Add node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitAddInt();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitAddDouble();
-        }
-        else if (lhsTy == IntType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            jbc.emitInt2Double();
-            unbox(rhs);
-            jbc.emitAddDouble();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitInt2Double();
-            jbc.emitAddDouble();
-        }
-        else if (lhsTy == StrType.INSTANCE || rhsTy == StrType.INSTANCE) {
-
-            new ToString(lhs).accept(this);
-
-            if (rhsTy == IntType.INSTANCE) {
-                unbox(rhs);
-                jbc.emitAddStringWith(Integer.TYPE);
+            LoopEndNode end = (LoopEndNode) exit;
+            List<Phi> phis = end.getTarget().getPhis();
+            if (loopLabel == null) throw new IllegalStateException("loop end without loop begin");
+            for (Phi phi : phis) {
+                load(phi.getBackedge(), repr(phi));
             }
-            else if (rhsTy == RealType.INSTANCE) {
-                unbox(rhs);
-                jbc.emitAddStringWith(Double.TYPE);
+            for (int i = phis.size() - 1; i >= 0; i--) {
+                Phi phi = phis.get(i);
+                mv.visitVarInsn(repr(phi).store, slots.get(phi));
             }
-            else if (rhsTy == BoolType.INSTANCE) {
-                unbox(rhs);
-                jbc.emitAddStringWith(Boolean.TYPE);
-            }
-            else {
-                box(rhs);
-                jbc.emitAddStringWith(Object.class);
+            mv.visitJumpInsn(GOTO, loopLabel);
+        }
+
+        return generator.generate();
+    }
+
+    /**
+     * Loads all entry values (state of the interpreter frame or arguments) into local variables.
+     */
+    private void emitPrologue() {
+        for (IRValue value : graph.values()) {
+            if (value instanceof Local || value instanceof StackValue || value instanceof Parameter) {
+                value.accept(this);
+                store(value);
             }
         }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.ADD);
-        }
-        
-        return storeRegisterIfRequired(node);
     }
 
-    @Override
-    public Void visitSub(Sub node, Void unused) {
-        if (preferLoadRegister(node)) return null;
 
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
+    /* ------------------------------------------------------------------ */
+    /*  helpers                                                           */
+    /* ------------------------------------------------------------------ */
 
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitSubInt();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitSubDouble();
-        }
-        else if (lhsTy == IntType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            jbc.emitInt2Double();
-            unbox(rhs);
-            jbc.emitSubDouble();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitInt2Double();
-            jbc.emitSubDouble();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.SUB);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitMul(Mul node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitMulInt();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitMulDouble();
-        }
-        else if (lhsTy == IntType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            jbc.emitInt2Double();
-            unbox(rhs);
-            jbc.emitMulDouble();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitInt2Double();
-            jbc.emitMulDouble();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.MUL);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitDiv(Div node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitDivInt();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitDivDouble();
-        }
-        else if (lhsTy == IntType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            jbc.emitInt2Double();
-            unbox(rhs);
-            jbc.emitDivDouble();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitInt2Double();
-            jbc.emitDivDouble();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.DIV);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitIDiv(IDiv node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitDivInt();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.IDIV);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitMod(Mod node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitModuloInt();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.MOD);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitPow(Pow node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            jbc.emitInt2Double();
-            unbox(rhs);
-            jbc.emitInt2Double();
-            jbc.emitPowDouble();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitPowDouble();
-        }
-        else if (lhsTy == IntType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            jbc.emitInt2Double();
-            unbox(rhs);
-            jbc.emitPowDouble();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitInt2Double();
-            jbc.emitPowDouble();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.POW);
-        }
-        
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitShl(Shl node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitShlInt();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.SHL);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitShr(Shr node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitShrInt();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.SHR);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitUshr(Ushr node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitUshrInt();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.USHR);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitAnd(And node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitAndInt();
-        }
-        else if (lhsTy == BoolType.INSTANCE && rhsTy == BoolType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitAndBool();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.AND);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitOr(Or node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitOrInt();
-        }
-        else if (lhsTy == BoolType.INSTANCE && rhsTy == BoolType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitOrBool();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.OR);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitXor(Xor node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitXorInt();
-        }
-        else if (lhsTy == BoolType.INSTANCE && rhsTy == BoolType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitXorBool();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.XOR);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitNot(Not node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue value = node.getValue();
-
+    private Repr repr(IRValue value) {
         IRType type = typeMap.getType(value);
-        if (type == IntType.INSTANCE) {
-            unbox(value);
-            jbc.emitNotInt();
-        }
-        else if (type == BoolType.INSTANCE) {
-            unbox(value);
-            jbc.emitNotBool();
-        }
-        else {
-            box(value);
-            jbc.emitOperateDynamicUnary(Opcode.NOT);
-        }
-
-        return storeRegisterIfRequired(node);
+        if (type == IntType.INSTANCE) return Repr.INT;
+        if (type == RealType.INSTANCE) return Repr.REAL;
+        if (type == BoolType.INSTANCE) return Repr.BOOL;
+        if (type == StrType.INSTANCE) return Repr.STR;
+        return Repr.OBJ;
     }
 
-    @Override
-    public Void visitNeg(Neg node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue value = node.getValue();
-
-        IRType type = typeMap.getType(value);
-        if (type == IntType.INSTANCE) {
-            unbox(value);
-            jbc.emitNegateInt();
-        }
-        else if (type == RealType.INSTANCE) {
-            unbox(value);
-            jbc.emitNegateDouble();
-        }
-        else {
-            box(value);
-            jbc.emitOperateDynamicUnary(Opcode.NOT);
-        }
-
-        return storeRegisterIfRequired(node);
+    private int newSlot(Repr repr) {
+        int slot = nextSlot;
+        nextSlot += repr.size;
+        if (nextSlot > 65000) throw new IllegalStateException("too many local variables");
+        return slot;
     }
 
-    @Override
-    public Void visitPos(Pos node, Void unused) {
-        IRValue value = node.getValue();
-
-        IRType type = typeMap.getType(value);
-        if (type == IntType.INSTANCE ||  type == RealType.INSTANCE) {
-            unbox(value);
-            return null;
-        }
-
-        if (preferLoadRegister(node)) return null;
-        box(value);
-        jbc.emitOperateDynamicUnary(Opcode.POS);
-        return storeRegisterIfRequired(node);
+    /**
+     * Stores the value on top of the operand stack into a new local variable.
+     */
+    private void store(IRValue value) {
+        Repr repr = repr(value);
+        int slot = newSlot(repr);
+        mv.visitVarInsn(repr.store, slot);
+        slots.put(value, slot);
     }
 
-    @Override
-    public Void visitType(Type node, Void unused) {
-        jbc.emitLoadType(node.getAddress());
-        return null;
-    }
-
-    @Override
-    public Void visitTypeof(Typeof node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-        box(node.getValue());
-        jbc.emitGetType();
-        jbc.emitUnwrapType();
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitGt(Gt node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitCompareIntGt();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitCompareDoubleGt();
-        }
-        else if (lhsTy == IntType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            jbc.emitInt2Double();
-            unbox(rhs);
-            jbc.emitCompareDoubleGt();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitInt2Double();
-            jbc.emitCompareDoubleGt();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.GT);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitLt(Lt node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType lhsTy = typeMap.getType(lhs);
-        IRType rhsTy = typeMap.getType(rhs);
-
-        if (lhsTy == IntType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitCompareIntLt();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitCompareDoubleLt();
-        }
-        else if (lhsTy == IntType.INSTANCE && rhsTy == RealType.INSTANCE) {
-            unbox(lhs);
-            jbc.emitInt2Double();
-            unbox(rhs);
-            jbc.emitCompareDoubleLt();
-        }
-        else if (lhsTy == RealType.INSTANCE && rhsTy == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitInt2Double();
-            jbc.emitCompareDoubleLt();
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitOperateDynamicBinary(Opcode.LT);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitEquals(Equals node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-
-        IRValue lhs = node.getLeft();
-        IRValue rhs = node.getRight();
-
-        IRType leftType = typeMap.getType(lhs);
-        IRType rightType = typeMap.getType(rhs);
-
-        if (leftType == IntType.INSTANCE && rightType == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitCompareInt(true);
-        }
-        else if (leftType == RealType.INSTANCE && rightType == RealType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitCompareDouble(true);
-        }
-        else if (leftType == IntType.INSTANCE && rightType == RealType.INSTANCE) {
-            unbox(lhs);
-            jbc.emitInt2Double();
-            unbox(rhs);
-            jbc.emitCompareDouble(true);
-        }
-        else if (leftType == RealType.INSTANCE && rightType == IntType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitInt2Double();
-            jbc.emitCompareDouble(true);
-        }
-        else if (leftType == BoolType.INSTANCE && rightType == BoolType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitCompareBoolean(true);
-        }
-        else if (leftType == StrType.INSTANCE && rightType == StrType.INSTANCE) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitCompareString(true);
-        }
-        else if (leftType instanceof TypeMirror && rightType instanceof TypeMirror) {
-            unbox(lhs);
-            unbox(rhs);
-            jbc.emitCompareInt(true);
-        }
-        else {
-            box(lhs);
-            box(rhs);
-            jbc.emitCompareDynamic(true);
-        }
-
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitParameter(Parameter node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-        jbc.emitLoadLocal(node.index);
-        IRType ty = typeMap.getType(node);
-        if (ty != UnknownType.INSTANCE) {
-            unbox(ty);
-        }
-        return storeRegisterIfRequired(node);
-    }
-
-    @Override
-    public Void visitBuiltin(Builtin node, Void unused) {
-        jbc.emitLoadBuiltin(node.getAddress());
-        return null;
-    }
-
-    @Override
-    public Void visitToInpArg(ToInpArg node, Void unused) {
-        box(node.getValue());
-        jbc.emitToInplaceArgument();
-        return null;
-    }
-
-    @Override
-    public Void visitToMapArg(ToMapArg node, Void unused) {
-        box(node.getValue());
-        jbc.emitToMappedArgument(node.getName());
-        return null;
-    }
-
-    @Override
-    public Void visitCall(Call node, Void unused) {
-        ListIterator<IRValue> itr = node.getArgs().listIterator(node.getArgs().size());
-        while (itr.hasPrevious()) {
-            IRValue value = itr.previous();
-            box(value);
-        }
-        node.getCalled().accept(this);
-        jbc.emitCallInplace(node.getArgs().size());
-        return null;
-    }
-
-    public void box(IRValue value) {
-
-        if (value instanceof Bool b){
-            jbc.emitLoadWrappedBoolean(b.getValue());
+    /**
+     * Pushes the given value (in its representation) onto the operand stack.
+     */
+    private void load(IRValue value) {
+        Integer slot = slots.get(value);
+        if (slot != null) {
+            mv.visitVarInsn(repr(value).load, slot);
             return;
         }
 
-        if (value instanceof Parameter p) {
-            jbc.emitLoadLocal(p.index);
-            return;
+        if (value.isFixed() || value instanceof Phi) {
+            throw new IllegalStateException("value is not available: " + value);
         }
 
         value.accept(this);
 
-        if (Boxing.isBoxed(value, graph)) return;
+        if (!isCheap(value)) {
+            Repr repr = repr(value);
+            mv.visitInsn(repr.size == 2 ? DUP2 : DUP);
+            int newSlot = newSlot(repr);
+            mv.visitVarInsn(repr.store, newSlot);
+            slots.put(value, newSlot);
+        }
+    }
 
-        IRType type = typeMap.getType(value);
+    private boolean isCheap(IRValue value) {
+        return value instanceof Literal<?>;
+    }
 
-        if (type == IntType.INSTANCE) {
-            jbc.emitWrapInt();
+    private void load(IRValue value, Repr target) {
+        load(value);
+        convert(repr(value), target, typeMap.getType(value));
+    }
+
+    private void convert(Repr from, Repr to, IRType fromType) {
+        if (from == to) return;
+        if (from == Repr.INT && to == Repr.REAL) {
+            mv.visitInsn(I2D);
+            return;
         }
-        else if (type == RealType.INSTANCE) {
-            jbc.emitWrapReal();
+        if (to == Repr.OBJ) {
+            switch (from) {
+                case INT -> callUtils("boxInt", "(I)" + TOBJECT_DESC);
+                case REAL -> callUtils("boxReal", "(D)" + TOBJECT_DESC);
+                case BOOL -> callUtils("boxBool", "(Z)" + TOBJECT_DESC);
+                case STR -> callUtils("boxStr", "(Ljava/lang/String;)" + TOBJECT_DESC);
+                default -> throw new AssertionError();
+            }
+            return;
         }
-        else if (type == BoolType.INSTANCE) {
-            jbc.emitWrapBoolean();
+        if (from == Repr.OBJ) {
+            switch (to) {
+                case INT -> callUtils("unboxInt", "(" + TOBJECT_DESC + ")I");
+                case REAL -> callUtils("unboxReal", "(" + TOBJECT_DESC + ")D");
+                case BOOL -> callUtils("isTrue", "(" + TOBJECT_DESC + ")Z");
+                case STR -> callUtils("unboxStr", "(" + TOBJECT_DESC + ")Ljava/lang/String;");
+                default -> throw new AssertionError();
+            }
+            return;
         }
-        else if (type == StrType.INSTANCE) {
-            jbc.emitWrapString();
+        throw new IllegalStateException("can not convert " + from + " (" + fromType + ") to " + to);
+    }
+
+    private void callUtils(String name, String desc) {
+        mv.visitMethodInsn(INVOKESTATIC, UTILS, name, desc, false);
+    }
+
+    private void pushInt(int value) {
+        if (value >= -1 && value <= 5) mv.visitInsn(ICONST_0 + value);
+        else if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) mv.visitIntInsn(BIPUSH, value);
+        else if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) mv.visitIntInsn(SIPUSH, value);
+        else mv.visitLdcInsn(value);
+    }
+
+    /**
+     * Converts an int comparison/condition jump into a boolean value on the stack.
+     * @param jumpIfFalse the jump instruction taken if the result is false
+     */
+    private void materializeBoolean(int jumpIfFalse) {
+        Label isFalse = new Label();
+        Label end = new Label();
+        mv.visitJumpInsn(jumpIfFalse, isFalse);
+        mv.visitInsn(ICONST_1);
+        mv.visitJumpInsn(GOTO, end);
+        mv.visitLabel(isFalse);
+        mv.visitInsn(ICONST_0);
+        mv.visitLabel(end);
+    }
+
+    private void loadObjectArray(List<IRValue> values) {
+        pushInt(values.size());
+        mv.visitTypeInsn(ANEWARRAY, TOBJECT);
+        for (int i = 0; i < values.size(); i++) {
+            mv.visitInsn(DUP);
+            pushInt(i);
+            load(values.get(i), Repr.OBJ);
+            mv.visitInsn(AASTORE);
         }
-        else if (type instanceof ArrayType) {
-            jbc.emitWrapArray();
+    }
+
+    private void loadThreadAndFrame() {
+        mv.visitVarInsn(ALOAD, THREAD_SLOT);
+        mv.visitVarInsn(ALOAD, FRAME_SLOT);
+    }
+
+    private void loadAsString(IRValue value) {
+        load(value);
+        switch (repr(value)) {
+            case INT -> mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "toString", "(I)Ljava/lang/String;", false);
+            case REAL -> mv.visitMethodInsn(INVOKESTATIC, "java/lang/Double", "toString", "(D)Ljava/lang/String;", false);
+            case BOOL -> mv.visitMethodInsn(INVOKESTATIC, "java/lang/String", "valueOf", "(Z)Ljava/lang/String;", false);
+            case STR -> {}
+            case OBJ -> callUtils("display", "(" + TOBJECT_DESC + ")Ljava/lang/String;");
         }
-        else if (type instanceof DictType) {
-            jbc.emitWrapDictionary();
+    }
+
+    private void genericBinary(BinaryOp node, Opcode opcode) {
+        mv.visitVarInsn(ALOAD, THREAD_SLOT);
+        load(node.getLeft(), Repr.OBJ);
+        load(node.getRight(), Repr.OBJ);
+        pushInt(opcode.ordinal());
+        callUtils("binary", "(" + THREAD_DESC + TOBJECT_DESC + TOBJECT_DESC + "I)" + TOBJECT_DESC);
+    }
+
+    private void genericUnary(UnaryOp node, Opcode opcode) {
+        mv.visitVarInsn(ALOAD, THREAD_SLOT);
+        load(node.getValue(), Repr.OBJ);
+        pushInt(opcode.ordinal());
+        callUtils("unary", "(" + THREAD_DESC + TOBJECT_DESC + "I)" + TOBJECT_DESC);
+    }
+
+    /**
+     * Emits an arithmetic operation on int or double operands.
+     */
+    private void arithmetic(BinaryOp node, int intOp, int doubleOp, Opcode opcode) {
+        Repr repr = repr(node);
+        if (repr == Repr.INT && intOp >= 0) {
+            load(node.getLeft(), Repr.INT);
+            load(node.getRight(), Repr.INT);
+            mv.visitInsn(intOp);
         }
-        else if (type instanceof TypeMirror) {
-            jbc.emitWrapType();
+        else if (repr == Repr.REAL && doubleOp >= 0) {
+            load(node.getLeft(), Repr.REAL);
+            load(node.getRight(), Repr.REAL);
+            mv.visitInsn(doubleOp);
+        }
+        else if (repr == Repr.BOOL && intOp >= 0) {
+            load(node.getLeft(), Repr.BOOL);
+            load(node.getRight(), Repr.BOOL);
+            mv.visitInsn(intOp);
         }
         else {
-            throw new AssertionError();
+            genericBinary(node, opcode);
         }
     }
 
-    public void unbox(IRValue value) {
-        value.accept(this);
-        if (!Boxing.isBoxed(value, graph)) return;
-        IRType type = typeMap.getType(value);
-        unbox(type);
-    }
-
-    @Override
-    public Void visitToString(ToString node, Void unused) {
-        IRValue value = node.getValue();
-        IRType type = typeMap.getType(value);
-
-        if (type == IntType.INSTANCE) {
-            unbox(value);
-            jbc.emit2Str(Integer.class, Integer.TYPE);
+    private void comparison(BinaryOp node, int intJumpIfFalse, int doubleJumpIfFalse, Opcode opcode) {
+        if (repr(node) != Repr.BOOL) {
+            genericBinary(node, opcode);
+            return;
         }
-        else if (type ==  RealType.INSTANCE) {
-            unbox(value);
-            jbc.emit2Str(Double.class, Double.TYPE);
-        }
-        else if (type == BoolType.INSTANCE) {
-            unbox(value);
-            jbc.emit2Str(Boolean.class, Boolean.TYPE);
-        }
-        else if (type == StrType.INSTANCE) {
-            // already a primitive String
-            unbox(value);
-            return null;
+        Repr l = repr(node.getLeft()), r = repr(node.getRight());
+        if (l == Repr.INT && r == Repr.INT) {
+            load(node.getLeft());
+            load(node.getRight());
+            materializeBoolean(intJumpIfFalse);
         }
         else {
-            box(value);
-            jbc.emit2Str(Objects.class, Object.class);
+            load(node.getLeft(), Repr.REAL);
+            load(node.getRight(), Repr.REAL);
+            mv.visitInsn(DCMPG);
+            materializeBoolean(doubleJumpIfFalse);
         }
-
-        return null;
     }
 
-    @Override
-    public Void visitPhi(Phi node, Void unused) {
-        return null;
-    }
 
-    @Override
-    public Void visitLocal(Local node, Void unused) {
-        jbc.emitLoadLocal(node.index);
-        return null;
-    }
-
-    @Override
-    public Void visitGlobal(Global node, Void unused) {
-        if (preferLoadRegister(node)) return null;
-        jbc.emitLoadGlobal(node.index);
-        return storeRegisterIfRequired(node);
-    }
+    /* ------------------------------------------------------------------ */
+    /*  effects                                                           */
+    /* ------------------------------------------------------------------ */
 
     @Override
     public Void visitStart(StartEffect node, Void unused) {
-        // nothing to emit here
         return null;
     }
 
     @Override
-    public Void visitNewLine(NewLine node, Void unused) {
-        if (visited(node)) return null;
-        jbc.emitNewLine(node.getLine());
+    public Void visitAnchor(Anchor node, Void unused) {
+        IRValue value = node.getValue();
+        if (!value.isFixed() || slots.containsKey(value)) return null;
+        value.accept(this);
+        store(value);
         return null;
     }
 
     @Override
     public Void visitGuardBool(GuardBool node, Void unused) {
-        if (visited(node)) return null;
-        
-        IRValue value = node.getValue();
-        IRType type = typeMap.getType(value);
+        load(node.getCondition(), Repr.BOOL);
+        Label ok = new Label();
+        mv.visitJumpInsn(IFNE, ok);
 
-        preEmitGuardStateValues(node);
+        Map<IRValue, Integer> saved = new HashMap<>(slots);
+        emitDeopt(new DeoptInfo(node.getState(), node.isLoopExit(), false, node.isSideTraceable()),
+                node.getLocals(), node.getStack());
+        slots = saved;
 
-        if (!Boxing.isBoxed(value, graph) && type == BoolType.INSTANCE) {
-            value.accept(this);
-            emitGuard(node);
+        mv.visitLabel(ok);
+        return null;
+    }
+
+    private void emitDeopt(DeoptInfo info, List<IRValue> locals, List<IRValue> stack) {
+        pushInt(ObjectCache.putId(info));
+        loadObjectArray(locals);
+        loadObjectArray(stack);
+        callUtils("deopt", "(I[" + TOBJECT_DESC + "[" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        mv.visitInsn(ARETURN);
+    }
+
+    @Override
+    public Void visitLoopBegin(LoopBegin node, Void unused) {
+        LoopHeadNode loop = node.getLoop();
+        if (!loop.isClosed()) return null;
+        if (loopLabel != null) throw new IllegalStateException("only one closed loop per trace is supported");
+
+        for (Phi phi : loop.getPhis()) {
+            load(phi.getEntry(), repr(phi));
+            store(phi);
+        }
+        loopLabel = new Label();
+        mv.visitLabel(loopLabel);
+        return null;
+    }
+
+    @Override
+    public Void visitStoreGlobal(StoreGlobal node, Void unused) {
+        loadThreadAndFrame();
+        pushInt(node.line);
+        pushInt(node.index);
+        load(node.getValue(), Repr.OBJ);
+        callUtils("storeGlobal", "(" + THREAD_DESC + FRAME_DESC + "II" + TOBJECT_DESC + ")V");
+        return null;
+    }
+
+    @Override
+    public Void visitContainerWrite(ContainerWrite node, Void unused) {
+        loadThreadAndFrame();
+        pushInt(node.line);
+        load(node.getContainer(), Repr.OBJ);
+        load(node.getKey(), Repr.OBJ);
+        load(node.getValue(), Repr.OBJ);
+        callUtils("containerWrite", "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC + TOBJECT_DESC + TOBJECT_DESC + ")V");
+        return null;
+    }
+
+
+    /* ------------------------------------------------------------------ */
+    /*  values (each visit pushes the value in its representation)        */
+    /* ------------------------------------------------------------------ */
+
+    @Override
+    public Void visitInteger(Int node, Void unused) {
+        pushInt(node.value);
+        return null;
+    }
+
+    @Override
+    public Void visitReal(Real node, Void unused) {
+        mv.visitLdcInsn(node.value);
+        return null;
+    }
+
+    @Override
+    public Void visitString(Str node, Void unused) {
+        mv.visitLdcInsn(node.value);
+        return null;
+    }
+
+    @Override
+    public Void visitBool(Bool node, Void unused) {
+        mv.visitInsn(node.value ? ICONST_1 : ICONST_0);
+        return null;
+    }
+
+    @Override
+    public Void visitNull(NullValue node, Void unused) {
+        mv.visitFieldInsn(GETSTATIC, org.objectweb.asm.Type.getInternalName(Null.class), "INSTANCE",
+                org.objectweb.asm.Type.getDescriptor(Null.class));
+        return null;
+    }
+
+    @Override
+    public Void visitConstant(Constant node, Void unused) {
+        pushInt(node.index);
+        callUtils("constant", "(I)" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitBuiltin(Builtin node, Void unused) {
+        pushInt(node.index);
+        mv.visitMethodInsn(INVOKESTATIC, org.objectweb.asm.Type.getInternalName(Builtins.class), "load", "(I)" + TOBJECT_DESC, false);
+        return null;
+    }
+
+    @Override
+    public Void visitType(com.tscript.runtime.jit.comp.ir.nodes.Type node, Void unused) {
+        pushInt(node.index);
+        callUtils("constant", "(I)" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitThis(This node, Void unused) {
+        mv.visitVarInsn(ALOAD, FRAME_SLOT);
+        mv.visitFieldInsn(GETFIELD, FRAME, "owner", TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitLocal(Local node, Void unused) {
+        mv.visitVarInsn(ALOAD, FRAME_SLOT);
+        pushInt(node.index);
+        callUtils("local", "(" + FRAME_DESC + "I)" + TOBJECT_DESC);
+        convert(Repr.OBJ, repr(node), typeMap.getType(node));
+        return null;
+    }
+
+    @Override
+    public Void visitStackValue(StackValue node, Void unused) {
+        mv.visitVarInsn(ALOAD, FRAME_SLOT);
+        pushInt(node.index);
+        callUtils("stackValue", "(" + FRAME_DESC + "I)" + TOBJECT_DESC);
+        convert(Repr.OBJ, repr(node), typeMap.getType(node));
+        return null;
+    }
+
+    @Override
+    public Void visitParameter(Parameter node, Void unused) {
+        mv.visitVarInsn(ALOAD, FRAME_SLOT);
+        pushInt(node.index);
+        callUtils("argument", "(" + FRAME_DESC + "I)" + TOBJECT_DESC);
+        convert(Repr.OBJ, repr(node), node.type);
+        return null;
+    }
+
+    @Override
+    public Void visitPhi(Phi node, Void unused) {
+        throw new IllegalStateException("phis are loaded from their local variable");
+    }
+
+    @Override
+    public Void visitPi(Pi node, Void unused) {
+        load(node.getValue());
+        convert(repr(node.getValue()), repr(node), node.type);
+        return null;
+    }
+
+    @Override
+    public Void visitAdd(Add node, Void unused) {
+        if (repr(node) == Repr.STR) {
+            loadAsString(node.getLeft());
+            loadAsString(node.getRight());
+            mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "concat", "(Ljava/lang/String;)Ljava/lang/String;", false);
+            return null;
+        }
+        arithmetic(node, IADD, DADD, Opcode.ADD);
+        return null;
+    }
+
+    @Override
+    public Void visitSub(Sub node, Void unused) {
+        arithmetic(node, ISUB, DSUB, Opcode.SUB);
+        return null;
+    }
+
+    @Override
+    public Void visitMul(Mul node, Void unused) {
+        arithmetic(node, IMUL, DMUL, Opcode.MUL);
+        return null;
+    }
+
+    @Override
+    public Void visitDiv(Div node, Void unused) {
+        arithmetic(node, -1, DDIV, Opcode.DIV);
+        return null;
+    }
+
+    @Override
+    public Void visitIDiv(IDiv node, Void unused) {
+        arithmetic(node, IDIV, -1, Opcode.IDIV);
+        return null;
+    }
+
+    @Override
+    public Void visitMod(Mod node, Void unused) {
+        arithmetic(node, IREM, -1, Opcode.MOD);
+        return null;
+    }
+
+    @Override
+    public Void visitPow(Pow node, Void unused) {
+        Repr repr = repr(node);
+        if (repr == Repr.INT || repr == Repr.REAL) {
+            load(node.getLeft(), Repr.REAL);
+            load(node.getRight(), Repr.REAL);
+            mv.visitMethodInsn(INVOKESTATIC, "java/lang/Math", "pow", "(DD)D", false);
+            if (repr == Repr.INT) mv.visitInsn(D2I);
         }
         else {
-            unbox(value);
-            emitGuard(node);
+            genericBinary(node, Opcode.POW);
         }
         return null;
     }
 
     @Override
-    public Void visitGuardFunctionIdentity(GuardFunctionIdentity node, Void unused) {
-        if (visited(node)) return null;
-
-        preEmitGuardStateValues(node);
-
-        IRValue value = node.getValue();
-        box(value);
-
-        jbc.emitFunctionIdentity();
-        jbc.emitLoadInt(node.identity);
-        jbc.emitCompareInt(true);
-        emitGuard(node);
-
-        return null;
-    }
-
-    private void preEmitGuardStateValues(Guard guard) {
-        for (IRValue local : guard.getLocals()) {
-            if (registers.containsKey(local)) continue;
-            local.accept(this);
-            jbc.emitPop();
-        }
-        for (IRValue value : guard.getStack()) {
-            if (registers.containsKey(value)) continue;
-            value.accept(this);
-            jbc.emitPop();
-        }
-    }
-
-    private void emitGuard(Guard guard) {
-
-        long successContinueLabel = nextJumpLabel++;
-        jbc.emitBranchPrimitive(successContinueLabel);
-
-        for (IRValue local : guard.getLocals()) {
-            box(local);
-        }
-        jbc.emitMakeArray(guard.getLocals().size());
-
-        for (IRValue stackValue : guard.getStack()) {
-            box(stackValue);
-        }
-        jbc.emitMakeArray(guard.getStack().size());
-
-        SnapshotShape snapshotShape = guard.getSnapshotShape();
-        Snapshots snapshots = compiler.get(Snapshots.KEY);
-        int snapshotShapeId = snapshots.put(snapshotShape);
-
-        jbc.emitCreateSnapshotThenFallback(nextGuardId++, snapshotShapeId);
-
-        jbc.emitLabel(successContinueLabel);
-    }
-
-    @Override
-    public Void visitValueEffect(ValueEffect node, Void unused) {
-        node.getValue().accept(this);
-        jbc.emitPop();
+    public Void visitShl(Shl node, Void unused) {
+        arithmetic(node, ISHL, -1, Opcode.SHL);
         return null;
     }
 
     @Override
-    public Void visitMergeEffect(MergeEffect node, Void unused) {
+    public Void visitShr(Shr node, Void unused) {
+        arithmetic(node, ISHR, -1, Opcode.SHR);
         return null;
     }
 
     @Override
-    public Void visitPushFrame(PushFrame node, Void unused) {
-        box(node.getCalled());
-        jbc.emitPushFrame();
+    public Void visitUshr(Ushr node, Void unused) {
+        arithmetic(node, IUSHR, -1, Opcode.USHR);
         return null;
     }
 
     @Override
-    public Void visitPopFrame(PopFrame node, Void unused) {
-        jbc.emitPopFrame();
+    public Void visitAnd(And node, Void unused) {
+        arithmetic(node, IAND, -1, Opcode.AND);
         return null;
     }
 
+    @Override
+    public Void visitOr(Or node, Void unused) {
+        arithmetic(node, IOR, -1, Opcode.OR);
+        return null;
+    }
 
-    private void unbox(IRType type) {
+    @Override
+    public Void visitXor(Xor node, Void unused) {
+        arithmetic(node, IXOR, -1, Opcode.XOR);
+        return null;
+    }
 
-        if (type == IntType.INSTANCE) {
-            jbc.emitUnwrapInt();
+    @Override
+    public Void visitLt(Lt node, Void unused) {
+        // DCMPG yields 1 for NaN, so comparisons with NaN are false
+        comparison(node, IF_ICMPGE, IFGE, Opcode.LT);
+        return null;
+    }
+
+    @Override
+    public Void visitLeq(Leq node, Void unused) {
+        comparison(node, IF_ICMPGT, IFGT, Opcode.LEQ);
+        return null;
+    }
+
+    @Override
+    public Void visitEquals(Equals node, Void unused) {
+        IRValue lhs = node.getLeft();
+        IRValue rhs = node.getRight();
+        IRType lt = typeMap.getType(lhs);
+        IRType rt = typeMap.getType(rhs);
+
+        if (IRType.isPrimitive(lt) && IRType.isPrimitive(rt) && !lt.equals(rt)) {
+            // objects of different classes are never equal
+            mv.visitInsn(ICONST_0);
+            return null;
         }
-        else if (type == RealType.INSTANCE) {
-            jbc.emitUnwrapReal();
+
+        Repr l = repr(lhs), r = repr(rhs);
+        if (l == Repr.INT && r == Repr.INT || l == Repr.BOOL && r == Repr.BOOL) {
+            load(lhs);
+            load(rhs);
+            materializeBoolean(IF_ICMPNE);
         }
-        else if (type == BoolType.INSTANCE) {
-            jbc.emitUnwrapBoolean();
+        else if (l == Repr.REAL && r == Repr.REAL) {
+            // Double#equals semantics: NaN equals NaN, 0.0 does not equal -0.0
+            load(lhs);
+            load(rhs);
+            mv.visitMethodInsn(INVOKESTATIC, "java/lang/Double", "compare", "(DD)I", false);
+            materializeBoolean(IFNE);
         }
-        else if (type == StrType.INSTANCE) {
-            jbc.emitUnwrapString();
-        }
-        else if (type instanceof ArrayType) {
-            jbc.emitUnwrapArray();
-        }
-        else if (type instanceof DictType) {
-            jbc.emitUnwrapDictionary();
-        }
-        else if (type  instanceof TypeMirror) {
-            jbc.emitUnwrapType();
+        else if (l == Repr.STR && r == Repr.STR) {
+            load(lhs);
+            load(rhs);
+            mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
         }
         else {
-            throw new AssertionError();
+            // the interpreter evaluates rhs.equals(lhs)
+            load(rhs, Repr.OBJ);
+            load(lhs, Repr.OBJ);
+            callUtils("areEqual", "(" + TOBJECT_DESC + TOBJECT_DESC + ")Z");
         }
+        return null;
+    }
+
+    @Override
+    public Void visitNot(Not node, Void unused) {
+        Repr repr = repr(node);
+        if (repr == Repr.INT) {
+            load(node.getValue(), Repr.INT);
+            mv.visitInsn(ICONST_M1);
+            mv.visitInsn(IXOR);
+        }
+        else if (repr == Repr.BOOL) {
+            load(node.getValue(), Repr.BOOL);
+            mv.visitInsn(ICONST_1);
+            mv.visitInsn(IXOR);
+        }
+        else {
+            genericUnary(node, Opcode.NOT);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitNeg(Neg node, Void unused) {
+        Repr repr = repr(node);
+        if (repr == Repr.INT) {
+            load(node.getValue(), Repr.INT);
+            mv.visitInsn(INEG);
+        }
+        else if (repr == Repr.REAL) {
+            load(node.getValue(), Repr.REAL);
+            mv.visitInsn(DNEG);
+        }
+        else {
+            genericUnary(node, Opcode.NEG);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitPos(Pos node, Void unused) {
+        Repr repr = repr(node);
+        if (repr == Repr.INT || repr == Repr.REAL) {
+            load(node.getValue(), repr);
+        }
+        else {
+            genericUnary(node, Opcode.POS);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitTypeof(Typeof node, Void unused) {
+        load(node.getValue(), Repr.OBJ);
+        mv.visitMethodInsn(INVOKEINTERFACE, TOBJECT, "getType",
+                "()" + org.objectweb.asm.Type.getDescriptor(com.tscript.runtime.typing.Type.class), true);
+        return null;
+    }
+
+    @Override
+    public Void visitIsType(IsType node, Void unused) {
+        IRValue value = node.getValue();
+        IRType actual = typeMap.getType(value);
+        if (IRType.isPrimitive(actual)) {
+            mv.visitInsn(actual.equals(node.type) ? ICONST_1 : ICONST_0);
+            return null;
+        }
+
+        load(value, Repr.OBJ);
+        IRType type = node.type;
+        if (type == NullType.INSTANCE) {
+            callUtils("isNull", "(" + TOBJECT_DESC + ")Z");
+        }
+        else {
+            com.tscript.runtime.typing.Type runtimeType = IRType.runtimeTypeOf(type);
+            Class<?> clazz = runtimeClassOf(type);
+            if (clazz != null) {
+                mv.visitTypeInsn(INSTANCEOF, org.objectweb.asm.Type.getInternalName(clazz));
+            }
+            else if (runtimeType != null) {
+                mv.visitMethodInsn(INVOKEINTERFACE, TOBJECT, "getType",
+                        "()" + org.objectweb.asm.Type.getDescriptor(com.tscript.runtime.typing.Type.class), true);
+                pushInt(ObjectCache.putId(runtimeType));
+                callUtils("constant", "(I)" + TOBJECT_DESC);
+                materializeBoolean(IF_ACMPNE);
+            }
+            else {
+                throw new UnsupportedOperationException("type check for " + type);
+            }
+        }
+        return null;
+    }
+
+    private static Class<?> runtimeClassOf(IRType type) {
+        if (type == IntType.INSTANCE) return com.tscript.runtime.typing.TInteger.class;
+        if (type == RealType.INSTANCE) return com.tscript.runtime.typing.TReal.class;
+        if (type == BoolType.INSTANCE) return com.tscript.runtime.typing.TBoolean.class;
+        if (type == StrType.INSTANCE) return com.tscript.runtime.typing.TString.class;
+        return null;
+    }
+
+    @Override
+    public Void visitTruthy(Truthy node, Void unused) {
+        IRValue value = node.getValue();
+        switch (repr(value)) {
+            case BOOL -> load(value);
+            case INT -> {
+                load(value);
+                materializeBoolean(IFEQ);
+            }
+            case REAL -> mv.visitInsn(ICONST_1);
+            case STR -> {
+                load(value);
+                mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "isEmpty", "()Z", false);
+                materializeBoolean(IFNE);
+            }
+            case OBJ -> {
+                load(value);
+                callUtils("isTrue", "(" + TOBJECT_DESC + ")Z");
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitIsSelf(IsSelf node, Void unused) {
+        load(node.getValue(), Repr.OBJ);
+        mv.visitVarInsn(ALOAD, FRAME_SLOT);
+        callUtils("isSelf", "(" + TOBJECT_DESC + FRAME_DESC + ")Z");
+        return null;
+    }
+
+    @Override
+    public Void visitRange(Range node, Void unused) {
+        if (repr(node.getFrom()) == Repr.INT && repr(node.getTo()) == Repr.INT) {
+            load(node.getFrom());
+            load(node.getTo());
+            callUtils("range", "(II)" + TOBJECT_DESC);
+        }
+        else {
+            load(node.getFrom(), Repr.INT);
+            load(node.getTo(), Repr.INT);
+            callUtils("range", "(II)" + TOBJECT_DESC);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitArray(Array node, Void unused) {
+        loadObjectArray(node.getValues());
+        callUtils("newArray", "([" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitDict(Dict node, Void unused) {
+        loadObjectArray(node.getInputs());
+        callUtils("newDict", "([" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitCall(Call node, Void unused) {
+        loadThreadAndFrame();
+        pushInt(node.line);
+        load(node.getCalled(), Repr.OBJ);
+        loadObjectArray(node.getArgs());
+        mv.visitMethodInsn(INVOKESTATIC, org.objectweb.asm.Type.getInternalName(ImageRunner.class), "invoke",
+                "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC + "[" + TOBJECT_DESC + ")" + TOBJECT_DESC, false);
+        return null;
+    }
+
+    @Override
+    public Void visitGlobal(Global node, Void unused) {
+        mv.visitVarInsn(ALOAD, FRAME_SLOT);
+        pushInt(node.index);
+        callUtils("loadGlobal", "(" + FRAME_DESC + "I)" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitGetIterator(GetIterator node, Void unused) {
+        loadThreadAndFrame();
+        pushInt(lineOf(node));
+        load(node.getValue(), Repr.OBJ);
+        callUtils("getIterator", "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitIterHasNext(IterHasNext node, Void unused) {
+        load(node.getValue(), Repr.OBJ);
+        callUtils("hasNext", "(" + TOBJECT_DESC + ")Z");
+        return null;
+    }
+
+    @Override
+    public Void visitIterNext(IterNext node, Void unused) {
+        load(node.getValue(), Repr.OBJ);
+        callUtils("next", "(" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitContainerRead(ContainerRead node, Void unused) {
+        loadThreadAndFrame();
+        pushInt(lineOf(node));
+        load(node.getContainer(), Repr.OBJ);
+        load(node.getKey(), Repr.OBJ);
+        callUtils("containerRead", "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        return null;
+    }
+
+    private int lineOf(IRValue fixed) {
+        for (IRNode user : fixed.getUsers()) {
+            if (user instanceof Anchor anchor) return anchor.line;
+        }
+        return -1;
     }
 
 }

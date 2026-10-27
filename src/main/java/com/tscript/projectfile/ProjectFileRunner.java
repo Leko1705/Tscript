@@ -80,7 +80,7 @@ public class ProjectFileRunner {
     }
 
     private static void deleteAll(String dir) throws Exception {
-        if (dir == null) return;
+        if (dir == null || !Files.isDirectory(Path.of(dir))) return;
         Files.list(Path.of(dir)).forEach(path -> {
             File file = path.toFile();
             if (file.isFile())

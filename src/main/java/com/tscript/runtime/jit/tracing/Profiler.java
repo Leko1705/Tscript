@@ -1,12 +1,16 @@
 package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.*;
-import com.tscript.runtime.jit.ParseProcess;
-import com.tscript.runtime.jit.ImageFrame;
 import com.tscript.runtime.jit.NativeImage;
+import com.tscript.runtime.jit.ParseProcess;
 import com.tscript.runtime.jit.caching.images.ImageCache;
 import com.tscript.runtime.typing.TObject;
 
+/**
+ * Interpreter decorator that counts how often functions are called and loops are iterated.
+ * Hot functions and loops are traced (see {@link Tracer}); once compiled, their native images
+ * are executed instead of interpreting them.
+ */
 public class Profiler extends InterpreterDecorator {
 
     public Profiler(Interpreter interpreter) {
@@ -17,88 +21,88 @@ public class Profiler extends InterpreterDecorator {
     public void callInplace(byte argCount) {
         TThread thread = getCurrentThread();
         VirtualFrame frame = thread.topVirtualFrame();
-        TObject top = frame.pop();
+        TObject top = frame.stack[frame.sp - 1];
 
-        if (!(top instanceof VirtualFunction vfunc) || (argCount > vfunc.getLocals())) {
-            frame.push(top);
-            super.callInplace(argCount);
-            return;
-        }
+        if (top instanceof VirtualFunction function
+                && ImageRunner.mayRunImage(thread)
+                && function.getParameters(thread).count() == argCount) {
 
-        TObject[] args = new TObject[argCount];
-        for (int i = 0; i < argCount; i++) {
-            args[i] = frame.pop();
-        }
+            TObject[] args = new TObject[argCount];
+            for (int i = 0; i < argCount; i++) {
+                args[i] = frame.stack[frame.sp - 2 - i];
+            }
 
-        ImageCache cache = thread.getVM().getJitCompiler().get(ImageCache.KEY);
-        VirtualFunction.VirtualMetadata metadata = vfunc.getMetadata();
+            ImageCache.Entry entry = ImageRunner.cache(thread).get(function.getMetadata(), args);
 
-        if (!cache.isBlacklisted(metadata)) {
-            ImageCache.Entry entry = cache.get(metadata, args);
+            if (entry != null) {
+                ParseProcess process = entry.use();
+                if (process != null) {
+                    startFunctionTrace(thread, process);
+                    super.callInplace(argCount);
+                    return;
+                }
 
-            var imgFuture = entry.getImage();
-            var compObservable = entry.use();
-
-            compObservable.thenAccept(compPc -> startFunctionTracing(vfunc, compPc));
-
-            if (imgFuture.isDone() && !compObservable.isDone()) {
-                callFunctionalNativeImage(imgFuture.resultNow(), thread, vfunc, args);
-                return;
+                NativeImage image = entry.image();
+                if (image != null) {
+                    for (int i = 0; i <= argCount; i++) frame.pop();
+                    ImageRunner.runFunction(thread, entry, image, function, args);
+                    return;
+                }
             }
         }
-
-        for (int i = argCount-1; i >= 0; i--) frame.push(args[i]);
-        frame.push(top);
 
         super.callInplace(argCount);
     }
 
-
-    private void callFunctionalNativeImage(NativeImage image,
-                                           TThread thread,
-                                           VirtualFunction vfunc,
-                                           TObject[] args) {
-        int localsCount = vfunc.getLocals();
-        TObject[] locals = new TObject[localsCount];
-        System.arraycopy(args, 0, locals, 0, args.length);
-
-        ImageFrame imgFrame = new ImageFrame(vfunc, locals);
-        try {
-            TObject result = image.run(thread, imgFrame);
-            if (result != null) {
-                VirtualFrame frame = thread.topVirtualFrame();
-                frame.push(result);
-            }
-        }
-        catch (FallbackException signal){
-            onFallback(signal.guardId);
-        }
+    @Override
+    public void jumpTo(byte b1, byte b2) {
+        VirtualFrame frame = getCurrentThread().topVirtualFrame();
+        int from = frame.ip - 1;
+        super.jumpTo(b1, b2);
+        if (frame.ip <= from) onBackEdge(frame);
     }
 
-    private void onFallback(int guardId) {
+    @Override
+    public void branch(byte b1, byte b2, boolean ifTrue) {
+        VirtualFrame frame = getCurrentThread().topVirtualFrame();
+        int from = frame.ip - 1;
+        super.branch(b1, b2, ifTrue);
+        if (frame.ip <= from) onBackEdge(frame);
     }
 
-    private void startFunctionTracing(VirtualFunction func, ParseProcess compPc) {
+    private void onBackEdge(VirtualFrame frame) {
         TThread thread = getCurrentThread();
+        if (frame.inUnsafeSpot() || !ImageRunner.mayRunImage(thread)) return;
 
-        Tracer tracer = createTracer(func.getMetadata(), 0,
-                thread.frameStack.size()+1,
-                func.getParameters(thread).count(), compPc);
+        ImageCache.Entry entry = ImageRunner.cache(thread).get(new LoopKey(frame.getMetadata(), frame.ip));
+        if (entry == null) return;
 
-        thread.setInterpreter(tracer);
+        ParseProcess process = entry.use();
+        if (process != null) {
+            thread.setInterpreter(Tracer.forLoop(getUnderlying(), this, process, frame.ip, thread.frameStack.size()));
+            return;
+        }
+
+        NativeImage image = entry.image();
+        if (image != null) {
+            ImageRunner.runLoop(thread, entry, image, frame);
+        }
     }
 
-    private void startLoopTracing(Object imageKey, ParseProcess compPc) {
-        TThread thread = getCurrentThread();
-
-        Tracer tracer = createTracer(imageKey, thread.topVirtualFrame().ip,
-                thread.frameStack.size(), 0, compPc);
-
-        thread.setInterpreter(tracer);
+    /**
+     * Starts tracing the function that is called next. The tracer starts recording as soon as
+     * the frame of the called function executes its first instruction.
+     */
+    void startFunctionTrace(TThread thread, ParseProcess process) {
+        thread.setInterpreter(Tracer.forFunction(getUnderlying(), this, process, thread.frameStack.size() + 1));
     }
 
-    private Tracer createTracer(Object imageKey, int ip, int frameStackSize, int parametersLeft, ParseProcess compPc) {
-        return new Tracer(getUnderlying(), this, imageKey, ip, frameStackSize, parametersLeft, compPc);
+    /**
+     * Starts tracing a side trace. The tracer starts recording as soon as the frame at the
+     * given depth executes the instruction at the given address.
+     */
+    void startSideTrace(TThread thread, ParseProcess process, int ip, int depth, boolean allowReturn) {
+        thread.setInterpreter(Tracer.forSide(getUnderlying(), this, process, ip, depth, allowReturn));
     }
 
 }

@@ -1,53 +1,81 @@
 package com.tscript.runtime.jit.comp.analysis;
 
+import com.tscript.runtime.core.Builtins;
 import com.tscript.runtime.jit.caching.ObjectCache;
-import com.tscript.runtime.jit.comp.ir.Graph;
-import com.tscript.runtime.jit.comp.ir.IRType;
-import com.tscript.runtime.jit.comp.ir.IRValue;
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
-import com.tscript.runtime.jit.comp.ir.nodes.*;
-import com.tscript.runtime.jit.comp.ir.nodes.Range;
-import com.tscript.runtime.jit.comp.ir.nodes.Type;
-import com.tscript.runtime.jit.comp.ir.types.*;
 import com.tscript.runtime.jit.comp.ir.*;
 import com.tscript.runtime.jit.comp.ir.nodes.*;
 import com.tscript.runtime.jit.comp.ir.types.*;
-import com.tscript.runtime.typing.*;
+import com.tscript.runtime.typing.TObject;
 
-import java.util.List;
-
+/**
+ * Infers the static type of a value node. The rules mirror the semantics of the interpreter
+ * (see ALU): a precise type is only inferred if the operation is guaranteed to produce it.
+ * Phis are handled by {@link Graph.TypeMap}.
+ */
 public class Typing {
 
     public static IRType infer(IRValue value, Graph.TypeMap typeMap) {
-        Infer infer = new Infer(typeMap);
-        return value.accept(infer);
+        return value.accept(new Infer(typeMap));
     }
 
+    private static final IRType UNKNOWN = UnknownType.INSTANCE;
+    private static final IRType INT = IntType.INSTANCE;
+    private static final IRType REAL = RealType.INSTANCE;
+    private static final IRType BOOL = BoolType.INSTANCE;
+    private static final IRType STR = StrType.INSTANCE;
 
     private record Infer(Graph.TypeMap typeMap) implements IRValueVisitor<Void, IRType> {
 
-        private static final UnionType ADD_TYPE = new UnionType(IntType.INSTANCE, RealType.INSTANCE, StrType.INSTANCE);
-        private static final UnionType NUMERIC_TYPE = new UnionType(IntType.INSTANCE, RealType.INSTANCE);
-        private static final UnionType INT_OR_BOOL = new UnionType(IntType.INSTANCE, BoolType.INSTANCE);
+        private IRType type(IRValue value) {
+            return typeMap.getType(value);
+        }
+
+        private boolean isNumeric(IRType type) {
+            return type == INT || type == REAL;
+        }
+
+        private IRType arithmetic(BinaryOp op) {
+            IRType l = type(op.getLeft()), r = type(op.getRight());
+            if (l == INT && r == INT) return INT;
+            if (isNumeric(l) && isNumeric(r)) return REAL;
+            return UNKNOWN;
+        }
+
+        private IRType intOnly(BinaryOp op) {
+            IRType l = type(op.getLeft()), r = type(op.getRight());
+            return l == INT && r == INT ? INT : UNKNOWN;
+        }
+
+        private IRType logical(BinaryOp op) {
+            IRType l = type(op.getLeft()), r = type(op.getRight());
+            if (l == INT && r == INT) return INT;
+            if (l == BOOL && r == BOOL) return BOOL;
+            return UNKNOWN;
+        }
+
+        private IRType comparison(BinaryOp op) {
+            IRType l = type(op.getLeft()), r = type(op.getRight());
+            return isNumeric(l) && isNumeric(r) ? BOOL : UNKNOWN;
+        }
 
         @Override
         public IRType visitInteger(Int node, Void unused) {
-            return IntType.INSTANCE;
+            return INT;
         }
 
         @Override
         public IRType visitReal(Real node, Void unused) {
-            return RealType.INSTANCE;
+            return REAL;
         }
 
         @Override
         public IRType visitString(Str node, Void unused) {
-            return StrType.INSTANCE;
+            return STR;
         }
 
         @Override
         public IRType visitBool(Bool node, Void unused) {
-            return BoolType.INSTANCE;
+            return BOOL;
         }
 
         @Override
@@ -56,284 +84,215 @@ public class Typing {
         }
 
         @Override
-        public IRType visitArray(Array node, Void unused) {
-            IRType parameter = unionTypes(node.getValues());
-            return typeMap.put(node, new ArrayType(parameter));
-        }
-
-        @Override
-        public IRType visitDict(Dict node, Void unused) {
-            IRType keyParameter = unionTypes(node.getKeys());
-            IRType valueParameter = unionTypes(node.getValues());
-            return typeMap.put(node, new DictType(keyParameter, valueParameter));
-        }
-
-        @Override
-        public IRType visitRange(Range node, Void unused) {
-            typeMap.getType(node.getFrom());  // trigger sub-expr-infer
-            typeMap.getType(node.getTo());  // trigger sub-expr-infer
-            return RangeType.INSTANCE;
-        }
-
-        @Override
-        public IRType visitThis(This node, Void unused) {
-            return UnknownType.INSTANCE;
-        }
-
-        @Override
-        public IRType visitAdd(Add node, Void unused) {
-            if (anyOfType(node, StrType.INSTANCE)) return typeMap.put(node, StrType.INSTANCE);
-
-            if (bothOfType(node, IntType.INSTANCE, RealType.INSTANCE)) {
-                if (bothOfType(node, IntType.INSTANCE))
-                    return typeMap.put(node, IntType.INSTANCE);
-                return typeMap.put(node, RealType.INSTANCE);
-            }
-
-            return typeMap.put(node, ADD_TYPE);
-        }
-
-        @Override
-        public IRType visitSub(Sub node, Void unused) {
-            if (anyOfType(node, IntType.INSTANCE, RealType.INSTANCE)) {
-                if (bothOfType(node, IntType.INSTANCE)) return typeMap.put(node, IntType.INSTANCE);
-                return typeMap.put(node, RealType.INSTANCE);
-            }
-            return typeMap.put(node, NUMERIC_TYPE);
-        }
-
-        @Override
-        public IRType visitMul(Mul node, Void unused) {
-            if (anyOfType(node, IntType.INSTANCE, RealType.INSTANCE)) {
-                if (bothOfType(node, IntType.INSTANCE)) return typeMap.put(node, IntType.INSTANCE);
-                return typeMap.put(node, RealType.INSTANCE);
-            }
-            return typeMap.put(node, NUMERIC_TYPE);
-        }
-
-        @Override
-        public IRType visitDiv(Div node, Void unused) {
-            typeMap.getType(node.getLeft());  // trigger sub-expr-infer
-            typeMap.getType(node.getRight());  // trigger sub-expr-infer
-            return typeMap.put(node, RealType.INSTANCE);
-        }
-
-        @Override
-        public IRType visitIDiv(IDiv node, Void unused) {
-            typeMap.getType(node.getLeft());  // trigger sub-expr-infer
-            typeMap.getType(node.getRight());  // trigger sub-expr-infer
-            return typeMap.put(node, IntType.INSTANCE);
-        }
-
-        @Override
-        public IRType visitMod(Mod node, Void unused) {
-            if (bothOfType(node, IntType.INSTANCE))  return typeMap.put(node, IntType.INSTANCE);
-            if (bothOfType(node, BoolType.INSTANCE))  return typeMap.put(node, BoolType.INSTANCE);
-            return typeMap.put(node, INT_OR_BOOL);
-        }
-
-        @Override
-        public IRType visitPow(Pow node, Void unused) {
-            if (anyOfType(node, IntType.INSTANCE, RealType.INSTANCE)) {
-                if (bothOfType(node, IntType.INSTANCE)) return typeMap.put(node, IntType.INSTANCE);
-                return typeMap.put(node, RealType.INSTANCE);
-            }
-            return typeMap.put(node, NUMERIC_TYPE);
-        }
-
-        @Override
-        public IRType visitAnd(And node, Void unused) {
-            if (bothOfType(node, IntType.INSTANCE)) return typeMap.put(node, IntType.INSTANCE);
-            if (bothOfType(node, BoolType.INSTANCE)) return typeMap.put(node, BoolType.INSTANCE);
-            return typeMap.put(node, INT_OR_BOOL);
-        }
-
-        @Override
-        public IRType visitShl(Shl node, Void unused) {
-            typeMap.getType(node.getLeft());  // trigger sub-expr-infer
-            typeMap.getType(node.getRight());  // trigger sub-expr-infer
-            return typeMap.put(node, IntType.INSTANCE);
-        }
-
-        @Override
-        public IRType visitShr(Shr node, Void unused) {
-            typeMap.getType(node.getLeft());  // trigger sub-expr-infer
-            typeMap.getType(node.getRight());  // trigger sub-expr-infer
-            return typeMap.put(node, IntType.INSTANCE);
-        }
-
-        @Override
-        public IRType visitUshr(Ushr node, Void unused) {
-            typeMap.getType(node.getLeft());  // trigger sub-expr-infer
-            typeMap.getType(node.getRight());  // trigger sub-expr-infer
-            return typeMap.put(node, IntType.INSTANCE);
-        }
-
-        @Override
-        public IRType visitOr(Or node, Void unused) {
-            if (bothOfType(node, IntType.INSTANCE)) return typeMap.put(node, IntType.INSTANCE);
-            if (bothOfType(node, BoolType.INSTANCE)) return typeMap.put(node, BoolType.INSTANCE);
-            return typeMap.put(node, INT_OR_BOOL);
-        }
-
-        @Override
-        public IRType visitXor(Xor node, Void unused) {
-            if (bothOfType(node, IntType.INSTANCE)) return typeMap.put(node, IntType.INSTANCE);
-            if (bothOfType(node, BoolType.INSTANCE)) return typeMap.put(node, BoolType.INSTANCE);
-            return typeMap.put(node, INT_OR_BOOL);
-        }
-
-        @Override
-        public IRType visitNot(Not node, Void unused) {
-            if (isType(node.getValue(), IntType.INSTANCE)) return typeMap.put(node, IntType.INSTANCE);
-            if (isType(node.getValue(), BoolType.INSTANCE)) return typeMap.put(node, BoolType.INSTANCE);
-            return typeMap.put(node, INT_OR_BOOL);
-        }
-
-        @Override
-        public IRType visitNeg(Neg node, Void unused) {
-            if (isType(node.getValue(), IntType.INSTANCE)) return typeMap.put(node, IntType.INSTANCE);
-            if (isType(node.getValue(), RealType.INSTANCE)) return typeMap.put(node, RealType.INSTANCE);
-            return typeMap.put(node, NUMERIC_TYPE);
-        }
-
-        @Override
-        public IRType visitPos(Pos node, Void unused) {
-            if (isType(node.getValue(), IntType.INSTANCE)) return typeMap.put(node, IntType.INSTANCE);
-            if (isType(node.getValue(), RealType.INSTANCE)) return typeMap.put(node, RealType.INSTANCE);
-            return typeMap.put(node, NUMERIC_TYPE);
-        }
-
-        @Override
-        public IRType visitType(Type node, Void unused) {
-            com.tscript.runtime.typing.Type ttype =
-                    (com.tscript.runtime.typing.Type) ObjectCache.getObject(node.getAddress());
-
-            IRType typeParam = new ComplexType(ttype);
-
-            if (ttype == Null.TYPE) typeParam = NullType.INSTANCE;
-            if (ttype == TInteger.TYPE) typeParam = IntType.INSTANCE;
-            if (ttype == TReal.TYPE) typeParam = RealType.INSTANCE;
-            if (ttype == TBoolean.TYPE) typeParam = BoolType.INSTANCE;
-            if (ttype == TString.TYPE) typeParam = StrType.INSTANCE;
-            if (ttype == com.tscript.runtime.typing.Range.TYPE) typeParam = RangeType.INSTANCE;
-
-            return new TypeMirror(typeParam);
-        }
-
-        @Override
-        public IRType visitTypeof(Typeof node, Void unused) {
-            IRType type = typeMap.getType(node.getValue());
-            if (type instanceof TypeMirror m && m.getParameters().get(0) instanceof TypeMirror) {
-                // do not allow Type<Type<Type<?>>>; only a maximum of Type<Type<?>>
-                return type;
-            }
-            return new TypeMirror(type);
-        }
-
-        @Override
-        public IRType visitGt(Gt node, Void unused) {
-            typeMap.getType(node.getLeft());  // trigger sub-expr-infer
-            typeMap.getType(node.getRight());  // trigger sub-expr-infer
-            return typeMap.put(node, BoolType.INSTANCE);
-        }
-
-        @Override
-        public IRType visitLt(Lt node, Void unused) {
-            typeMap.getType(node.getLeft());  // trigger sub-expr-infer
-            typeMap.getType(node.getRight());  // trigger sub-expr-infer
-            return typeMap.put(node, BoolType.INSTANCE);
-        }
-
-        @Override
-        public IRType visitEquals(Equals node, Void unused) {
-            typeMap.getType(node.getLeft());  // trigger sub-expr-infer
-            typeMap.getType(node.getRight());  // trigger sub-expr-infer
-            return typeMap.put(node, BoolType.INSTANCE);
-        }
-
-        @Override
-        public IRType visitParameter(Parameter node, Void unused) {
-            return UnknownType.INSTANCE;
+        public IRType visitConstant(Constant node, Void unused) {
+            return IRType.from((TObject) ObjectCache.getObject(node.index), false);
         }
 
         @Override
         public IRType visitBuiltin(Builtin node, Void unused) {
-            return UnknownType.INSTANCE;
+            return IRType.from(Builtins.load(node.index), false);
         }
 
         @Override
-        public IRType visitToInpArg(ToInpArg node, Void unused) {
-            return typeMap.getType(node.getValue());
+        public IRType visitType(Type node, Void unused) {
+            return new TypeMirror(UNKNOWN);
         }
 
         @Override
-        public IRType visitToMapArg(ToMapArg node, Void unused) {
-            return typeMap.getType(node.getValue());
-        }
-
-        @Override
-        public IRType visitCall(Call node, Void unused) {
-            return UnknownType.INSTANCE;
-        }
-
-        @Override
-        public IRType visitToString(ToString node, Void unused) {
-            typeMap.getType(node.getValue());  // trigger sub-expr-infer
-            return StrType.INSTANCE;
-        }
-
-        @Override
-        public IRType visitPhi(Phi node, Void unused) {
-            List<IRType> args = node.getArgs().stream().map(typeMap::getType).toList();
-            return typeMap.put(node, UnionType.mixup(args));
+        public IRType visitThis(This node, Void unused) {
+            return UNKNOWN;
         }
 
         @Override
         public IRType visitLocal(Local node, Void unused) {
-            return UnknownType.INSTANCE;
+            return UNKNOWN;
+        }
+
+        @Override
+        public IRType visitStackValue(StackValue node, Void unused) {
+            return UNKNOWN;
+        }
+
+        @Override
+        public IRType visitParameter(Parameter node, Void unused) {
+            return node.type;
+        }
+
+        @Override
+        public IRType visitPhi(Phi node, Void unused) {
+            throw new AssertionError("phis are typed by the TypeMap");
+        }
+
+        @Override
+        public IRType visitPi(Pi node, Void unused) {
+            return node.type;
+        }
+
+        @Override
+        public IRType visitAdd(Add node, Void unused) {
+            IRType l = type(node.getLeft()), r = type(node.getRight());
+            if ((l == STR && IRType.isPrimitive(r)) || (r == STR && IRType.isPrimitive(l))) return STR;
+            return arithmetic(node);
+        }
+
+        @Override
+        public IRType visitSub(Sub node, Void unused) {
+            return arithmetic(node);
+        }
+
+        @Override
+        public IRType visitMul(Mul node, Void unused) {
+            return arithmetic(node);
+        }
+
+        @Override
+        public IRType visitDiv(Div node, Void unused) {
+            IRType l = type(node.getLeft()), r = type(node.getRight());
+            return isNumeric(l) && isNumeric(r) ? REAL : UNKNOWN;
+        }
+
+        @Override
+        public IRType visitIDiv(IDiv node, Void unused) {
+            return intOnly(node);
+        }
+
+        @Override
+        public IRType visitMod(Mod node, Void unused) {
+            return intOnly(node);
+        }
+
+        @Override
+        public IRType visitPow(Pow node, Void unused) {
+            return arithmetic(node);
+        }
+
+        @Override
+        public IRType visitShl(Shl node, Void unused) {
+            return intOnly(node);
+        }
+
+        @Override
+        public IRType visitShr(Shr node, Void unused) {
+            return intOnly(node);
+        }
+
+        @Override
+        public IRType visitUshr(Ushr node, Void unused) {
+            return intOnly(node);
+        }
+
+        @Override
+        public IRType visitAnd(And node, Void unused) {
+            return logical(node);
+        }
+
+        @Override
+        public IRType visitOr(Or node, Void unused) {
+            return logical(node);
+        }
+
+        @Override
+        public IRType visitXor(Xor node, Void unused) {
+            return logical(node);
+        }
+
+        @Override
+        public IRType visitLt(Lt node, Void unused) {
+            return comparison(node);
+        }
+
+        @Override
+        public IRType visitLeq(Leq node, Void unused) {
+            return comparison(node);
+        }
+
+        @Override
+        public IRType visitEquals(Equals node, Void unused) {
+            return BOOL;
+        }
+
+        @Override
+        public IRType visitNot(Not node, Void unused) {
+            IRType t = type(node.getValue());
+            return t == INT || t == BOOL ? t : UNKNOWN;
+        }
+
+        @Override
+        public IRType visitNeg(Neg node, Void unused) {
+            IRType t = type(node.getValue());
+            return isNumeric(t) ? t : UNKNOWN;
+        }
+
+        @Override
+        public IRType visitPos(Pos node, Void unused) {
+            IRType t = type(node.getValue());
+            return isNumeric(t) ? t : UNKNOWN;
+        }
+
+        @Override
+        public IRType visitTypeof(Typeof node, Void unused) {
+            return new TypeMirror(UNKNOWN);
+        }
+
+        @Override
+        public IRType visitIsType(IsType node, Void unused) {
+            return BOOL;
+        }
+
+        @Override
+        public IRType visitTruthy(Truthy node, Void unused) {
+            return BOOL;
+        }
+
+        @Override
+        public IRType visitIsSelf(IsSelf node, Void unused) {
+            return BOOL;
+        }
+
+        @Override
+        public IRType visitRange(Range node, Void unused) {
+            return RangeType.INSTANCE;
+        }
+
+        @Override
+        public IRType visitArray(Array node, Void unused) {
+            return new ArrayType(UNKNOWN);
+        }
+
+        @Override
+        public IRType visitDict(Dict node, Void unused) {
+            return new DictType(UNKNOWN, UNKNOWN);
+        }
+
+        @Override
+        public IRType visitCall(Call node, Void unused) {
+            return UNKNOWN;
         }
 
         @Override
         public IRType visitGlobal(Global node, Void unused) {
-            return UnknownType.INSTANCE;
+            return UNKNOWN;
         }
 
-        private IRType unionTypes(Iterable<IRValue> values) {
-            IRType mixed = null;
-            for (IRValue value : values) {
-                if (mixed == null) {
-                    mixed = typeMap.getType(value);
-                }
-                else {
-                    mixed = UnionType.mixup(mixed, typeMap.getType(value));
-                }
-            }
-            return mixed;
+        @Override
+        public IRType visitGetIterator(GetIterator node, Void unused) {
+            return UNKNOWN;
         }
 
-        private boolean bothOfType(BinaryOp op, IRType... expected) {
-            boolean left = isType(op.getLeft(), expected);
-            boolean right = isType(op.getRight(), expected);
-            return left && right;
+        @Override
+        public IRType visitIterHasNext(IterHasNext node, Void unused) {
+            return BOOL;
         }
 
-        private boolean anyOfType(BinaryOp op, IRType... expected) {
-            boolean left = isType(op.getLeft(), expected);
-            boolean right = isType(op.getRight(), expected);
-            return left || right;
+        @Override
+        public IRType visitIterNext(IterNext node, Void unused) {
+            return UNKNOWN;
         }
 
-        private boolean isType(IRValue value, IRType... expected) {
-            IRType type = typeMap.getType(value);
-            for (IRType expectedType : expected) {
-                if (type.equals(expectedType)) {
-                    return true;
-                }
-            }
-            return false;
+        @Override
+        public IRType visitContainerRead(ContainerRead node, Void unused) {
+            return UNKNOWN;
         }
-
     }
 
 }

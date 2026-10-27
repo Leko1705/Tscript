@@ -1,47 +1,56 @@
 package com.tscript.runtime.jit.comp.ir;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public abstract class IRControl implements IRNode {
 
-    private final List<IRControl> predecessors;
-
-    private final List<IRControl> successors;
-
     protected final Graph graph;
 
-    public IRControl(Graph graph) {
+    private final List<IRValue> inputs;
+
+    protected IRControl(Graph graph, IRValue... inputs) {
         this.graph = graph;
-        this.predecessors = new ArrayList<>();
-        this.successors = new ArrayList<>();
+        this.inputs = new ArrayList<>(Arrays.asList(inputs));
+        for (IRValue input : this.inputs) {
+            input.getUsers().add(this);
+        }
     }
+
     public Graph getGraph() {
         return graph;
     }
 
-    public List<IRControl> getPredecessors() {
-        return predecessors;
+    protected IRValue input(int index) {
+        return inputs.get(index);
     }
 
-    public List<IRControl> getSuccessors() {
-        return successors;
+    public abstract List<IRControl> getPredecessors();
+
+    public abstract List<IRControl> getSuccessors();
+
+    @Override
+    public List<IRValue> getInputs() {
+        return Collections.unmodifiableList(inputs);
     }
 
+    @Override
     public void replaceInput(IRValue oldInput, IRValue newInput) {
-        newInput.getUsers().add(this);
-        oldInput.getUsers().remove(this);
-        updateSpecificFields(oldInput, newInput);
+        boolean replaced = false;
+        for (int i = 0; i < inputs.size(); i++) {
+            if (inputs.get(i) == oldInput) {
+                inputs.set(i, newInput);
+                replaced = true;
+            }
+        }
+        if (replaced) {
+            oldInput.getUsers().remove(this);
+            newInput.getUsers().add(this);
+        }
     }
-
-    protected void updateSpecificFields(IRValue oldInput, IRValue newInput) {
-    }
-
-    public abstract List<IRValue> getInputs();
 
     public abstract <P, R> R accept(IRControlVisitor<P, R> visitor, P p);
 
-    public  <P, R> R accept(IRControlVisitor<P, R> visitor) {
+    public <P, R> R accept(IRControlVisitor<P, R> visitor) {
         return accept(visitor, null);
     }
 

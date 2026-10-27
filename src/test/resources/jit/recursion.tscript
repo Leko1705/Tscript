@@ -1,0 +1,31 @@
+module recursion;
+
+function sum(x) {
+    if x == 0 then return 0;
+    return 1 + sum(x - 1);
+}
+
+function fib(n) {
+    if n < 2 then return n;
+    return fib(n - 1) + fib(n - 2);
+}
+
+function tailSum(n, acc) {
+    if n == 0 then return acc;
+    return tailSum(n - 1, acc + n);
+}
+
+function fact(n) {
+    if n <= 1 then return 1;
+    return n * fact(n - 1);
+}
+
+for var i in 0:300 do {
+    print(sum(5));
+}
+print(fib(20));
+var t = 0;
+for var i in 0:300 do t = t + tailSum(i, 0);
+print(t);
+for var i in 0:250 do t = fact(10);
+print(t);

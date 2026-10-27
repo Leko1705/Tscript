@@ -1,9 +1,5 @@
 package com.tscript.runtime.jit.comp.ir;
 
-import com.tscript.runtime.jit.comp.ir.nodes.IfElse;
-import com.tscript.runtime.jit.comp.ir.nodes.MergeControl;
-import com.tscript.runtime.jit.comp.ir.nodes.Return;
-import com.tscript.runtime.jit.comp.ir.nodes.StartControl;
 import com.tscript.runtime.jit.comp.ir.nodes.*;
 
 public interface IRControlVisitor<P, R> {
@@ -15,5 +11,11 @@ public interface IRControlVisitor<P, R> {
     R visitMerge(MergeControl node, P p);
 
     R visitIfElse(IfElse node, P p);
+
+    R visitLoopHead(LoopHeadNode node, P p);
+
+    R visitLoopEnd(LoopEndNode node, P p);
+
+    R visitExit(Exit node, P p);
 
 }

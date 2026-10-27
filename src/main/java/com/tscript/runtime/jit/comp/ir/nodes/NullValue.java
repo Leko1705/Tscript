@@ -1,6 +1,7 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
 public class NullValue extends Literal<Void> {
 
@@ -10,6 +11,6 @@ public class NullValue extends Literal<Void> {
 
     @Override
     public <P, R> R accept(IRValueVisitor<P, R> visitor, P p) {
-        return  visitor.visitNull(this, p);
+        return visitor.visitNull(this, p);
     }
 }

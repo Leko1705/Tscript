@@ -34,7 +34,7 @@ public class DictType implements ParameterizedType {
 
     @Override
     public Class<?> getJvmType() {
-        return Map.class;
+        return com.tscript.runtime.typing.TObject.class;
     }
 
     @Override

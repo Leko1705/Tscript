@@ -1,7 +1,7 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValue;
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
 public class Shr extends BinaryOp {
 
@@ -15,7 +15,16 @@ public class Shr extends BinaryOp {
     }
 
     @Override
-    public String toString() {
-        return  "(" + getLeft().toString() + " >> " + getRight().toString() + ")";
+    public IRValue canonicalize(CanonicalizerTool tool) {
+        IRValue lhs = getLeft();
+        IRValue rhs = getRight();
+
+        if (lhs instanceof Int l && rhs instanceof Int r) {
+            return tool.builder().integer(l.value >> r.value);
+        }
+        if (tool.isIntegerOf(rhs, 0) && tool.isInt(lhs)) {
+            return lhs;
+        }
+        return this;
     }
 }

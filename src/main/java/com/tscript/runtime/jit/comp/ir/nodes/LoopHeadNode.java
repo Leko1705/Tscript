@@ -1,49 +1,57 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.Graph;
-import com.tscript.runtime.jit.comp.ir.IRControl;
-import com.tscript.runtime.jit.comp.ir.IRControlVisitor;
-import com.tscript.runtime.jit.comp.ir.IRValue;
+import com.tscript.runtime.jit.comp.ir.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A loop header. Its predecessors are the control flow entering the loop and (once the loop
+ * is closed) the {@link LoopEndNode}. A loop header that never gets closed is degenerate: it is
+ * executed exactly once and its phis are equivalent to their entry values.
+ */
 public class LoopHeadNode extends IRControl {
 
-    private final List<IRControl> backedges;
-    private final IRControl preHeaderCtrl;
-    private final List<IRControl> successors;
+    private final IRControl entry;
+    private LoopEndNode loopEnd;
+    private final List<IRControl> successors = new ArrayList<>();
+    private final List<Phi> phis = new ArrayList<>();
 
-    public LoopHeadNode(Graph graph, IRControl preHeaderCtrl) {
+    /**
+     * the bytecode address of the loop header
+     */
+    public final int ip;
+
+    public LoopHeadNode(Graph graph, IRControl entry, int ip) {
         super(graph);
-
-        preHeaderCtrl.getSuccessors().add(this);
-
-        backedges = new ArrayList<>();
-        this.preHeaderCtrl = preHeaderCtrl;
-        successors = new ArrayList<>();
-        backedges.add(preHeaderCtrl);
+        this.entry = entry;
+        this.ip = ip;
+        entry.getSuccessors().add(this);
     }
 
-
-
-    public void addBackedge(LoopEndNode backEdgeCtrl) {
-        backedges.add(backEdgeCtrl);
+    public IRControl getEntry() {
+        return entry;
     }
 
-    public List<IRControl> getBackedges() {
-        return backedges;
+    public LoopEndNode getLoopEnd() {
+        return loopEnd;
     }
 
-    public IRControl getPreHeaderCtrl() {
-        return preHeaderCtrl;
+    public boolean isClosed() {
+        return loopEnd != null;
+    }
+
+    void setLoopEnd(LoopEndNode loopEnd) {
+        this.loopEnd = loopEnd;
+    }
+
+    public List<Phi> getPhis() {
+        return phis;
     }
 
     @Override
     public List<IRControl> getPredecessors() {
-        List<IRControl> predecessors = new ArrayList<>(backedges);
-        predecessors.add(preHeaderCtrl);
-        return predecessors;
+        return loopEnd == null ? List.of(entry) : List.of(entry, loopEnd);
     }
 
     @Override
@@ -52,12 +60,7 @@ public class LoopHeadNode extends IRControl {
     }
 
     @Override
-    public List<IRValue> getInputs() {
-        return List.of();
-    }
-
-    @Override
     public <P, R> R accept(IRControlVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitLoopHead(this, p);
     }
 }

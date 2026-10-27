@@ -1,23 +1,36 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValue;
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
+/**
+ * Represents a builtin object (see Builtins#load).
+ */
 public class Builtin extends IRValue {
 
-    private final int address;
+    public final int index;
 
-    public Builtin(int address) {
-        this.address = address;
+    public Builtin(int index) {
+        this.index = index;
     }
 
-    public int getAddress() {
-        return address;
+    public int getIndex() {
+        return index;
     }
 
     @Override
     public boolean isConstant() {
         return true;
+    }
+
+    @Override
+    protected boolean dataEquals(IRValue other) {
+        return index == ((Builtin) other).index;
+    }
+
+    @Override
+    protected int dataHashCode() {
+        return index;
     }
 
     @Override
@@ -27,6 +40,6 @@ public class Builtin extends IRValue {
 
     @Override
     public String toString() {
-        return  "Builtin(" + address + ")";
+        return name() + "#" + id + "(" + index + ")";
     }
 }

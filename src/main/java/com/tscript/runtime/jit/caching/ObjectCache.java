@@ -1,41 +1,55 @@
 package com.tscript.runtime.jit.caching;
 
 import com.tscript.runtime.jit.JITSensitive;
-import com.tscript.runtime.typing.Type;
 
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.Map;
 
+/**
+ * Associates objects with integer ids, so that compiled code can refer to runtime objects
+ * (types, constants, deoptimization information) by embedding an int constant.
+ * Objects are identified by identity.
+ */
 public class ObjectCache {
 
-    private static int nextId = Integer.MIN_VALUE;
+    private static int nextId = 0;
 
-    private static final Map<Object, Integer> typeIds = new HashMap<>();
-    private static final Map<Integer, Object> types = new HashMap<>();
+    private static final Map<Object, Integer> ids = new IdentityHashMap<>();
+    private static volatile Object[] objects = new Object[256];
 
     @JITSensitive
-    public static int putId(Object type) {
-        return typeIds.computeIfAbsent(type, t -> {
-            int id = nextId++;
-            if (id == -1) id = nextId++; // -1 is failure indicator, do not associate
-            types.put(id, type);
-            return id;
-        });
+    public static synchronized int putId(Object object) {
+        Integer id = ids.get(object);
+        if (id != null) return id;
+        id = nextId++;
+        ids.put(object, id);
+        Object[] array = objects;
+        if (id >= array.length) {
+            array = Arrays.copyOf(array, array.length * 2);
+        }
+        array[id] = object;
+        objects = array;
+        return id;
     }
 
+    /**
+     * @return the id of the object or -1 if it has none
+     */
     @JITSensitive
-    public static int getId(Object type) {
-        return typeIds.getOrDefault(type, -1);
+    public static synchronized int getId(Object object) {
+        return ids.getOrDefault(object, -1);
     }
 
     @JITSensitive
     public static Object getObject(int id) {
-        return types.get(id);
+        Object[] array = objects;
+        return id >= 0 && id < array.length ? array[id] : null;
     }
 
-    public static void removeId(Type type) {
-        int id = typeIds.remove(type);
-        types.remove(id);
+    public static synchronized void removeId(Object object) {
+        Integer id = ids.remove(object);
+        if (id != null) objects[id] = null;
     }
 
 }

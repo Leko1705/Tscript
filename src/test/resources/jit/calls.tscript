@@ -1,0 +1,40 @@
+module calls;
+
+function sq(x) {
+    return x * x;
+}
+
+function withDefault(a, b=10) {
+    return a + b;
+}
+
+function noReturn(x) {
+    var y = x + 1;
+}
+
+function strs(a) {
+    return "v=" + a;
+}
+
+var s = 0;
+for var i in 0:1000 do {
+    s = s + sq(i) + withDefault(i) + withDefault(i, 1);
+    noReturn(i);
+}
+print(s);
+print(noReturn(3));
+var str = "";
+for var i in 0:300 do str = strs(i);
+print(str);
+
+var arr = [];
+for var i in 0:200 do arr = [i, i + 1, "x"];
+print(arr);
+
+var d = {};
+for var i in 0:200 do { d = {"a": i, "b": i}; }
+print(d);
+
+var rng = 0:1;
+for var i in 0:200 do rng = i:(i + 5);
+print(rng);

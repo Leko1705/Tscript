@@ -1,42 +1,19 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValue;
-
-import java.util.List;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
 public abstract class BinaryOp extends IRValue {
 
-    private IRValue lhs;
-    private IRValue rhs;
-
-    public BinaryOp(IRValue left, IRValue right) {
-        lhs = left;
-        rhs = right;
-
-        left.getUsers().add(this);
-        right.getUsers().add(this);
+    protected BinaryOp(IRValue left, IRValue right) {
+        super(left, right);
     }
 
     public IRValue getLeft() {
-        return lhs;
+        return input(0);
     }
 
     public IRValue getRight() {
-        return rhs;
-    }
-
-    @Override
-    public List<IRValue> getInputs() {
-        return List.of(getLeft(), getRight());
-    }
-
-    @Override
-    protected void updateSpecificFields(IRValue oldInput, IRValue newInput) {
-        if (oldInput == lhs) {
-            lhs = newInput;
-        }
-        if (oldInput == rhs) {
-            rhs = newInput;
-        }
+        return input(1);
     }
 }

@@ -1,31 +1,21 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.Graph;
-import com.tscript.runtime.jit.comp.ir.IRControl;
-import com.tscript.runtime.jit.comp.ir.IRControlVisitor;
-import com.tscript.runtime.jit.comp.ir.IRValue;
+import com.tscript.runtime.jit.comp.ir.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Control flow merge. Not produced by the tracer; intended for a future method JIT front end.
+ */
 public class MergeControl extends IRControl {
 
     private final List<IRControl> controls;
-    private final List<IRControl> successors;
-
-    public MergeControl(Graph graph, List<IRControl> controls) {
-        super(graph);
-        this.controls = controls;
-        this.successors = new ArrayList<>();
-        for (IRControl control : controls) {
-            control.getSuccessors().add(this);
-        }
-    }
+    private final List<IRControl> successors = new ArrayList<>();
 
     public MergeControl(Graph graph, IRControl... controls) {
         super(graph);
         this.controls = List.of(controls);
-        this.successors = new ArrayList<>();
         for (IRControl control : controls) {
             control.getSuccessors().add(this);
         }
@@ -42,13 +32,7 @@ public class MergeControl extends IRControl {
     }
 
     @Override
-    public List<IRValue> getInputs() {
-        return List.of();
-    }
-
-    @Override
     public <P, R> R accept(IRControlVisitor<P, R> visitor, P p) {
         return visitor.visitMerge(this, p);
     }
-
 }

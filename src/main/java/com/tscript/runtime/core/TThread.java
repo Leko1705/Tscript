@@ -114,6 +114,25 @@ public class TThread extends Thread implements Environment, TObject {
         return result;
     }
 
+    /**
+     * Pushes the given frame and runs it (and all frames it calls) to completion.
+     * Used to continue execution in the interpreter after compiled code deoptimized.
+     * @return the return value of the frame. Only valid if the frame stack has its original size afterwards
+     */
+    public TObject runFrame(VirtualFrame frame) {
+        int prev = frameStackExitThreshold;
+        frameStackExitThreshold = frameStack.size();
+        frameStack.push(frame);
+        startExecutionCycle();
+        frameStackExitThreshold = prev;
+        return returnValue;
+    }
+
+    /**
+     * The current nesting depth of native images (compiled code) running on this thread.
+     */
+    public int jitDepth = 0;
+
     private void startExecutionCycle(){
         while (running && frameStack.size() > frameStackExitThreshold){
             if (halt) performHalt();

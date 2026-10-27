@@ -7,9 +7,9 @@ import java.util.List;
 public record L2(int threshold) implements OptimizingLevel {
 
     private static final List<IROptimizer> optimizers = List.of(
-            new ConditionalConstantPropagator(),
+            new Canonicalizer(),
             new GuardEliminator(),
-            new EscapeAnalysis()
+            new DeadCodeEliminator()
     );
 
     @Override

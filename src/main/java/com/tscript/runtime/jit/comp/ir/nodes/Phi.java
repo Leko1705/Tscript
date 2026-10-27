@@ -1,37 +1,52 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValue;
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
-import java.util.*;
+import java.util.List;
 
+/**
+ * A loop phi. The first input is the value on loop entry, the second input (set when the loop
+ * is closed) is the value at the end of the loop body.
+ */
 public class Phi extends IRValue {
 
-    private final List<IRValue> args;
+    private final LoopHeadNode loop;
 
-    public Phi(List<IRValue> args) {
-        this.args = args;
-        for (IRValue arg : args) {
-            arg.getUsers().add(this);
-        }
+    public Phi(LoopHeadNode loop, IRValue entry) {
+        super(entry);
+        this.loop = loop;
+        loop.getPhis().add(this);
     }
 
-    public Phi(IRValue... args) {
-        this(Arrays.asList(args));
+    public LoopHeadNode getLoop() {
+        return loop;
+    }
+
+    public IRValue getEntry() {
+        return input(0);
+    }
+
+    public IRValue getBackedge() {
+        return inputCount() > 1 ? input(1) : null;
+    }
+
+    public boolean isComplete() {
+        return inputCount() > 1;
+    }
+
+    public void setBackedge(IRValue value) {
+        if (isComplete()) throw new IllegalStateException("phi already closed");
+        addInput(value);
     }
 
     public List<IRValue> getArgs() {
-        return args;
+        return getInputs();
     }
 
     @Override
-    public List<IRValue> getInputs() {
-        return getArgs();
-    }
-
-    @Override
-    protected void updateSpecificFields(IRValue oldInput, IRValue newInput) {
-        Collections.replaceAll(args, oldInput, newInput);
+    public boolean isGVNable() {
+        return false;
     }
 
     @Override
@@ -39,17 +54,17 @@ public class Phi extends IRValue {
         return visitor.visitPhi(this, p);
     }
 
-    @Override
-    public String toString() {
-        StringJoiner sj = new StringJoiner(", ", "(", ")");
-        for (IRValue arg : getArgs()) {
-            try {
-                sj.add(arg.toString());
-            }
-            catch (StackOverflowError e) {
-                sj.add("...");
-            }
+    /**
+     * A phi is redundant if all its inputs are the same value or the phi itself.
+     * @return the unique input or null if the phi is not redundant
+     */
+    public IRValue redundantInput() {
+        IRValue unique = null;
+        for (IRValue input : getInputs()) {
+            if (input == this || input == unique) continue;
+            if (unique != null) return null;
+            unique = input;
         }
-        return "phi" + sj;
+        return unique;
     }
 }

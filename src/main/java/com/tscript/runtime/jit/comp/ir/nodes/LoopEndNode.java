@@ -1,48 +1,41 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.Graph;
-import com.tscript.runtime.jit.comp.ir.IRControl;
-import com.tscript.runtime.jit.comp.ir.IRControlVisitor;
-import com.tscript.runtime.jit.comp.ir.IRValue;
+import com.tscript.runtime.jit.comp.ir.*;
 
-import java.util.Collections;
 import java.util.List;
 
+/**
+ * The back edge of a loop: jumps back to the loop header.
+ */
 public class LoopEndNode extends IRControl {
 
-    private final LoopHeadNode loopHeadCtrl;
-    private final List<IRControl> predecessors;
+    private final IRControl body;
+    private final LoopHeadNode loopHead;
 
     public LoopEndNode(Graph graph, IRControl body, LoopHeadNode head) {
         super(graph);
-
-        this.predecessors = List.of(body);
+        this.body = body;
+        this.loopHead = head;
         body.getSuccessors().add(this);
-
-        this.loopHeadCtrl = head;
+        head.setLoopEnd(this);
     }
 
     public LoopHeadNode getTarget() {
-        return loopHeadCtrl;
+        return loopHead;
     }
 
     @Override
     public List<IRControl> getPredecessors() {
-        return predecessors;
+        return List.of(body);
     }
 
     @Override
     public List<IRControl> getSuccessors() {
-        return Collections.singletonList(loopHeadCtrl);
-    }
-
-    @Override
-    public List<IRValue> getInputs() {
-        return List.of();
+        return List.of(loopHead);
     }
 
     @Override
     public <P, R> R accept(IRControlVisitor<P, R> visitor, P p) {
-        return null;
+        return visitor.visitLoopEnd(this, p);
     }
 }

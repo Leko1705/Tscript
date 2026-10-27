@@ -1,0 +1,24 @@
+module containers;
+
+var a = [];
+for var i in 0:500 do {
+    a = [i];
+}
+print(a);
+
+var arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+var s = 0;
+for var k in 0:300 do {
+    for var x in arr do {
+        s = s + x;
+    }
+}
+print(s);
+
+var idx = 0;
+for var k in 0:300 do {
+    idx = idx + arr[k % 10];
+    arr[k % 10] = k;
+}
+print(idx);
+print(arr);

@@ -90,7 +90,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
         ModuleProxy moduleProxy = new ModuleProxy(pool);
 
-        LoadedTypeArea typeArea = loadTypes(reader, functionArea, moduleProxy);
+        LoadedTypeArea typeArea = loadTypes(reader, functionArea, canonicalPath);
 
         moduleProxy.module = new LoadedModule(
                 file.getPath(),
@@ -216,7 +216,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         return instructions;
     }
 
-    private LoadedTypeArea loadTypes(LazyReader reader, LoadedFunctionArea functionArea, Module module) throws ModuleLoadingException {
+    private LoadedTypeArea loadTypes(LazyReader reader, LoadedFunctionArea functionArea, String moduleCanonicalPath) throws ModuleLoadingException {
         int typeAmount = Conversion.from2Bytes(reader.read(), reader.read());
         LoadedTypeArea area = new LoadedTypeArea(typeAmount);
 
@@ -253,7 +253,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
             int instanceMemberAmount = Conversion.from2Bytes(reader.read(), reader.read());
             Member[] instanceMembers = readMembers(reader, instanceMemberAmount);
 
-            area.virtualTypes[id] = new VirtualType(name, isAbstract, constructor, constructorVisibility, staticMembers, instanceMembers, module.getCanonicalPath());
+            area.virtualTypes[id] = new VirtualType(name, isAbstract, constructor, constructorVisibility, staticMembers, instanceMembers, moduleCanonicalPath);
             area.unloadedStaticBlocks[id] = staticBlock;
         }
 

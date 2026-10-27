@@ -1,58 +1,48 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
-import com.tscript.runtime.jit.comp.ir.IRValue;
-import com.tscript.runtime.jit.comp.ir.IRValueVisitor;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
+/**
+ * Allocates a new dictionary. Inputs are key0, value0, key1, value1, ...
+ */
 public class Dict extends IRValue {
 
-    private final List<IRValue> keys;
-    private final List<IRValue> values;
-    private final List<IRValue> all;
-
-
     public Dict(List<IRValue> keys, List<IRValue> values) {
-        this.keys = keys;
-        this.values = values;
-        this.all = new ArrayList<>(this.keys);
-        this.all.addAll(this.values);
-        for (IRValue key : keys) {
-            key.getUsers().add(this);
-        }
-        for (IRValue value : values) {
-            value.getUsers().add(this);
-        }
+        super(interleave(keys, values));
     }
 
-    @Override
-    public List<IRValue> getInputs() {
+    private static List<IRValue> interleave(List<IRValue> keys, List<IRValue> values) {
+        List<IRValue> all = new ArrayList<>();
+        for (int i = 0; i < keys.size(); i++) {
+            all.add(keys.get(i));
+            all.add(values.get(i));
+        }
         return all;
     }
 
-    public List<IRValue> getKeys() {
-        return keys;
+    public int size() {
+        return inputCount() / 2;
     }
 
-    public List<IRValue> getValues() {
-        return values;
+    public IRValue getKey(int i) {
+        return input(2 * i);
     }
 
-    public List<IRValue> getAll() {
-        return getInputs();
+    public IRValue getValue(int i) {
+        return input(2 * i + 1);
     }
 
     @Override
-    protected void updateSpecificFields(IRValue oldInput, IRValue newInput) {
-        Collections.replaceAll(keys, oldInput, newInput);
-        Collections.replaceAll(values, oldInput, newInput);
+    public boolean isFixed() {
+        return true;
     }
 
     @Override
     public <P, R> R accept(IRValueVisitor<P, R> visitor, P p) {
         return visitor.visitDict(this, p);
     }
-
 }

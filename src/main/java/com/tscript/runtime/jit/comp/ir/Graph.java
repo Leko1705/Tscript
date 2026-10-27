@@ -4,63 +4,64 @@ import com.tscript.runtime.jit.caching.ObjectCache;
 import com.tscript.runtime.jit.comp.analysis.Typing;
 import com.tscript.runtime.jit.comp.ir.nodes.*;
 import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
-import com.tscript.runtime.jit.tracing.SnapshotShape;
-import com.tscript.runtime.typing.Callable;
+import com.tscript.runtime.typing.TObject;
 
 import java.util.*;
 
-// https://github.com/SeaOfNodes/Simple/blob/main/chapter01/README.md
+/**
+ * A sea of nodes graph (https://github.com/SeaOfNodes/Simple).
+ * <p>
+ * Value nodes float freely and are connected only by their data dependencies, except for fixed
+ * nodes which are pinned into the effect chain by an {@link Anchor}. Effects form a linear chain
+ * starting at {@link #startEffect()}. Control nodes describe the coarse control flow: a start,
+ * loop headers (marked in the effect chain by {@link LoopBegin}) and the exit of the graph
+ * (a {@link Return} or a {@link LoopEndNode}).
+ */
 public class Graph {
 
-    private final Map<GVNEntry, IRValue> values = new HashMap<>();
-    
+    private final Map<GVNEntry, IRValue> valueNumbers = new HashMap<>();
+
     private final Builder builder;
     private final TypeMap typeMap;
     private final CanonicalizerTool canonicalizerTool;
-    
-    private IRControl startControl;
 
-    private final IREffect startEffect;
+    private final StartControl startControl;
+    private final StartEffect startEffect;
+    private final List<LoopHeadNode> loops = new ArrayList<>();
 
+    private IRControl exitControl;
 
     public Graph() {
-
         this.startControl = new StartControl(this);
-        this.startEffect = new StartEffect(startControl, this);
-
-        this.builder = new Builder();
+        this.startEffect = new StartEffect(startControl);
         this.typeMap = new TypeMap();
         this.canonicalizerTool = new CanonicalizerTool(this);
+        this.builder = new Builder();
     }
 
-    public IRControl startControl() {
+    public StartControl startControl() {
         return startControl;
-    }
-
-    public void setStartControl(IRControl startControl) {
-        this.startControl = startControl;
     }
 
     public IREffect startEffect() {
         return startEffect;
     }
 
-    public List<IREffect> getEffectsOf(IRControl control) {
-        IREffect e = startEffect;
-        while (e != null && e.control != control)
-            e = e.next;
-        List<IREffect> effects = new ArrayList<>();
-        while (e != null && e.control == control) {
-            effects.add(e);
-            e = e.next;
-        }
-        return Collections.unmodifiableList(effects);
+    /**
+     * @return the exit of this graph (a {@link Return} or a {@link LoopEndNode}) or null if the graph is incomplete
+     */
+    public IRControl exitControl() {
+        return exitControl;
     }
 
     public Collection<IRControl> exitControls() {
-        return controls().stream().filter(c -> c.getSuccessors().isEmpty()).toList();
+        return exitControl == null ? List.of() : List.of(exitControl);
     }
-    
+
+    public List<LoopHeadNode> loops() {
+        return Collections.unmodifiableList(loops);
+    }
+
     public Builder builder() {
         return builder;
     }
@@ -69,77 +70,165 @@ public class Graph {
         return typeMap;
     }
 
+    public CanonicalizerTool canonicalizerTool() {
+        return canonicalizerTool;
+    }
+
+    public List<IREffect> effects() {
+        List<IREffect> effects = new ArrayList<>();
+        for (IREffect e = startEffect; e != null; e = e.next) effects.add(e);
+        return effects;
+    }
+
+    public List<IREffect> getEffectsOf(IRControl control) {
+        List<IREffect> effects = new ArrayList<>();
+        for (IREffect e = startEffect; e != null; e = e.next) {
+            if (e.control == control) effects.add(e);
+        }
+        return effects;
+    }
+
+    /**
+     * @return all value nodes reachable from effects and controls, inputs before users
+     */
+    public List<IRValue> values() {
+        List<IRValue> order = new ArrayList<>();
+        Set<IRValue> visited = new HashSet<>();
+        List<IRNode> roots = new ArrayList<>(effects());
+        if (exitControl != null) roots.add(exitControl);
+        for (LoopHeadNode loop : loops) roots.addAll(loop.getPhis());
+        for (IRNode root : roots) {
+            if (root instanceof IRValue v) visit(v, visited, order);
+            else for (IRValue input : root.getInputs()) visit(input, visited, order);
+        }
+        return order;
+    }
+
+    private static void visit(IRValue root, Set<IRValue> visited, List<IRValue> order) {
+        // iterative post order to survive long dependency chains
+        Deque<Object[]> stack = new ArrayDeque<>();
+        if (!visited.add(root)) return;
+        stack.push(new Object[]{root, 0});
+        while (!stack.isEmpty()) {
+            Object[] top = stack.peek();
+            IRValue node = (IRValue) top[0];
+            int i = (int) top[1];
+            List<IRValue> inputs = node.getInputs();
+            if (i < inputs.size()) {
+                top[1] = i + 1;
+                IRValue input = inputs.get(i);
+                if (visited.add(input)) stack.push(new Object[]{input, 0});
+            }
+            else {
+                stack.pop();
+                order.add(node);
+            }
+        }
+    }
+
+    /**
+     * Rebuilds the value numbering table from the reachable nodes.
+     * Must be called after nodes were rewired by optimizations.
+     */
+    public void rehash() {
+        valueNumbers.clear();
+        for (IRValue value : values()) {
+            if (value.isGVNable() && !value.isDead()) {
+                valueNumbers.putIfAbsent(new GVNEntry(value), value);
+            }
+        }
+    }
+
     private IRValue unique(IRValue value) {
         IRValue simplified = value.canonicalize(canonicalizerTool);
         if (simplified != value) {
-            value.unlink();
-            // assuming the new simplified node
-            // was created by the builder
-            // which calls unique() itself
-            return unique(simplified);
+            // the simplified node was either created by the builder (and therefore
+            // already uniqued) or it is an existing node of the graph
+            value.kill();
+            return simplified;
+        }
+
+        if (value.isFixed()) {
+            builder.append(new Anchor(value, builder.currentControl, builder.line));
+            return value;
+        }
+
+        if (!value.isGVNable()) {
+            return value;
         }
 
         GVNEntry key = new GVNEntry(value);
-        IRValue existing = values.get(key);
+        IRValue existing = valueNumbers.get(key);
 
-        if (existing != null) {
-            value.unlink();
+        if (existing != null && !existing.isDead()) {
+            value.kill();
             return existing;
         }
-        else {
-            values.put(key, value);
-            return value;
+
+        valueNumbers.put(key, value);
+        return value;
+    }
+
+    public void dump(StringBuilder sb) {
+        sb.append("values:\n");
+        for (IRValue value : values()) {
+            sb.append("  ").append(value).append(" : ").append(typeMap.getType(value)).append('\n');
         }
-    }
-
-    public Collection<IRValue> values() {
-        return values.values();
-    }
-
-    public Set<IRControl> controls() {
-        Set<IRControl> visited = new HashSet<>();
-        Queue<IRControl> queue = new LinkedList<>();
-
-        queue.add(startControl);
-
-        while (!queue.isEmpty()) {
-            IRControl control = queue.remove();
-            if (visited.contains(control)) continue;
-            visited.add(control);
-            queue.addAll(control.getSuccessors());
+        sb.append("effects:\n");
+        for (IREffect effect : effects()) {
+            sb.append("  ").append(effect).append('\n');
         }
-
-        return Collections.unmodifiableSet(visited);
+        sb.append("exit: ");
+        if (exitControl instanceof Return r) sb.append("return #").append(r.getValue().id);
+        else if (exitControl instanceof Exit x) sb.append("exit to interpreter ").append(x.getState()).append(' ').append(x.getInputs());
+        else if (exitControl instanceof LoopEndNode end) {
+            sb.append("loop end -> ip ").append(end.getTarget().ip).append(" phis:");
+            for (Phi phi : end.getTarget().getPhis()) sb.append(' ').append(phi);
+        }
+        else sb.append(exitControl);
+        sb.append('\n');
     }
 
-    
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        dump(sb);
+        return sb.toString();
+    }
+
+
     public class Builder {
 
         private IRControl currentControl;
         private IREffect currentEffect;
-        private final Map<IRControl, Map<Integer, IRValue>> localSsaPerControl;
-        private final Deque<IRValue> stack;
+        private int line = -1;
 
         private Builder() {
             this.currentControl = startControl;
             this.currentEffect = startEffect;
-            this.localSsaPerControl = new HashMap<>();
-            this.stack = new ArrayDeque<>();
         }
 
-
-        public void push(IRValue value) {
-            stack.push(value);
+        void append(IREffect effect) {
+            currentEffect.insertAfter(effect);
+            currentEffect = effect;
         }
 
-        public IRValue pop() {
-            return stack.remove();
+        /**
+         * Sets the source line that is attached to subsequently created effects.
+         */
+        public void setLine(int line) {
+            this.line = line;
         }
 
-        public IRValue peek() {
-            return stack.element();
+        public IRControl currentControl() {
+            return currentControl;
         }
 
+        public IREffect currentEffect() {
+            return currentEffect;
+        }
+
+        /* ---------------- constants ---------------- */
 
         public IRValue integer(int value) {
             return unique(new Int(value));
@@ -161,21 +250,37 @@ public class Graph {
             return unique(new NullValue());
         }
 
-        public IRValue range(IRValue from, IRValue to) {
-            return unique(new Range(from, to));
+        public IRValue constant(TObject object) {
+            return unique(new Constant(ObjectCache.putId(object)));
         }
 
-        public IRValue array(List<IRValue> values) {
-            return unique(new Array(values));
-        }
-
-        public IRValue dict(List<IRValue> keys, List<IRValue> values) {
-            return unique(new Dict(keys, values));
+        public IRValue builtin(int address) {
+            return unique(new Builtin(address));
         }
 
         public IRValue type(com.tscript.runtime.typing.Type type) {
             return unique(new Type(ObjectCache.putId(type)));
         }
+
+        /* ---------------- entry values ---------------- */
+
+        public IRValue thisValue() {
+            return unique(new This());
+        }
+
+        public IRValue local(int index) {
+            return unique(new Local(index));
+        }
+
+        public IRValue stackValue(int index) {
+            return unique(new StackValue(index));
+        }
+
+        public IRValue parameter(int index, IRType type) {
+            return unique(new Parameter(index, type));
+        }
+
+        /* ---------------- operations ---------------- */
 
         public IRValue add(IRValue lhs, IRValue rhs) {
             return unique(new Add(lhs, rhs));
@@ -211,22 +316,10 @@ public class Graph {
 
         public IRValue or(IRValue lhs, IRValue rhs) {
             return unique(new Or(lhs, rhs));
-       }
+        }
 
         public IRValue xor(IRValue lhs, IRValue rhs) {
             return unique(new Xor(lhs, rhs));
-        }
-
-        public IRValue equals(IRValue lhs, IRValue rhs) {
-            return unique(new Equals(lhs, rhs));
-        }
-
-        public IRValue lt(IRValue lhs, IRValue rhs) {
-            return unique(new Lt(lhs, rhs, Graph.this));
-        }
-
-        public IRValue gt(IRValue lhs, IRValue rhs) {
-            return unique(new Gt(lhs, rhs));
         }
 
         public IRValue shl(IRValue lhs, IRValue rhs) {
@@ -241,6 +334,26 @@ public class Graph {
             return unique(new Ushr(lhs, rhs));
         }
 
+        public IRValue lt(IRValue lhs, IRValue rhs) {
+            return unique(new Lt(lhs, rhs));
+        }
+
+        public IRValue gt(IRValue lhs, IRValue rhs) {
+            return lt(rhs, lhs);
+        }
+
+        public IRValue leq(IRValue lhs, IRValue rhs) {
+            return unique(new Leq(lhs, rhs));
+        }
+
+        public IRValue geq(IRValue lhs, IRValue rhs) {
+            return leq(rhs, lhs);
+        }
+
+        public IRValue equals(IRValue lhs, IRValue rhs) {
+            return unique(new Equals(lhs, rhs));
+        }
+
         public IRValue not(IRValue value) {
             return unique(new Not(value));
         }
@@ -253,258 +366,243 @@ public class Graph {
             return unique(new Pos(value));
         }
 
-        public IRValue call(IRValue called, List<IRValue> args) {
-            return unique(new Call(called, args));
-        }
-
-        public IRValue builtin(int address) {
-            return unique(new Builtin(address));
-        }
-
-        public IRValue thisValue() {
-            return unique(new This());
-        }
-
         public IRValue typeof(IRValue value) {
             return unique(new Typeof(value));
         }
 
-        public IRValue parameter(int index) {
-            return unique(new Parameter(index));
+        public IRValue isType(IRValue value, IRType type) {
+            return unique(new IsType(value, type));
         }
 
-        public IRValue stringify(IRValue arg) {
-            return unique(new ToString(arg));
+        public IRValue truthy(IRValue value) {
+            return unique(new Truthy(value));
         }
 
-        public boolean isDefinedLocal(int address) {
-            Map<Integer, IRValue> variables = getSsa(currentControl);
-            return variables.containsKey(address);
+        public IRValue isSelf(IRValue value) {
+            return unique(new IsSelf(value));
         }
 
-        public IRValue loadLocal(int address) {
-            Map<Integer, IRValue> variables = getSsa(currentControl);
-            if (variables.containsKey(address)) {
-                return variables.get(address);
-            }
-            else {
-                return loadVLocal(address);
-            }
+        public IRValue range(IRValue from, IRValue to) {
+            return unique(new Range(from, to));
         }
 
-        public IRValue loadVLocal(int address) {
-            return unique(new Local(address));
+        /* ---------------- fixed values ---------------- */
+
+        public IRValue pi(IRValue value, IRType type) {
+            return unique(new Pi(value, type));
         }
 
-        public void storeLocal(int address, IRValue value) {
-            getSsa(currentControl).put(address, value);
+        public IRValue array(List<IRValue> values) {
+            return unique(new Array(values));
         }
 
-        public IRValue loadGlobal(int address, boolean mutable) {
-            return unique(new Global(address, mutable));
+        public IRValue dict(List<IRValue> keys, List<IRValue> values) {
+            return unique(new Dict(keys, values));
         }
 
-        public Phi phi(IRValue... args) {
-            return (Phi) unique(new Phi(args));
+        public IRValue call(IRValue called, List<IRValue> args, int line) {
+            return unique(new Call(called, args, line));
         }
 
-        public IRControl merge(IRControl left, IRControl right) {
-            IRControl mergeCtrl = new MergeControl(Graph.this, left, right);
-
-            Map<Integer, IRValue> leftSsa = getSsa(left);
-            Map<Integer, IRValue> rightSsa = getSsa(right);
-            Map<Integer, IRValue> merged = new HashMap<>();
-
-            Set<Integer> allVars = new HashSet<>(leftSsa.keySet());
-            allVars.addAll(rightSsa.keySet());
-
-            for (Integer var : allVars) {
-                IRValue v1 = leftSsa.get(var);
-                IRValue v2 = rightSsa.get(var);
-
-                if (v1 == null) {
-                    merged.put(var, v2);
-                    continue;
-                }
-
-                if (v2 == null) {
-                    merged.put(var, v1);
-                    continue;
-                }
-
-                if (v1 == v2) {
-                    merged.put(var, v1);
-                    continue;
-                }
-
-                IRValue mergedValue = unique(new Phi(v1, v2));
-                merged.put(var, mergedValue);
-            }
-
-            localSsaPerControl.put(mergeCtrl, merged);
-            return mergeCtrl;
+        public IRValue loadGlobal(int index) {
+            return unique(new Global(index));
         }
 
-        public Map<Integer, IRValue> getSsa(IRControl control) {
-            return localSsaPerControl.computeIfAbsent(control, c -> new HashMap<>());
+        public IRValue getIterator(IRValue iterable) {
+            return unique(new GetIterator(iterable));
         }
 
-        public IREffect guardBool(IRValue condition, int ip, int sp) {
-            return createGuard(ip, sp,
-                    (snapshotShape, locals, stack)
-                            -> new GuardBool(
-                                    condition, snapshotShape,
-                                    locals, stack, currentEffect,
-                                    currentControl, Graph.this));
+        public IRValue iterHasNext(IRValue iterator) {
+            return unique(new IterHasNext(iterator));
         }
 
-        public IREffect guardFunctionIdentity(IRValue value, Callable func, int ip, int sp) {
-            int identity = ObjectCache.putId(func.getMetadata());
-            return createGuard(ip, sp,
-                    (snapshotShape, locals, stack)
-                            -> new GuardFunctionIdentity(
-                            value, identity, snapshotShape,
-                            locals, stack, currentEffect,
-                            currentControl, Graph.this));
+        public IRValue iterNext(IRValue iterator) {
+            return unique(new IterNext(iterator));
         }
 
-        private interface GuardFactory {
-            Guard create(SnapshotShape snapshotShape, IRValue[] locals, IRValue[] stack);
+        public IRValue containerRead(IRValue container, IRValue key) {
+            return unique(new ContainerRead(container, key));
         }
 
-        private IREffect createGuard(int ip, int sp, GuardFactory factory) {
-            Map<Integer, IRValue> knownModifiedLocals = getSsa(currentControl);
+        /* ---------------- effects ---------------- */
 
-            IRValue[] locals = new IRValue[knownModifiedLocals.size()];
-            int[] localsMapping = new int[knownModifiedLocals.size()];
-
-            int i = 0;
-            for (Map.Entry<Integer, IRValue> entry : knownModifiedLocals.entrySet()) {
-                locals[i] = entry.getValue();
-                localsMapping[i] = entry.getKey();
-                i++;
-            }
-
-            IRValue[] stack = new IRValue[this.stack.size()];
-            int[] stackMapping = new int[this.stack.size()];
-
-            i = this.stack.size() - 1;
-            for (IRValue value : this.stack) {
-                stack[i] = value;
-                stackMapping[i] = i;
-                i--;
-            }
-
-            SnapshotShape shape = new SnapshotShape(ip, sp, localsMapping, stackMapping);
-            return connectEffects(factory.create(shape, locals, stack));
+        public GuardBool guard(IRValue condition, FrameState state, List<IRValue> locals, List<IRValue> stack) {
+            GuardBool guard = new GuardBool(condition, state, locals, stack, currentControl);
+            append(guard);
+            return guard;
         }
 
-        public IREffect startEffect() {
-            return new StartEffect(currentControl, Graph.this);
+        public void storeGlobal(int index, IRValue value) {
+            append(new StoreGlobal(index, value, currentControl, line));
         }
 
-        public IREffect valueEffect(IRValue value) {
-            return connectEffects(new ValueEffect(value, currentEffect, currentControl, Graph.this));
+        public void containerWrite(IRValue container, IRValue key, IRValue value) {
+            append(new ContainerWrite(container, key, value, currentControl, line));
         }
 
-        public IREffect newLine(int line) {
-            return connectEffects(new NewLine(line, currentEffect, currentControl, Graph.this));
+        /* ---------------- control ---------------- */
+
+        public LoopHeadNode beginLoop(int ip) {
+            LoopHeadNode loop = new LoopHeadNode(Graph.this, currentControl, ip);
+            loops.add(loop);
+            currentControl = loop;
+            append(new LoopBegin(loop));
+            return loop;
         }
 
-        public IREffect pushFrame(IRValue called) {
-            return connectEffects(new PushFrame(called, currentEffect, currentControl, Graph.this));
+        public Phi phi(LoopHeadNode loop, IRValue entry) {
+            return new Phi(loop, entry);
         }
 
-        public IREffect popFrame() {
-            return connectEffects(new PopFrame(currentEffect, currentControl, Graph.this));
+        public LoopEndNode closeLoop(LoopHeadNode loop) {
+            LoopEndNode end = new LoopEndNode(Graph.this, currentControl, loop);
+            exitControl = end;
+            return end;
         }
 
-
-
-        private IREffect connectEffects(IREffect next) {
-            if (currentEffect.next != null) {
-                throw new IllegalStateException("Can not set multiple successors for IREffect");
-            }
-            currentEffect.insertAfter(next);
-            currentEffect = next;
-            return next;
+        public Exit exit(FrameState state, List<IRValue> locals, List<IRValue> stack) {
+            Exit exit = new Exit(state, locals, stack, currentControl, Graph.this);
+            exitControl = exit;
+            return exit;
         }
 
-        public IRControl startControl() {
-            return new StartControl(Graph.this);
-        }
-
-        public IRControl returnControl(IRValue value) {
-            return new Return(value, currentControl, Graph.this);
-        }
-
-        public IRControl ifElseControl(IRValue condition) {
-            return new IfElse(currentControl, condition, startControl(), startControl(), Graph.this);
-        }
-
-        public void setCurrentControl(IRControl control) {
-            currentControl = Objects.requireNonNull(control);
-        }
-
-        public IRControl currentControl() {
-            return currentControl;
+        public Return returnValue(IRValue value) {
+            Return ret = new Return(value, currentControl, Graph.this);
+            exitControl = ret;
+            return ret;
         }
     }
 
+    /**
+     * Has to be called once the graph was completely built. Removes the phis of loops that
+     * were never closed (degenerate loops) and redundant phis.
+     */
+    public void finish() {
+        for (LoopHeadNode loop : loops) {
+            for (Phi phi : new ArrayList<>(loop.getPhis())) {
+                if (!loop.isClosed()) {
+                    replacePhi(phi, phi.getEntry());
+                }
+            }
+        }
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (LoopHeadNode loop : loops) {
+                for (Phi phi : new ArrayList<>(loop.getPhis())) {
+                    IRValue unique = phi.redundantInput();
+                    if (unique != null) {
+                        replacePhi(phi, unique);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        typeMap.flush();
+    }
 
-    public static class TypeMap {
+    public void replacePhi(Phi phi, IRValue replacement) {
+        phi.replaceAllUsesWith(replacement);
+        phi.getLoop().getPhis().remove(phi);
+        phi.kill();
+    }
 
-        private final Map<IRValue, IRType> typeCache = new HashMap<>();
-        private final Map<IRValue, IRType> persistentTypes = new HashMap<>();
 
-        private TypeMap(){
+    /**
+     * Caches the inferred types of values. Must be flushed whenever the graph changes.
+     */
+    public class TypeMap {
+
+        private final Map<IRValue, IRType> cache = new HashMap<>();
+
+        private final Map<Phi, IRType> assumptions = new HashMap<>();
+        private final Map<IRValue, IRType> optimisticCache = new HashMap<>();
+
+        private TypeMap() {
         }
 
         public IRType getType(IRValue value) {
-            if (typeCache.containsKey(value)) {
-                return typeCache.get(value);
-            }
-            return Typing.infer(value, this);
-        }
+            IRType type = cache.get(value);
+            if (type != null) return type;
 
-        public IRType put(IRValue value, IRType type) {
-            typeCache.put(value, type);
+            if (!assumptions.isEmpty()) {
+                type = optimisticCache.get(value);
+                if (type != null) return type;
+            }
+
+            if (value instanceof Phi phi) {
+                type = inferPhi(phi);
+            }
+            else {
+                type = Typing.infer(value, this);
+            }
+
+            if (assumptions.isEmpty()) cache.put(value, type);
+            else optimisticCache.put(value, type);
             return type;
         }
 
-        public void putPersistent(IRValue value, IRType type) {
-            persistentTypes.put(value, type);
+        private IRType inferPhi(Phi phi) {
+            if (!phi.isComplete()) {
+                // the type of the loop carried value is unknown until the loop is closed
+                return UnknownTypeHolder.UNKNOWN;
+            }
+
+            IRType assumed = assumptions.get(phi);
+            if (assumed != null) return assumed;
+
+            IRType current = getType(phi.getEntry());
+            for (int i = 0; i < 8; i++) {
+                assumptions.put(phi, current);
+                optimisticCache.clear();
+                IRType back = getType(phi.getBackedge());
+                IRType joined = join(current, back);
+                if (joined.equals(current)) {
+                    assumptions.remove(phi);
+                    if (assumptions.isEmpty()) optimisticCache.clear();
+                    return current;
+                }
+                current = joined;
+            }
+            assumptions.remove(phi);
+            if (assumptions.isEmpty()) optimisticCache.clear();
+            return UnknownTypeHolder.UNKNOWN;
         }
 
-        public IRType remove(IRValue key) {
-            return typeCache.remove(key);
+        private IRType join(IRType a, IRType b) {
+            if (a.equals(b)) return a;
+            if (a == UnknownTypeHolder.UNKNOWN || b == UnknownTypeHolder.UNKNOWN) return UnknownTypeHolder.UNKNOWN;
+            return com.tscript.runtime.jit.comp.ir.types.UnionType.mixup(a, b);
         }
 
         public void flush() {
-            typeCache.clear();
-            typeCache.putAll(persistentTypes);
+            cache.clear();
+            optimisticCache.clear();
         }
+    }
+
+    private static final class UnknownTypeHolder {
+        static final IRType UNKNOWN = com.tscript.runtime.jit.comp.ir.types.UnknownType.INSTANCE;
     }
 
 
     private static final class GVNEntry {
-        IRValue node;
+        private final IRValue node;
+        private final int hash;
 
-        public GVNEntry(IRValue node) {
+        GVNEntry(IRValue node) {
             this.node = node;
+            this.hash = node.valueHashCode();
         }
 
         @Override
         public int hashCode() {
-            return node.valueHashCode();
+            return hash;
         }
 
         @Override
         public boolean equals(Object obj) {
-            if (obj instanceof GVNEntry other) {
-                return node.valueEquals(other.node);
-            }
-            return false;
+            return obj instanceof GVNEntry other && node.valueEquals(other.node);
         }
     }
 

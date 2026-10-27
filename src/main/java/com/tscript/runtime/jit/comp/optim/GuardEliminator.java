@@ -1,26 +1,34 @@
 package com.tscript.runtime.jit.comp.optim;
 
-import com.tscript.runtime.jit.comp.ir.Graph;
-import com.tscript.runtime.jit.comp.ir.IREffect;
-import com.tscript.runtime.jit.comp.ir.IRValue;
-import com.tscript.runtime.jit.comp.ir.nodes.Bool;
-import com.tscript.runtime.jit.comp.ir.nodes.GuardBool;
-import com.tscript.runtime.jit.comp.ir.stamps.BoolStamp;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.ir.nodes.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
+/**
+ * Removes guards that can never fail:
+ * <ul>
+ *     <li>guards whose condition is the constant true</li>
+ *     <li>guards whose condition was already checked by an earlier guard. Since the effect chain
+ *     is linear, an earlier guard dominates all later ones.</li>
+ * </ul>
+ */
 public class GuardEliminator implements IROptimizer {
 
     @Override
     public boolean optimize(Graph graph) {
         boolean optimized = false;
+        Set<IRValue> checked = new HashSet<>();
 
-        for (IREffect e = graph.startEffect(); e != null; e = e.next) {
+        for (IREffect e : graph.effects()) {
             if (e instanceof GuardBool g) {
-                IRValue value = g.getValue();
-
-                boolean isTrueConst = (value instanceof Bool b && b.getValue() == true);
-                boolean alwaysTrueStamp = (value.stamp instanceof BoolStamp b && b.canBeTrue && !b.canBeFalse);
-
-                if (isTrueConst || alwaysTrueStamp) {
+                IRValue condition = g.getCondition();
+                if (condition instanceof Bool b && b.value) {
+                    g.remove();
+                    optimized = true;
+                }
+                else if (!checked.add(condition)) {
                     g.remove();
                     optimized = true;
                 }

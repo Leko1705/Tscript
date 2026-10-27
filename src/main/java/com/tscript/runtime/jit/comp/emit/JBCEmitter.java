@@ -9,33 +9,32 @@ import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
 
 import java.io.PrintWriter;
+import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Emits graphs as JVM bytecode and loads them as {@link NativeImage}s.
+ */
 public class JBCEmitter implements Emitter {
 
-    private static long imageId = 0;
+    private static final AtomicLong imageId = new AtomicLong();
 
     private static String nextImageClassName() {
-        return "NativeImage$" + imageId++;
+        return "NativeImage$" + imageId.getAndIncrement();
     }
 
 
     @Override
     public NativeImage emit(JITCompiler compiler, Graph graph) {
         String className = nextImageClassName();
-        byte[] bytecode = generateImageJBC(className, compiler, graph);
+        byte[] bytecode = new EmitterImpl(className, graph).emit();
+        if (compiler.getConfiguration().debug()) {
+            printJBC(bytecode);
+        }
         return loadImageInstance(bytecode);
-    }
-
-    private byte[] generateImageJBC(String className, JITCompiler compiler, Graph graph) {
-        EmitterImpl impl = new EmitterImpl(className, compiler, graph);
-        return impl.emit();
     }
 
     private NativeImage loadImageInstance(byte[] bytecode) {
         OneWayClassLoader classLoader = new OneWayClassLoader();
-
-        printJBC(bytecode);
-
         try {
             Class<?> clazz = classLoader.defineClass(bytecode);
             return (NativeImage) clazz.getConstructor().newInstance();
@@ -46,7 +45,9 @@ public class JBCEmitter implements Emitter {
     }
 
     private static void printJBC(byte[] bytecode) {
-        new ClassReader(bytecode).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(System.err)), 0);
+        PrintWriter writer = new PrintWriter(System.err);
+        new ClassReader(bytecode).accept(new TraceClassVisitor(null, new Textifier(), writer), 0);
+        writer.flush();
     }
 
 
@@ -54,6 +55,11 @@ public class JBCEmitter implements Emitter {
     // If the class reference is not held by a class loader it is garbage collected if
     // is not needed anymore.
     private static class OneWayClassLoader extends ClassLoader {
+
+        OneWayClassLoader() {
+            super(JBCEmitter.class.getClassLoader());
+        }
+
         public Class<?> defineClass(byte[] b) {
             return defineClass(null, b, 0, b.length);
         }

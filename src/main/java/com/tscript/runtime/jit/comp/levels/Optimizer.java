@@ -14,6 +14,7 @@ public class Optimizer {
 
             for (IROptimizer optimizer : optimizers) {
                 optimized |= optimizer.optimize(graph);
+                graph.typeMap().flush();
             }
 
             if (!optimized) break;
