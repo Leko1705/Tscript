@@ -1,0 +1,43 @@
+module complex;
+
+class Complex {
+    public:
+    var re;
+    var im;
+    constructor(re, im) {
+        this.re = re;
+        this.im = im;
+    }
+    function plus(o) {
+        return Complex(re + o.re, im + o.im);
+    }
+    function mul(o) {
+        return Complex(re * o.re - im * o.im, re * o.im + im * o.re);
+    }
+    function absSq() {
+        return re * re + im * im;
+    }
+}
+
+function escapeTime(c, limit) {
+    var z = Complex(0.0, 0.0);
+    var n = 0;
+    while n < limit and z.absSq() < 4.0 do {
+        z = z.mul(z).plus(c);
+        n = n + 1;
+    }
+    return n;
+}
+
+function mandelbrot(size, limit) {
+    var total = 0;
+    for var y in 0:size do {
+        for var x in 0:size do {
+            var c = Complex(x * 3.0 / size - 2.0, y * 3.0 / size - 1.5);
+            total = total + escapeTime(c, limit);
+        }
+    }
+    return total;
+}
+
+print(mandelbrot(120, 200));

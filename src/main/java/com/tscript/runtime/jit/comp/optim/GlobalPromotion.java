@@ -24,7 +24,8 @@ public class GlobalPromotion implements IROptimizer {
     public boolean optimize(Graph graph) {
         boolean changed = false;
         for (IREffect effect : graph.effects()) {
-            if (effect instanceof LoopBegin begin && begin.getLoop().isClosed() && begin.getLoop().getEntryState() != null) {
+            if (effect instanceof LoopBegin begin && begin.getLoop().isClosed() && begin.getLoop().getEntryState() != null
+                    && !ObjectScalarReplacement.containsRemovedAllocation(begin.getLoop().getEntryValues())) {
                 changed |= promote(graph, begin);
             }
         }

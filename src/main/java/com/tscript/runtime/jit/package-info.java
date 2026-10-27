@@ -72,6 +72,10 @@
  * never allocated ({@link com.tscript.runtime.jit.comp.optim.ObjectScalarReplacement}): reads of
  * their members are replaced by the values written before, and every guard whose state refers to
  * such an object records its member values, so that the object is created only if that guard fails.
+ * Super constructor calls are inlined as well (the super objects are parts of the instance, reached
+ * with {@code GetSuper}). Objects carried from one iteration to the next ({@code v = v.plus(w)}) are
+ * handled by {@link com.tscript.runtime.jit.comp.optim.ObjectPhiSplitting}: the loop phi of the
+ * object is replaced by phis of its members.
  *
  * <h2>Configuration</h2>
  * System properties: {@code tscript.jit.threshold} (L1, default 100), {@code tscript.jit.threshold2}

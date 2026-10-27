@@ -18,6 +18,25 @@ class Vec {
     }
 }
 
+class Acc {
+    public:
+    var total;
+    var count;
+    constructor(total, count) {
+        this.total = total;
+        this.count = count;
+    }
+    function add(v) {
+        return Acc(total + v, count + 1);
+    }
+    function bump() {
+        count = count + 1;
+    }
+    function mean() {
+        return total / count;
+    }
+}
+
 class Counter {
     public:
     var n = 0;
@@ -98,6 +117,49 @@ function carried(n) {
     return [v.x, v.y];
 }
 
+# carried objects: a member changes its type in a late iteration (created on deoptimization)
+function carriedTypeChange(n) {
+    var a = Acc(0, 0);
+    for var i in 0:n do {
+        var v = i;
+        if i == n - 7 then v = 0.25;
+        a = a.add(v);
+    }
+    return [a.total, a.count, a.mean()];
+}
+
+# carried objects that are changed in the loop (not split, but must stay correct)
+function carriedMutated(n) {
+    var a = Acc(0, 0);
+    for var i in 0:n do {
+        a = a.add(i);
+        a.bump();
+    }
+    return [a.total, a.count];
+}
+
+# carried objects that escape in some iterations
+function carriedEscapes(n) {
+    var a = Acc(0, 0);
+    var kept = [];
+    for var i in 0:n do {
+        a = a.add(1);
+        if i % 1000 == 0 then kept.push(a);
+    }
+    var s = 0;
+    for var k in kept do s = s + k.count;
+    return [s, a.count, kept.size()];
+}
+
+# the carried object is used after the loop (identity of an escaping object)
+function carriedAfterLoop(n) {
+    var a = Acc(0, 0);
+    for var i in 0:n do a = a.add(2);
+    var b = a;
+    b.bump();
+    return [a.count, b.count, a.total];
+}
+
 # a member that is read before the constructor wrote it
 function uninitialized(n) {
     var s = 0;
@@ -115,3 +177,7 @@ print(sometimesEscapes(3000));
 print(aliases(3000));
 print(carried(3000));
 print(uninitialized(3000));
+print(carriedTypeChange(3000));
+print(carriedMutated(3000));
+print(carriedEscapes(3000));
+print(carriedAfterLoop(3000));

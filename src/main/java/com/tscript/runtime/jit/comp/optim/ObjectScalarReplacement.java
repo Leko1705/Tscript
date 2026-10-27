@@ -43,11 +43,26 @@ public class ObjectScalarReplacement implements IROptimizer {
         return changed;
     }
 
+    /**
+     * @return true if the allocation could be removed if the given phi did not use it (see
+     * {@link ObjectPhiSplitting})
+     */
+    static boolean isRemovableExcept(Graph graph, NewObject object, Phi phi) {
+        for (IREffect effect : Canonicalizer.anchorsOf(object)) {
+            Analysis analysis = new Analysis(graph, (Anchor) effect, object);
+            analysis.allowedPhi = phi;
+            return analysis.check();
+        }
+        return false;
+    }
+
     private static final class Analysis {
 
         final Graph graph;
         final Anchor allocation;
         final NewObject object;
+        /** a phi that may use the object (dry run, see isRemovableExcept) */
+        Phi allowedPhi = null;
 
         /** the function objects owned by the object */
         final Set<IRValue> methods = new HashSet<>();
@@ -64,6 +79,22 @@ public class ObjectScalarReplacement implements IROptimizer {
             for (IRNode user : object.getUsers()) {
                 if (user instanceof NewFunction function && function.getOwner() == object) methods.add(function);
             }
+        }
+
+        /**
+         * Runs the analysis without changing the graph.
+         */
+        boolean check() {
+            for (int round = 0; round < 4; round++) {
+                stores.clear();
+                removedAnchors.clear();
+                snapshots.clear();
+                if (!walk()) return false;
+                int known = replacements.size();
+                if (escapes()) return false;
+                if (replacements.size() == known) return true;
+            }
+            return false;
         }
 
         boolean run() {
@@ -232,6 +263,10 @@ public class ObjectScalarReplacement implements IROptimizer {
                 boolean isMethod = isMethod(alias);
                 for (IRNode user : alias.getUsers()) {
                     if (user instanceof Anchor) continue;
+                    // the state on loop entry is only used by guards created with it (see
+                    // containsRemovedAllocation)
+                    if (user instanceof LoopHeadNode) continue;
+                    if (user == allowedPhi) continue;
                     if (user instanceof LoadMember || user instanceof StoreMember) {
                         if (replacements.containsKey(user) || stores.contains(user)) continue;
                         return true;
@@ -281,6 +316,21 @@ public class ObjectScalarReplacement implements IROptimizer {
                         + " (created at " + snapshots.size() + " exits)");
             }
         }
+    }
+
+    /**
+     * @return true if one of the values is an object (or part of one) whose allocation was removed.
+     * Such values can only be used by guards that know the state of the object, so no new guards
+     * with these values may be created.
+     */
+    public static boolean containsRemovedAllocation(List<IRValue> values) {
+        for (IRValue value : values) {
+            if ((value instanceof NewObject || value instanceof NewFunction || value instanceof GetSuper)
+                    && Canonicalizer.anchorsOf(value).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isIndexed(MemberAccess access) {
