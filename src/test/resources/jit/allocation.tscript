@@ -1,0 +1,117 @@
+module allocation;
+
+class Vec {
+    public:
+    var x;
+    var y;
+    var tag;
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        if x > 2990 then tag = "big";
+    }
+    function plus(other) {
+        return Vec(x + other.x, y + other.y);
+    }
+    function lensq() {
+        return x * x + y * y;
+    }
+}
+
+class Counter {
+    public:
+    var n = 0;
+    function inc() {
+        n = n + 1;
+        return this;
+    }
+}
+
+# temporaries that never escape
+function temporaries(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var a = Vec(i, 1);
+        var b = a.plus(Vec(1, i));
+        s = s + b.lensq() % 1000 + a.x;
+    }
+    return s;
+}
+
+# a member changes its type while the object is virtual: the object is created on deoptimization
+function typeChange(n) {
+    var s = 0;
+    var last = null;
+    for var i in 0:n do {
+        var v = Vec(i, 2);
+        if i == n - 3 then v.x = 0.5;
+        s = s + v.x * v.y;
+        last = v.x;
+    }
+    return [s, last];
+}
+
+# the branch in the constructor is taken late (deoptimization inside of the inlined constructor)
+function constructorBranch(n) {
+    var tags = 0;
+    for var i in 0:n do {
+        var v = Vec(i, 0);
+        if v.tag == "big" then tags = tags + 1;
+    }
+    return tags;
+}
+
+# the object escapes into an array in some iterations only
+function sometimesEscapes(n) {
+    var kept = [];
+    var s = 0;
+    for var i in 0:n do {
+        var v = Vec(i, i);
+        if i % 1000 == 999 then kept.push(v);
+        s = s + v.y;
+    }
+    var t = 0;
+    for var k in kept do t = t + k.x;
+    return [s, t, kept.size()];
+}
+
+# aliases, chained methods returning this, method values
+function aliases(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var c = Counter();
+        var d = c;
+        d.inc().inc();
+        var f = c.inc;
+        f();
+        s = s + c.n + d.n;
+    }
+    return s;
+}
+
+# objects carried into the next iteration escape (phi)
+function carried(n) {
+    var v = Vec(0, 0);
+    for var i in 0:n do {
+        v = v.plus(Vec(1, 2));
+    }
+    return [v.x, v.y];
+}
+
+# a member that is read before the constructor wrote it
+function uninitialized(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var v = Vec(1, 1);
+        if v.tag == null then s = s + 1;
+    }
+    return s;
+}
+
+print(temporaries(3000));
+print(typeChange(3000));
+print(constructorBranch(3000));
+print(sometimesEscapes(3000));
+print(aliases(3000));
+print(carried(3000));
+print(uninitialized(3000));

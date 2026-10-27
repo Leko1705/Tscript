@@ -13,6 +13,7 @@ public record L1(int threshold, boolean optimize) implements OptimizingLevel {
     private static final List<IROptimizer> optimizers = List.of(
             new GlobalPromotion(),
             new ScalarReplacement(),
+            new ObjectScalarReplacement(),
             new Canonicalizer(),
             new GuardHoisting(),
             new GuardEliminator(),

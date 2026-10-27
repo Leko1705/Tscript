@@ -93,6 +93,8 @@ public class DeadCodeEliminator implements IROptimizer {
                 || value instanceof Dict
                 || value instanceof NewRangeIterator
                 || value instanceof GetSuper
+                || value instanceof NewObject
+                || value instanceof NewFunction
                 || value instanceof LoadMember load && (load.access == MemberAccess.FIELD || load.access == MemberAccess.INTERNAL);
     }
 }

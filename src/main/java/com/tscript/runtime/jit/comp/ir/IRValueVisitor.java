@@ -100,6 +100,12 @@ public interface IRValueVisitor<P, R> {
 
     R visitGetSuper(GetSuper node, P p);
 
+    R visitNewObject(NewObject node, P p);
+
+    R visitNewFunction(NewFunction node, P p);
+
+    R visitIsIdentical(IsIdentical node, P p);
+
     R visitNewRangeIterator(NewRangeIterator node, P p);
 
     R visitIsCallee(IsCallee node, P p);

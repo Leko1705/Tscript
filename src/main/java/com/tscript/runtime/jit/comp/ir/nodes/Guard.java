@@ -9,13 +9,16 @@ import java.util.List;
  * A speculative check. If the check fails, the compiled code is left and the interpreter
  * continues at the state described by the frame state of this guard (deoptimization).
  * <p>
- * Inputs: [check specific inputs..., frame state values..., global write back values...]
+ * Inputs: [check specific inputs..., frame state values..., global write back values and
+ * virtual objects (in the order they were added)...]
  */
 public abstract class Guard extends IREffect implements StateCarrier {
 
     private final FrameState state;
     private final int ownInputs;
     private final List<GlobalRef> globalWrites = new ArrayList<>();
+    private final List<Integer> globalWriteInputs = new ArrayList<>();
+    private final List<VirtualObjectState> virtualObjects = new ArrayList<>();
 
     /** true if this guard checks a loop condition: its failure is the normal way to leave a loop */
     private boolean loopExit = false;
@@ -61,14 +64,28 @@ public abstract class Guard extends IREffect implements StateCarrier {
 
     @Override
     public List<IRValue> getGlobalWriteValues() {
-        int from = ownInputs + state.valueCount();
-        return getInputs().subList(from, from + globalWrites.size());
+        List<IRValue> values = new ArrayList<>(globalWriteInputs.size());
+        for (int input : globalWriteInputs) values.add(getInputs().get(input));
+        return values;
     }
 
     @Override
     public void addGlobalWrite(GlobalRef global, IRValue value) {
         globalWrites.add(global);
+        globalWriteInputs.add(getInputs().size());
         addInput(value);
+    }
+
+    @Override
+    public List<VirtualObjectState> getVirtualObjects() {
+        return virtualObjects;
+    }
+
+    @Override
+    public void addVirtualObject(NewObject object, int[] members, List<IRValue> values) {
+        virtualObjects.add(new VirtualObjectState(object, members, getInputs().size()));
+        addInput(object);
+        for (IRValue value : values) addInput(value);
     }
 
     public boolean isSideTraceable() {

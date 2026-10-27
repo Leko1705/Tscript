@@ -49,12 +49,13 @@ public class Canonicalizer implements IROptimizer {
     }
 
     static void replace(IRValue value, IRValue replacement) {
-        value.replaceAllUsesWith(replacement);
+        // the anchors of the value have to be removed first, otherwise they would anchor the replacement
         if (value.isFixed()) {
-            for (IREffect effect : new ArrayList<IREffect>(anchorsOf(value))) {
+            for (IREffect effect : anchorsOf(value)) {
                 effect.remove();
             }
         }
+        value.replaceAllUsesWith(replacement);
         value.kill();
     }
 

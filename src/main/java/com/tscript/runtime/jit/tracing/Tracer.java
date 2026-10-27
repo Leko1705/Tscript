@@ -962,8 +962,30 @@ public class Tracer extends InterpreterDecorator {
             return;
         }
 
+        if (callee instanceof VirtualType type && shouldInlineConstructor(type, argCount)) {
+            // object creation: allocate the object and continue in its constructor
+            guard(builder.isIdentical(called, type), state);
+            IRValue object = builder.newObject(type);
+            Function constructor = type.getDeclaredConstructor();
+            if (constructor == null) push(object);
+            else enterFrame((VirtualFunction) constructor, object, args);
+            return;
+        }
+
         IRValue call = builder.call(called, args);
         pendingCall = new PendingCall(call, ip + 1, frame.sp - argCount);
+    }
+
+    /**
+     * @return true if the instantiation of the given class should be inlined: the class has no
+     * super class (super constructor calls are not traced) and a public constructor that may be inlined
+     */
+    private boolean shouldInlineConstructor(VirtualType type, int argCount) {
+        if (type.getSuperType() != null || type.isAbstract()) return false;
+        if (type.getConstructorVisibility() != Visibility.PUBLIC) return false;
+        Function constructor = type.getDeclaredConstructor();
+        if (constructor == null) return argCount == 0;
+        return shouldInline(constructor, argCount);
     }
 
     private boolean shouldInline(TObject callee, int argCount) {
@@ -988,7 +1010,13 @@ public class Tracer extends InterpreterDecorator {
     private void enterInlined(VirtualFunction function, IRValue called, List<IRValue> args, State state) {
         int metadataId = ObjectCache.putId(function.getMetadata());
         guard(builder.isCallee(called, metadataId), state);
-        IRValue calleeOwner = builder.functionOwner(called);
+        enterFrame(function, builder.functionOwner(called), args);
+    }
+
+    /**
+     * Continues recording in a new (inlined) frame of the given function.
+     */
+    private void enterFrame(VirtualFunction function, IRValue calleeOwner, List<IRValue> args) {
 
         callers.push(new CallerFrame(frame, metadata, loopHeaders, locals, stack, line, ip + 1, owner));
 
@@ -1171,6 +1199,37 @@ public class Tracer extends InterpreterDecorator {
         return null;
     }
 
+    /* ------------------------------------------------------------------ */
+    /*  function objects                                                  */
+    /* ------------------------------------------------------------------ */
+
+    @Override
+    public void loadVirtual(byte b1, byte b2) {
+        rec(() -> {
+            int index = Conversion.from2Bytes(b1, b2);
+            var module = frame.getModule();
+            VirtualFunction function = module.getFunctionArea().loadFunction(index);
+            push(builder.newFunction(ObjectCache.putId(module), index, ObjectCache.putId(function.getMetadata()), null));
+        });
+        super.loadVirtual(b1, b2);
+    }
+
+    @Override
+    public void setOwner() {
+        rec(() -> {
+            IRValue function = popValue();
+            IRValue owner = popValue();
+            if (function instanceof NewFunction created && created.getOwner() == null) {
+                // the function was just created (methods are bound to their instance by the constructor)
+                push(builder.newFunction(created.moduleId, created.index, created.metadataId, owner));
+            }
+            else {
+                abort("SET_OWNER of a function that was not created in the trace");
+            }
+        });
+        super.setOwner();
+    }
+
     private IRValue ownerValue() {
         return owner != null ? owner : builder.thisValue();
     }
@@ -1186,11 +1245,6 @@ public class Tracer extends InterpreterDecorator {
         super.loadNative(b1, b2);
     }
 
-    @Override
-    public void loadVirtual(byte b1, byte b2) {
-        unsupported("LOAD_VIRTUAL");
-        super.loadVirtual(b1, b2);
-    }
 
     @Override
     public void loadType(byte b1, byte b2) {
@@ -1290,11 +1344,6 @@ public class Tracer extends InterpreterDecorator {
         super.loadName(b1, b2);
     }
 
-    @Override
-    public void setOwner() {
-        unsupported("SET_OWNER");
-        super.setOwner();
-    }
 
     @Override
     public void extend(byte b1, byte b2) {

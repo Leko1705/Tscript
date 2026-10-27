@@ -1,0 +1,37 @@
+module vectors;
+
+class Vec {
+    public:
+    var x;
+    var y;
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    function plus(other) {
+        return Vec(x + other.x, y + other.y);
+    }
+    function scale(f) {
+        return Vec(x * f, y * f);
+    }
+    function dot(other) {
+        return x * other.x + y * other.y;
+    }
+}
+
+function walk(n) {
+    var px = 0;
+    var py = 0;
+    var total = 0;
+    for var i in 0:n do {
+        var pos = Vec(px, py);
+        var step = Vec(i % 3 - 1, i % 5 - 2).scale(2);
+        var next = pos.plus(step);
+        total = total + next.dot(step) % 7;
+        px = next.x % 1000;
+        py = next.y % 1000;
+    }
+    return [total, px, py];
+}
+
+print(walk(1500000));

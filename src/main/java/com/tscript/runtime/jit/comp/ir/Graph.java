@@ -464,6 +464,20 @@ public class Graph {
             return unique(new ContainerRead(container, key));
         }
 
+        public IRValue newObject(com.tscript.runtime.core.VirtualType type) {
+            return unique(new NewObject(type, ObjectCache.putId(type)));
+        }
+
+        public IRValue newFunction(int moduleId, int index, int metadataId, IRValue owner) {
+            return unique(owner == null
+                    ? new NewFunction(moduleId, index, metadataId)
+                    : new NewFunction(moduleId, index, metadataId, owner));
+        }
+
+        public IRValue isIdentical(IRValue value, Object object) {
+            return unique(new IsIdentical(value, ObjectCache.putId(object)));
+        }
+
         public IRValue getSuper(IRValue object) {
             return unique(new GetSuper(object));
         }

@@ -1,6 +1,7 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
 import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
 /**
  * Checks whether a value is a virtual function with the given metadata. Guards inlined calls.
@@ -13,6 +14,14 @@ public class IsCallee extends UnaryOp {
     public IsCallee(IRValue value, int metadataId) {
         super(value);
         this.metadataId = metadataId;
+    }
+
+    @Override
+    public IRValue canonicalize(CanonicalizerTool tool) {
+        if (getValue() instanceof NewFunction function) {
+            return tool.builder().bool(function.metadataId == metadataId);
+        }
+        return this;
     }
 
     @Override

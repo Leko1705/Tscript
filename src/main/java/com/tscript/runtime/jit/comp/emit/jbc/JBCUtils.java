@@ -220,6 +220,33 @@ public final class JBCUtils {
         return ((IteratorObject) iterator).next();
     }
 
+    /* ---------------- objects ---------------- */
+
+    /**
+     * Allocates an instance of a class without running its constructor.
+     */
+    @JITSensitive
+    public static TObject newInstance(int typeId) {
+        return ((VirtualType) ObjectCache.getObject(typeId)).newInstance();
+    }
+
+    /**
+     * Creates a function object like LOAD_VIRTUAL, optionally followed by SET_OWNER.
+     * @param owner the owner of the function or null if the function owns itself
+     */
+    @JITSensitive
+    public static TObject newFunction(int moduleId, int index, TObject owner) {
+        Module module = (Module) ObjectCache.getObject(moduleId);
+        VirtualFunction function = module.getFunctionArea().loadFunction(index);
+        function.setOwner(owner == null ? function : owner);
+        return function;
+    }
+
+    @JITSensitive
+    public static boolean isIdentical(TObject value, int id) {
+        return value == ObjectCache.getObject(id);
+    }
+
     /* ---------------- members ---------------- */
 
     /**

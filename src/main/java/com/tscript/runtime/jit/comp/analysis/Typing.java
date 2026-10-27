@@ -318,6 +318,21 @@ public class Typing {
         public IRType visitGetSuper(GetSuper node, Void unused) {
             return UNKNOWN;
         }
+
+        @Override
+        public IRType visitNewObject(NewObject node, Void unused) {
+            return new ComplexType(node.type);
+        }
+
+        @Override
+        public IRType visitNewFunction(NewFunction node, Void unused) {
+            return UNKNOWN;
+        }
+
+        @Override
+        public IRType visitIsIdentical(IsIdentical node, Void unused) {
+            return BOOL;
+        }
     }
 
 }

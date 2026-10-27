@@ -38,7 +38,7 @@ public class LoopAnalysis {
             Opcode.PUSH_NULL, Opcode.PUSH_INT, Opcode.PUSH_BOOL, Opcode.LOAD_CONST, Opcode.PUSH_THIS,
             Opcode.LOAD_BUILTIN, Opcode.POP, Opcode.NEW_LINE, Opcode.LOAD_GLOBAL, Opcode.STORE_GLOBAL,
             Opcode.LOAD_LOCAL, Opcode.STORE_LOCAL, Opcode.LOAD_EXTERNAL, Opcode.STORE_EXTERNAL,
-            Opcode.LOAD_INTERNAL, Opcode.STORE_INTERNAL, Opcode.LOAD_SUPER, Opcode.STORE_SUPER, Opcode.CONTAINER_READ, Opcode.CONTAINER_WRITE,
+            Opcode.LOAD_INTERNAL, Opcode.STORE_INTERNAL, Opcode.LOAD_SUPER, Opcode.STORE_SUPER, Opcode.LOAD_VIRTUAL, Opcode.SET_OWNER, Opcode.CONTAINER_READ, Opcode.CONTAINER_WRITE,
             Opcode.ADD, Opcode.SUB, Opcode.MUL, Opcode.DIV, Opcode.IDIV, Opcode.MOD, Opcode.POW,
             Opcode.AND, Opcode.OR, Opcode.XOR, Opcode.NOT, Opcode.LT, Opcode.GT, Opcode.LEQ, Opcode.GEQ,
             Opcode.SHL, Opcode.SHR, Opcode.USHR, Opcode.EQUALS, Opcode.NOT_EQUALS, Opcode.NEG, Opcode.POS,

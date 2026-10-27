@@ -1,5 +1,7 @@
 package com.tscript.runtime.core;
 
+import com.tscript.runtime.jit.JITSensitive;
+
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.typing.*;
@@ -136,7 +138,8 @@ public class VirtualType implements Type {
      * consist of one object per class of the hierarchy (see {@link VirtualObject#getSuper()}),
      * the super objects are initialized by the super constructor calls.
      */
-    private VirtualObject newInstance() {
+    @JITSensitive
+    public VirtualObject newInstance() {
         VirtualObject object = new VirtualObject(this, prepareInstanceMembers());
         if (superType instanceof VirtualType virtualSuperType) {
             VirtualObject superObject = virtualSuperType.newInstance();
@@ -156,6 +159,24 @@ public class VirtualType implements Type {
     @Override
     public Iterable<Member> getMembers() {
         return Arrays.asList(staticMembers);
+    }
+
+    /**
+     * @return the declared constructor or null if the class has the default constructor
+     */
+    public Function getDeclaredConstructor() {
+        return constructor;
+    }
+
+    public Visibility getConstructorVisibility() {
+        return constructorVisibility;
+    }
+
+    /**
+     * @return the initial value of the instance member at the given index (before the constructor runs)
+     */
+    public TObject getInstanceMemberTemplate(int index) {
+        return instanceMembers[index].get();
     }
 
     public Function getConstructor() {

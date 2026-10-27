@@ -13,7 +13,8 @@
  *     (the IR contains {@code IfElse}/{@code MergeControl} for that purpose).</li>
  *     <li><b>Optimization</b> ({@link com.tscript.runtime.jit.comp.levels}): every level runs the optimizer
  *     passes until a fixpoint is reached: global promotion (globals used in loops live in phis and are
- *     written back on loop exits), scalar replacement (reads of non escaping arrays), the
+ *     written back on loop exits), scalar replacement (reads of non escaping arrays, allocations of
+ *     non escaping objects), the
  *     {@link com.tscript.runtime.jit.comp.optim.Canonicalizer} (with global value numbering), guard
  *     hoisting, guard elimination (duplicate and range implied guards) and dead code elimination
  *     (including dead phis). L1 compiles the recorded trace; L2 and L3 recompile the same graph
@@ -64,6 +65,13 @@
  * at a fixed index. Other accesses (e.g. methods of builtin objects) look the member up at runtime
  * and report errors exactly like the interpreter. Method calls on objects are inlined like
  * function calls.
+ * <p>
+ * Instantiations of classes without a super class are inlined as well: the object is allocated
+ * ({@code NewObject}) and the constructor is recorded with the new object as its owner (the
+ * methods of the object are created by the constructor). Objects that do not escape the trace are
+ * never allocated ({@link com.tscript.runtime.jit.comp.optim.ObjectScalarReplacement}): reads of
+ * their members are replaced by the values written before, and every guard whose state refers to
+ * such an object records its member values, so that the object is created only if that guard fails.
  *
  * <h2>Configuration</h2>
  * System properties: {@code tscript.jit.threshold} (L1, default 100), {@code tscript.jit.threshold2}

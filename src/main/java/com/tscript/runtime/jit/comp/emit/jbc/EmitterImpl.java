@@ -150,6 +150,7 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         }
         else if (exit instanceof Exit x) {
             if (x.getDeoptInfo() == null) x.setDeoptInfo(new DeoptInfo(x.getState(), false, true, false));
+            emitVirtualObjects(x);
             if (!tryJumpBackToParentLoop(x)) {
                 emitLeave(x, (DeoptInfo) x.getDeoptInfo());
             }
@@ -628,6 +629,7 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
             for (int i = 0; i < types.length; i++) types[i] = typeMap.getType(values.get(i));
             node.setDeoptInfo(new DeoptInfo(node.getState(), node.isLoopExit(), false, node.isSideTraceable(), types));
         }
+        emitVirtualObjects(node);
         emitGlobalWriteBacks(node);
         if (!tryStitch(node)) {
             emitLeave(node, (DeoptInfo) node.getDeoptInfo(), false);
@@ -653,6 +655,41 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         loadObjectArray(carrier.getStateValues());
         callUtils("deopt", "(I[" + TOBJECT_DESC + ")" + TOBJECT_DESC);
         mv.visitInsn(ARETURN);
+    }
+
+    /**
+     * Creates the objects whose allocations were removed (see scalar replacement) and that are
+     * referenced by the state of the carrier. Must be called in the path leaving compiled code; the
+     * objects are then available as values of their allocations.
+     */
+    private void emitVirtualObjects(StateCarrier carrier) {
+        List<VirtualObjectState> objects = carrier.getVirtualObjects();
+        if (objects.isEmpty()) return;
+        for (VirtualObjectState state : objects) {
+            NewObject object = state.object();
+            pushInt(object.typeId);
+            callUtils("newInstance", "(I)" + TOBJECT_DESC);
+            store(object);
+        }
+        // methods of the objects (owned by them) referenced by the state or the members
+        List<IRValue> referenced = new ArrayList<>(carrier.getStateValues());
+        for (VirtualObjectState state : objects) referenced.addAll(carrier.getVirtualObjectValues(state));
+        for (IRValue value : referenced) {
+            if (value instanceof NewFunction function && !slots.containsKey(function)) {
+                function.accept(this);
+                store(function);
+            }
+        }
+        for (VirtualObjectState state : objects) {
+            List<IRValue> values = carrier.getVirtualObjectValues(state);
+            for (int i = 0; i < values.size(); i++) {
+                mv.visitVarInsn(ALOAD, THREAD_SLOT);
+                load(state.object(), Repr.OBJ);
+                pushInt(state.members()[i]);
+                load(values.get(i), Repr.OBJ);
+                callUtils("storeField", "(" + THREAD_DESC + TOBJECT_DESC + "I" + TOBJECT_DESC + ")V");
+            }
+        }
     }
 
     private void emitGlobalWriteBacks(StateCarrier carrier) {
@@ -1347,6 +1384,31 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
                 callUtils("loadExternal", "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC + "Ljava/lang/String;Z)" + TOBJECT_DESC);
             }
         }
+        return null;
+    }
+
+    @Override
+    public Void visitNewObject(NewObject node, Void unused) {
+        pushInt(node.typeId);
+        callUtils("newInstance", "(I)" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitNewFunction(NewFunction node, Void unused) {
+        pushInt(node.moduleId);
+        pushInt(node.index);
+        if (node.getOwner() != null) load(node.getOwner(), Repr.OBJ);
+        else mv.visitInsn(ACONST_NULL);
+        callUtils("newFunction", "(II" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitIsIdentical(IsIdentical node, Void unused) {
+        load(node.getValue(), Repr.OBJ);
+        pushInt(node.objectId);
+        callUtils("isIdentical", "(" + TOBJECT_DESC + "I)Z");
         return null;
     }
 
