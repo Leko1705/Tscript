@@ -1,0 +1,53 @@
+module stitching;
+
+function branches(n) {
+    var a = 0;
+    var b = 0.5;
+    var s = "";
+    var k = 3;
+    for var i in 0:n do {
+        if i % 2 == 0 then a = a + i;
+        else b = b + 0.25;
+        if i % 7 == 0 then {
+            if i % 14 == 0 then s = s + "x";
+            else s = s + "y";
+        }
+        if i == n - 5 then k = 4;
+        a = a + k;
+    }
+    return [a, b, s, k];
+}
+
+function earlyReturn(n, limit) {
+    var acc = 0;
+    for var i in 0:n do {
+        acc = acc + i;
+        if acc > limit then return i;
+    }
+    return -1;
+}
+
+function typeFlip(n) {
+    var x = 0;
+    for var i in 0:n do {
+        if i % 50 == 49 then x = x + 0.5;
+        else x = x + 1;
+    }
+    return x;
+}
+
+function recursive(n) {
+    if n < 2 then return 1;
+    if n % 3 == 0 then return recursive(n - 1) + recursive(n - 2);
+    return recursive(n - 1) + 1;
+}
+
+var res = null;
+for var r in 0:40 do res = branches(r * 30);
+print(res);
+for var r in 0:60 do res = [earlyReturn(r * 10, r * r), earlyReturn(5, 1000)];
+print(res);
+for var r in 0:40 do res = typeFlip(r * 20);
+print(res);
+for var r in 0:30 do res = recursive(r);
+print(res);

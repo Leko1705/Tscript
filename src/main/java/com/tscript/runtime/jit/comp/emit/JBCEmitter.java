@@ -26,7 +26,15 @@ public class JBCEmitter implements Emitter {
     @Override
     public NativeImage emit(JITCompiler compiler, Graph graph) {
         String className = nextImageClassName();
-        byte[] bytecode = new EmitterImpl(className, graph).emit();
+        byte[] bytecode;
+        try {
+            bytecode = new EmitterImpl(className, graph, true).emit();
+        }
+        catch (RuntimeException e) {
+            // e.g. the method became too large: try again without stitched side traces
+            compiler.debug(() -> "emitting with stitched side traces failed: " + e);
+            bytecode = new EmitterImpl(className, graph, false).emit();
+        }
         if (compiler.getConfiguration().debug()) {
             printJBC(bytecode);
         }

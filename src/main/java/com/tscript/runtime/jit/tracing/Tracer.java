@@ -81,6 +81,8 @@ public class Tracer extends InterpreterDecorator {
     private final int traceDepth;
     private final int lengthLimit;
     private final boolean allowReturn;
+    /** the exit a side trace starts at, null for other traces */
+    private final DeoptInfo sideExit;
 
     private boolean started = false;
     private boolean finished = false;
@@ -113,7 +115,8 @@ public class Tracer extends InterpreterDecorator {
     private int recorded = 0;
 
 
-    private Tracer(Interpreter interpreter, Interpreter restore, ParseProcess process, Kind kind, int anchorIp, int traceDepth, boolean allowReturn) {
+    private Tracer(Interpreter interpreter, Interpreter restore, ParseProcess process, Kind kind, int anchorIp,
+                   int traceDepth, boolean allowReturn, DeoptInfo sideExit) {
         super(interpreter);
         this.restore = restore;
         this.process = process;
@@ -124,14 +127,15 @@ public class Tracer extends InterpreterDecorator {
         this.traceDepth = traceDepth;
         this.lengthLimit = process.getCompiler().getConfiguration().traceLengthLimit();
         this.allowReturn = allowReturn;
+        this.sideExit = sideExit;
     }
 
     static Tracer forFunction(Interpreter interpreter, Interpreter restore, ParseProcess process, int traceDepth) {
-        return new Tracer(interpreter, restore, process, Kind.FUNCTION, 0, traceDepth, true);
+        return new Tracer(interpreter, restore, process, Kind.FUNCTION, 0, traceDepth, true, null);
     }
 
     static Tracer forLoop(Interpreter interpreter, Interpreter restore, ParseProcess process, int headerIp, int traceDepth) {
-        return new Tracer(interpreter, restore, process, Kind.LOOP, headerIp, traceDepth, false);
+        return new Tracer(interpreter, restore, process, Kind.LOOP, headerIp, traceDepth, false, null);
     }
 
     /**
@@ -139,8 +143,9 @@ public class Tracer extends InterpreterDecorator {
      * guard and that continues until the function returns (only if {@code allowReturn}) or until
      * execution jumps back to a loop header.
      */
-    static Tracer forSide(Interpreter interpreter, Interpreter restore, ParseProcess process, int ip, int traceDepth, boolean allowReturn) {
-        return new Tracer(interpreter, restore, process, Kind.SIDE, ip, traceDepth, allowReturn);
+    static Tracer forSide(Interpreter interpreter, Interpreter restore, ParseProcess process, DeoptInfo exit,
+                          int traceDepth, boolean allowReturn) {
+        return new Tracer(interpreter, restore, process, Kind.SIDE, exit.state().ip(), traceDepth, allowReturn, exit);
     }
 
 
@@ -245,8 +250,25 @@ public class Tracer extends InterpreterDecorator {
                 return;
             }
 
+            // the static types of the values of the exit a side trace starts at
+            Map<Integer, IRType> knownLocals = new HashMap<>();
+            Map<Integer, IRType> knownStack = new HashMap<>();
+            if (sideExit != null) {
+                FrameState exitState = sideExit.state();
+                int[] indices = exitState.localIndices();
+                for (int i = 0; i < indices.length; i++) {
+                    IRType type = sideExit.typeOf(i);
+                    if (type != null) knownLocals.put(indices[i], type);
+                }
+                for (int i = 0; i < exitState.stackSize(); i++) {
+                    IRType type = sideExit.typeOf(indices.length + i);
+                    if (type != null) knownStack.put(i, type);
+                }
+            }
+
             for (int i = 0; i < top.sp; i++) {
-                stack.add(builder.stackValue(i));
+                IRType known = knownStack.get(i);
+                stack.add(known != null && IRType.isExact(known) ? builder.stackValue(i, known) : builder.stackValue(i));
             }
 
             // speculate on the types of the entry values, so that they can be kept unboxed in the trace
@@ -257,7 +279,9 @@ public class Tracer extends InterpreterDecorator {
             for (int i = 0; i < metadata.locals(); i++) {
                 TObject value = top.locals[i];
                 if (value == null) continue;
-                locals.put(i, speculateEntry(builder.local(i), value, entryState));
+                IRType known = knownLocals.get(i);
+                IRValue local = known != null && IRType.isExact(known) ? builder.local(i, known) : builder.local(i);
+                locals.put(i, speculateEntry(local, value, entryState));
             }
             // the header itself is opened by record()
         }
@@ -265,7 +289,7 @@ public class Tracer extends InterpreterDecorator {
 
     private IRValue speculateEntry(IRValue value, TObject runtime, State entryState) {
         IRType type = IRType.from(runtime, false);
-        if (!IRType.isExact(type)) return value;
+        if (!IRType.isExact(type) || typeOf(value).equals(type)) return value;
         GuardBool guard = builder.guard(builder.isType(value, type), entryState.frameState, entryState.values);
         Pi pi = (Pi) builder.pi(value, type);
         guard.setNarrowed(pi);
@@ -417,11 +441,13 @@ public class Tracer extends InterpreterDecorator {
 
         for (Map.Entry<Integer, IRValue> local : locals.entrySet()) {
             Phi phi = builder.phi(loop, local.getValue());
+            phi.setLocal(local.getKey());
             open.localPhis.put(local.getKey(), phi);
             local.setValue(phi);
         }
         for (int i = 0; i < stack.size(); i++) {
             Phi phi = builder.phi(loop, stack.get(i));
+            phi.setStackSlot(i);
             open.stackPhis.add(phi);
             stack.set(i, phi);
         }

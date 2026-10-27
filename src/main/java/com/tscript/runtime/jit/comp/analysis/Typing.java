@@ -105,12 +105,12 @@ public class Typing {
 
         @Override
         public IRType visitLocal(Local node, Void unused) {
-            return UNKNOWN;
+            return node.type;
         }
 
         @Override
         public IRType visitStackValue(StackValue node, Void unused) {
-            return UNKNOWN;
+            return node.type;
         }
 
         @Override

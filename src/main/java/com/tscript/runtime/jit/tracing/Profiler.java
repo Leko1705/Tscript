@@ -79,7 +79,7 @@ public class Profiler extends InterpreterDecorator {
 
         ParseProcess process = entry.use();
         if (process != null) {
-            thread.setInterpreter(Tracer.forLoop(getUnderlying(), this, process, frame.ip, thread.frameStack.size()));
+            startLoopTrace(thread, process, frame.ip);
             return;
         }
 
@@ -87,6 +87,13 @@ public class Profiler extends InterpreterDecorator {
         if (image != null) {
             ImageRunner.runLoop(thread, entry, image, frame);
         }
+    }
+
+    /**
+     * Starts tracing the loop whose header is executed next by the top most frame.
+     */
+    void startLoopTrace(TThread thread, ParseProcess process, int headerIp) {
+        thread.setInterpreter(Tracer.forLoop(getUnderlying(), this, process, headerIp, thread.frameStack.size()));
     }
 
     /**
@@ -101,8 +108,8 @@ public class Profiler extends InterpreterDecorator {
      * Starts tracing a side trace. The tracer starts recording as soon as the frame at the
      * given depth executes the instruction at the given address.
      */
-    void startSideTrace(TThread thread, ParseProcess process, int ip, int depth, boolean allowReturn) {
-        thread.setInterpreter(Tracer.forSide(getUnderlying(), this, process, ip, depth, allowReturn));
+    void startSideTrace(TThread thread, ParseProcess process, DeoptInfo exit, int depth, boolean allowReturn) {
+        thread.setInterpreter(Tracer.forSide(getUnderlying(), this, process, exit, depth, allowReturn));
     }
 
 }

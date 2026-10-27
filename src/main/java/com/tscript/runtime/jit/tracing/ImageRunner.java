@@ -140,6 +140,19 @@ public final class ImageRunner {
                     throw new IllegalStateException("loop image returned regularly");
                 }
                 if (!continueLoop(thread, entry, frame, deopt, header)) return;
+
+                // the loop is entered again: count it as a use (may recompile the loop, e.g. with
+                // its side traces stitched in)
+                ParseProcess process = entry.use();
+                if (process != null) {
+                    // the image was invalidated: record a new trace starting now (at the loop header)
+                    if (thread.getInterpreter() instanceof Profiler profiler) profiler.startLoopTrace(thread, process, header);
+                    else process.abort("can not trace");
+                    return;
+                }
+                NativeImage current = entry.image();
+                if (current == null) return;
+                image = current;
             }
         }
         catch (ImageAbortException ex) {
@@ -204,7 +217,7 @@ public final class ImageRunner {
             ParseProcess process = side.use();
             if (process != null) {
                 int depth = thread.frameStack.size() + (frameOffStack ? 1 : 0);
-                profiler.startSideTrace(thread, process, info.state().ip(), depth, frameOffStack);
+                profiler.startSideTrace(thread, process, info, depth, frameOffStack);
                 return null;
             }
             return side.image();

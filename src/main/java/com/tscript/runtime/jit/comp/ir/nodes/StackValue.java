@@ -10,8 +10,16 @@ public class StackValue extends IRValue {
 
     public final int index;
 
+    /** the type of the value if it is statically known (entries of side traces), unknown otherwise */
+    public final IRType type;
+
     public StackValue(int index) {
+        this(index, com.tscript.runtime.jit.comp.ir.types.UnknownType.INSTANCE);
+    }
+
+    public StackValue(int index, IRType type) {
         this.index = index;
+        this.type = type;
     }
 
     public int getIndex() {
@@ -25,7 +33,7 @@ public class StackValue extends IRValue {
 
     @Override
     protected boolean dataEquals(IRValue other) {
-        return index == ((StackValue) other).index;
+        return index == ((StackValue) other).index && type.equals(((StackValue) other).type);
     }
 
     @Override

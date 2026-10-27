@@ -19,8 +19,9 @@ public class ParseProcess {
 
     public ParseProcess(JITCompiler compiler,
                         CompilationLevel level,
-                        ImageCache.Entry entry) {
-        this.graph = new Graph();
+                        ImageCache.Entry entry,
+                        Graph graph) {
+        this.graph = Objects.requireNonNull(graph);
         this.compiler = Objects.requireNonNull(compiler);
         this.level = Objects.requireNonNull(level);
         this.entry = Objects.requireNonNull(entry);
@@ -47,7 +48,7 @@ public class ParseProcess {
                 entry.onFailed();
             }
             else {
-                entry.onCompiled(image);
+                entry.onCompiled(image, graph);
             }
         });
     }

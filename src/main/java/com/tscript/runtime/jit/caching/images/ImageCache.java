@@ -1,6 +1,7 @@
 package com.tscript.runtime.jit.caching.images;
 
 import com.tscript.runtime.jit.*;
+import com.tscript.runtime.jit.comp.ir.Graph;
 import com.tscript.runtime.typing.TObject;
 import com.tscript.runtime.typing.Type;
 
@@ -33,6 +34,8 @@ public class ImageCache {
         private volatile boolean saturated = false;
         private int deopts = 0;
         private int invalidations = 0;
+        /** the recorded graph; later compilation levels recompile it instead of recording a new trace */
+        private Graph graph = null;
 
         private Entry(Object key) {
             this.key = key;
@@ -56,7 +59,15 @@ public class ImageCache {
         }
 
         /**
-         * Increments the hotness of this entry.
+         * @return the recorded graph of this entry if it was compiled successfully, null otherwise
+         */
+        public synchronized Graph compiledGraph() {
+            return image != null && !disabled ? graph : null;
+        }
+
+        /**
+         * Increments the hotness of this entry. If the next compilation level is reached and a
+         * graph was recorded before, it is recompiled right away.
          * @return a parse process if a trace for the next compilation level should be recorded now
          */
         public ParseProcess use() {
@@ -77,10 +88,15 @@ public class ImageCache {
 
             hotness = 0;
             busy = true;
-            return new ParseProcess(compiler, lvl, this);
+            if (graph != null && !lvl.retrace()) {
+                new ParseProcess(compiler, lvl, this, graph).compile();
+                return null;
+            }
+            return new ParseProcess(compiler, lvl, this, new Graph());
         }
 
-        public synchronized void onCompiled(NativeImage image) {
+        public synchronized void onCompiled(NativeImage image, Graph graph) {
+            this.graph = graph;
             compiler.debug(() -> "compiled " + this + " at level " + (level + 1));
             this.image = image;
             this.level++;
@@ -110,6 +126,7 @@ public class ImageCache {
             if (++deopts > compiler.getConfiguration().deoptLimit()) {
                 compiler.debug(() -> "invalidated image of " + this + " (too many deoptimizations)");
                 image = null;
+                graph = null;
                 level = 0;
                 saturated = false;
                 hotness = 0;
@@ -194,6 +211,16 @@ public class ImageCache {
             if (types[i] != args[i].getType()) return false;
         }
         return true;
+    }
+
+    /**
+     * @return the compiled graph of the side trace attached to the given exit, or null
+     */
+    public Graph sideTraceGraph(Object exit) {
+        RootNode root = trees.get(exit);
+        if (root == null) return null;
+        Entry entry = root.entry;
+        return entry == null ? null : entry.compiledGraph();
     }
 
     public boolean isBlacklisted(Object key) {

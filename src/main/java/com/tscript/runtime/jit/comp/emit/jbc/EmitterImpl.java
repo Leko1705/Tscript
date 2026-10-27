@@ -35,6 +35,11 @@ import static com.tscript.runtime.jit.comp.emit.jbc.JBCImageGenerator.*;
  * <p>
  * Loops: phis live in JVM local variables. They are initialized before the loop header label
  * and assigned in parallel at the loop end, which jumps back to the header.
+ * <p>
+ * Trace trees: if a compiled side trace is attached to a guard, the side trace is emitted in
+ * the failure path of the guard (by a child emitter sharing the method) instead of leaving
+ * compiled code. A side trace that ends by jumping back to the header of the loop of its parent
+ * re-assigns the phis of that loop and jumps back into it.
  */
 public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<Void, Void>, Opcodes {
 
@@ -63,45 +68,89 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     private static final String FRAME = org.objectweb.asm.Type.getInternalName(ImageFrame.class);
     private static final String FRAME_DESC = "L" + FRAME + ";";
 
-    private final JBCImageGenerator generator;
+    /**
+     * State shared by all emitters contributing to one method.
+     */
+    private static final class MethodContext {
+        final JBCImageGenerator generator;
+        final MethodVisitor mv;
+        final boolean stitching;
+        int nextSlot = FIRST_FREE_SLOT;
+        int stitchBudget = 4000;
+
+        MethodContext(String className, boolean stitching) {
+            this.generator = new JBCImageGenerator(className);
+            this.mv = generator.getMethodVisitor();
+            this.stitching = stitching;
+        }
+    }
+
+    private final MethodContext context;
     private final MethodVisitor mv;
     private final Graph graph;
     private final Graph.TypeMap typeMap;
 
-    private Map<IRValue, Integer> slots = new HashMap<>();
-    private int nextSlot = FIRST_FREE_SLOT;
-    private Label loopLabel = null;
+    /** the emitter of the graph whose guard this (side trace) graph is stitched into, null for the root graph */
+    private final EmitterImpl parent;
+    private final int depth;
 
-    public EmitterImpl(String className, Graph graph) {
-        this.generator = new JBCImageGenerator(className);
-        this.mv = generator.getMethodVisitor();
+    private Map<IRValue, Integer> slots = new HashMap<>();
+    private Label loopLabel = null;
+    private LoopHeadNode closedLoop = null;
+
+    /**
+     * @param stitching true if compiled side traces should be emitted in place of guard failures
+     */
+    public EmitterImpl(String className, Graph graph, boolean stitching) {
+        this.context = new MethodContext(className, stitching);
+        this.mv = context.mv;
         this.graph = graph;
         this.typeMap = graph.typeMap();
+        this.parent = null;
+        this.depth = 0;
     }
 
-    public byte[] emit() {
-        IRControl exit = graph.exitControl();
+    private EmitterImpl(EmitterImpl parent, Graph graph) {
+        this.context = parent.context;
+        this.mv = context.mv;
+        this.graph = graph;
+        this.typeMap = graph.typeMap();
+        this.parent = parent;
+        this.depth = parent.depth + 1;
+    }
+
+    private static void checkExit(IRControl exit) {
         if (exit == null) {
             throw new IllegalStateException("IRGraph must have an exit control");
         }
         if (!(exit instanceof Return) && !(exit instanceof LoopEndNode) && !(exit instanceof Exit)) {
             throw new UnsupportedOperationException("unsupported exit control " + exit);
         }
+    }
 
+    public byte[] emit() {
+        checkExit(graph.exitControl());
         typeMap.flush();
         emitPrologue();
+        emitBody();
+        return context.generator.generate();
+    }
 
+    private void emitBody() {
         for (IREffect effect : graph.effects()) {
             effect.accept(this);
         }
 
+        IRControl exit = graph.exitControl();
         if (exit instanceof Return ret) {
             load(ret.getValue(), Repr.OBJ);
             mv.visitInsn(ARETURN);
         }
         else if (exit instanceof Exit x) {
             if (x.getDeoptInfo() == null) x.setDeoptInfo(new DeoptInfo(x.getState(), false, true, false));
-            emitLeave(x, (DeoptInfo) x.getDeoptInfo());
+            if (!tryJumpBackToParentLoop(x)) {
+                emitLeave(x, (DeoptInfo) x.getDeoptInfo());
+            }
         }
         else {
             LoopEndNode end = (LoopEndNode) exit;
@@ -116,20 +165,196 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
             }
             mv.visitJumpInsn(GOTO, loopLabel);
         }
-
-        return generator.generate();
     }
 
     /**
      * Loads all entry values (state of the interpreter frame or arguments) into local variables.
+     * Entry values that were already provided (stitched side traces) are skipped.
      */
     private void emitPrologue() {
         for (IRValue value : graph.values()) {
+            if (slots.containsKey(value)) continue;
             if (value instanceof Local || value instanceof StackValue || value instanceof Parameter) {
                 value.accept(this);
                 store(value);
             }
         }
+    }
+
+
+    /* ------------------------------------------------------------------ */
+    /*  side trace stitching                                              */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * Emits the side trace attached to the given guard (if there is one that can be stitched).
+     * Must be called in the failure path of the guard.
+     * @return true if the side trace was emitted, false if compiled code has to be left
+     */
+    private boolean tryStitch(GuardBool guard) {
+        if (!context.stitching || depth >= 4 || !guard.getState().isRoot()) return false;
+        Graph side = graph.sideTrace(guard.getDeoptInfo());
+        if (side == null || side == graph) return false;
+        checkExit(side.exitControl());
+        side.typeMap().flush();
+
+        int size = side.effects().size();
+        if (size > context.stitchBudget) return false;
+
+        EmitterImpl child = new EmitterImpl(this, side);
+        Map<IRValue, IRValue> entries = child.entryMapping(guard);
+        if (entries == null) return false;
+
+        context.stitchBudget -= size;
+        if (Boolean.getBoolean("tscript.jit.debug")) {
+            System.err.println("[jit] stitching side trace at ip " + guard.getState().ip() + " (depth " + (depth + 1) + ")");
+        }
+        for (Map.Entry<IRValue, IRValue> entry : entries.entrySet()) {
+            IRValue sideValue = entry.getKey();
+            load(entry.getValue(), child.repr(sideValue));
+            int slot = newSlot(child.repr(sideValue));
+            mv.visitVarInsn(child.repr(sideValue).store, slot);
+            child.slots.put(sideValue, slot);
+        }
+        child.emitPrologue();
+        child.emitBody();
+        return true;
+    }
+
+    /**
+     * Maps the entry values of this (side trace) graph to the values the guard of the parent
+     * captured.
+     * @return the mapping or null if the side trace can not be entered from the guard
+     */
+    private Map<IRValue, IRValue> entryMapping(GuardBool guard) {
+        FrameState state = guard.getState();
+        List<IRValue> values = guard.getStateValues();
+        int[] indices = state.localIndices();
+        Map<IRValue, IRValue> mapping = new LinkedHashMap<>();
+
+        for (IRValue value : graph.values()) {
+            IRValue captured = null;
+            if (value instanceof Local local) {
+                for (int i = 0; i < indices.length; i++) {
+                    if (indices[i] == local.index) captured = values.get(i);
+                }
+                if (captured == null) {
+                    // the local was not changed by the parent, it is read from the interpreter frame
+                    // (only possible if there is one)
+                    if (!(rootGraph().exitControl() instanceof LoopEndNode) && !(rootGraph().exitControl() instanceof Exit)) {
+                        return null;
+                    }
+                    continue;
+                }
+            }
+            else if (value instanceof StackValue stackValue) {
+                if (stackValue.index >= state.stackSize()) return null;
+                captured = values.get(indices.length + stackValue.index);
+            }
+            else if (value instanceof Parameter) {
+                return null;
+            }
+            else {
+                continue;
+            }
+
+            Repr expected = repr(value);
+            Repr actual = parent.repr(captured);
+            if (expected != actual && expected != Repr.OBJ) return null;
+            mapping.put(value, captured);
+        }
+        return mapping;
+    }
+
+    private Graph rootGraph() {
+        EmitterImpl emitter = this;
+        while (emitter.parent != null) emitter = emitter.parent;
+        return emitter.graph;
+    }
+
+    /**
+     * A stitched side trace that ends by jumping to the header of the loop of its parent continues
+     * in that loop: the phis of the loop are assigned the values of the side trace.
+     * @return true if the jump was emitted
+     */
+    private boolean tryJumpBackToParentLoop(Exit exit) {
+        if (parent == null || parent.loopLabel == null) return false;
+        LoopHeadNode loop = parent.closedLoop;
+        FrameState state = exit.getState();
+        if (!state.isRoot() || state.ip() != loop.ip) return false;
+
+        List<IRValue> values = exit.getStateValues();
+        int[] indices = state.localIndices();
+
+        // every value must either be carried by a phi of the parent loop or be unchanged
+        List<Phi> phis = loop.getPhis();
+        List<IRValue> phiValues = new ArrayList<>();
+        Set<Integer> phiLocals = new HashSet<>();
+        Set<Integer> phiStack = new HashSet<>();
+        for (Phi phi : phis) {
+            IRValue value;
+            if (phi.getGlobal() != null) {
+                value = null; // reloaded from memory
+            }
+            else if (phi.isLocal()) {
+                value = null;
+                for (int i = 0; i < indices.length; i++) {
+                    if (indices[i] == phi.getLocalIndex()) value = values.get(i);
+                }
+                if (value == null) return false;
+                phiLocals.add(phi.getLocalIndex());
+            }
+            else if (phi.isStackSlot()) {
+                if (phi.getStackIndex() >= state.stackSize()) return false;
+                value = values.get(indices.length + phi.getStackIndex());
+                phiStack.add(phi.getStackIndex());
+            }
+            else {
+                return false;
+            }
+            if (value != null) {
+                Repr expected = parent.repr(phi);
+                Repr actual = repr(value);
+                if (expected != actual && expected != Repr.OBJ) return false;
+            }
+            phiValues.add(value);
+        }
+        for (int i = 0; i < indices.length; i++) {
+            if (phiLocals.contains(indices[i])) continue;
+            if (!(values.get(i) instanceof Local local && local.index == indices[i])) return false;
+        }
+        for (int i = 0; i < state.stackSize(); i++) {
+            if (phiStack.contains(i)) continue;
+            if (!(values.get(indices.length + i) instanceof StackValue sv && sv.index == i)) return false;
+        }
+
+        emitGlobalWriteBacks(exit);
+        for (int i = 0; i < phis.size(); i++) {
+            Phi phi = phis.get(i);
+            if (phi.getGlobal() != null) {
+                pushInt(phi.getGlobal().moduleId());
+                pushInt(phi.getGlobal().index());
+                callUtils("loadGlobal", "(II)" + TOBJECT_DESC);
+                convertUnchecked(Repr.OBJ, parent.repr(phi));
+            }
+            else {
+                load(phiValues.get(i), parent.repr(phi));
+            }
+        }
+        for (int i = phis.size() - 1; i >= 0; i--) {
+            Phi phi = phis.get(i);
+            mv.visitVarInsn(parent.repr(phi).store, parent.slots.get(phi));
+        }
+        mv.visitJumpInsn(GOTO, parent.loopLabel);
+        return true;
+    }
+
+    /**
+     * Converts a boxed value whose type was established before (e.g. a promoted global that was
+     * written by a side trace and is reloaded).
+     */
+    private void convertUnchecked(Repr from, Repr to) {
+        convert(from, to, null);
     }
 
 
@@ -147,9 +372,9 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     }
 
     private int newSlot(Repr repr) {
-        int slot = nextSlot;
-        nextSlot += repr.size;
-        if (nextSlot > 65000) throw new IllegalStateException("too many local variables");
+        int slot = context.nextSlot;
+        context.nextSlot += repr.size;
+        if (context.nextSlot > 65000) throw new IllegalStateException("too many local variables");
         return slot;
     }
 
@@ -364,11 +589,19 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         mv.visitJumpInsn(IFNE, ok);
 
         Map<IRValue, Integer> saved = new HashMap<>(slots);
+        Label savedLoopLabel = loopLabel;
         if (node.getDeoptInfo() == null) {
-            node.setDeoptInfo(new DeoptInfo(node.getState(), node.isLoopExit(), false, node.isSideTraceable()));
+            List<IRValue> values = node.getStateValues();
+            IRType[] types = new IRType[values.size()];
+            for (int i = 0; i < types.length; i++) types[i] = typeMap.getType(values.get(i));
+            node.setDeoptInfo(new DeoptInfo(node.getState(), node.isLoopExit(), false, node.isSideTraceable(), types));
         }
-        emitLeave(node, (DeoptInfo) node.getDeoptInfo());
+        emitGlobalWriteBacks(node);
+        if (!tryStitch(node)) {
+            emitLeave(node, (DeoptInfo) node.getDeoptInfo(), false);
+        }
         slots = saved;
+        loopLabel = savedLoopLabel;
 
         mv.visitLabel(ok);
         return null;
@@ -378,7 +611,11 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
      * Leaves compiled code: writes back promoted globals and returns a deoptimization.
      */
     private void emitLeave(StateCarrier carrier, DeoptInfo info) {
-        emitGlobalWriteBacks(carrier);
+        emitLeave(carrier, info, true);
+    }
+
+    private void emitLeave(StateCarrier carrier, DeoptInfo info, boolean writeBack) {
+        if (writeBack) emitGlobalWriteBacks(carrier);
         pushInt(ObjectCache.putId(info));
         loadObjectArray(carrier.getStateValues());
         callUtils("deopt", "(I[" + TOBJECT_DESC + ")" + TOBJECT_DESC);
@@ -408,6 +645,7 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
             store(phi);
         }
         loopLabel = new Label();
+        closedLoop = loop;
         mv.visitLabel(loopLabel);
         return null;
     }

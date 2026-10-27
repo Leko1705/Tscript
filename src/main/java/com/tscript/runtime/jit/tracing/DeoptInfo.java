@@ -1,6 +1,7 @@
 package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.jit.comp.ir.FrameState;
+import com.tscript.runtime.jit.comp.ir.IRType;
 
 /**
  * Static information about a point where compiled code is left (a failing guard or a
@@ -13,6 +14,7 @@ public final class DeoptInfo {
     private final boolean loopExit;
     private final boolean jumpExit;
     private final boolean sideTraceable;
+    private final IRType[] types;
 
     /** cache for the image cache entry of the side trace attached to this exit */
     volatile Object sideEntry = null;
@@ -24,10 +26,25 @@ public final class DeoptInfo {
      * @param sideTraceable true if a side trace may be recorded from this exit when it gets hot
      */
     public DeoptInfo(FrameState state, boolean loopExit, boolean jumpExit, boolean sideTraceable) {
+        this(state, loopExit, jumpExit, sideTraceable, null);
+    }
+
+    /**
+     * @param types the static types of the state values (in value order), or null if unknown
+     */
+    public DeoptInfo(FrameState state, boolean loopExit, boolean jumpExit, boolean sideTraceable, IRType[] types) {
         this.state = state;
         this.loopExit = loopExit;
         this.jumpExit = jumpExit;
         this.sideTraceable = sideTraceable;
+        this.types = types;
+    }
+
+    /**
+     * @return the static type of the given state value or null if unknown
+     */
+    public IRType typeOf(int valueIndex) {
+        return types == null ? null : types[valueIndex];
     }
 
     public FrameState state() {

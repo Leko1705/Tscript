@@ -13,6 +13,44 @@ public class Phi extends IRValue {
 
     private final LoopHeadNode loop;
 
+    /** the local variable (>= 0) or the stack slot (< 0, encoded as -1 - slot) the phi stands for */
+    private int slot = Integer.MIN_VALUE;
+
+    /** the global this phi keeps in a register (see global promotion), null otherwise */
+    private GlobalRef global = null;
+
+    public void setLocal(int index) {
+        slot = index;
+    }
+
+    public void setStackSlot(int index) {
+        slot = -1 - index;
+    }
+
+    public boolean isLocal() {
+        return slot >= 0;
+    }
+
+    public boolean isStackSlot() {
+        return slot < 0 && slot != Integer.MIN_VALUE;
+    }
+
+    public int getLocalIndex() {
+        return slot;
+    }
+
+    public int getStackIndex() {
+        return -1 - slot;
+    }
+
+    public GlobalRef getGlobal() {
+        return global;
+    }
+
+    public void setGlobal(GlobalRef global) {
+        this.global = global;
+    }
+
     public Phi(LoopHeadNode loop, IRValue entry) {
         super(entry);
         this.loop = loop;

@@ -31,6 +31,9 @@ public class Graph {
 
     private IRControl exitControl;
 
+    /** looks up compiled side traces by the deoptimization info of their exit (stitching), may be null */
+    private java.util.function.Function<Object, Graph> sideTraces = null;
+
     public Graph() {
         this.startControl = new StartControl(this);
         this.startEffect = new StartEffect(startControl);
@@ -56,6 +59,18 @@ public class Graph {
 
     public Collection<IRControl> exitControls() {
         return exitControl == null ? List.of() : List.of(exitControl);
+    }
+
+    public void setSideTraces(java.util.function.Function<Object, Graph> sideTraces) {
+        this.sideTraces = sideTraces;
+    }
+
+    /**
+     * @return the graph of the compiled side trace attached to the given exit, or null if there
+     * is none or stitching is disabled
+     */
+    public Graph sideTrace(Object exit) {
+        return sideTraces == null || exit == null ? null : sideTraces.apply(exit);
     }
 
     public List<LoopHeadNode> loops() {
@@ -277,8 +292,16 @@ public class Graph {
             return unique(new Local(index));
         }
 
+        public IRValue local(int index, IRType type) {
+            return unique(new Local(index, type));
+        }
+
         public IRValue stackValue(int index) {
             return unique(new StackValue(index));
+        }
+
+        public IRValue stackValue(int index, IRType type) {
+            return unique(new StackValue(index, type));
         }
 
         public IRValue parameter(int index, IRType type) {
