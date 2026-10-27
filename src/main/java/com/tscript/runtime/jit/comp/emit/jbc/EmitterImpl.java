@@ -62,6 +62,8 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     }
 
     private static final String UTILS = "com/tscript/runtime/jit/comp/emit/jbc/JBCUtils";
+    /** JVM methods take at most 255 argument slots */
+    private static final int MAX_STUB_ARGUMENT_SLOTS = 250;
     private static final String TOBJECT = "com/tscript/runtime/typing/TObject";
     private static final String TOBJECT_DESC = "L" + TOBJECT + ";";
     private static final String THREAD_DESC = org.objectweb.asm.Type.getDescriptor(TThread.class);
@@ -652,8 +654,25 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     private void emitLeave(StateCarrier carrier, DeoptInfo info, boolean writeBack) {
         if (writeBack) emitGlobalWriteBacks(carrier);
         pushInt(ObjectCache.putId(info));
-        loadObjectArray(carrier.getStateValues());
-        callUtils("deopt", "(I[" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        List<IRValue> values = carrier.getStateValues();
+        List<String> descs = new ArrayList<>(values.size());
+        int argumentSlots = 1;
+        for (IRValue value : values) {
+            Repr repr = repr(value);
+            descs.add(repr.desc);
+            argumentSlots += repr.size;
+        }
+        if (argumentSlots <= MAX_STUB_ARGUMENT_SLOTS) {
+            // the values are boxed by a shared stub method (keeps this method small)
+            for (IRValue value : values) load(value);
+            String desc = context.generator.deoptStub(descs);
+            mv.visitMethodInsn(INVOKESTATIC, context.generator.getClassName(),
+                    context.generator.deoptStubName(desc), desc, false);
+        }
+        else {
+            loadObjectArray(values);
+            callUtils("deopt", "(I[" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        }
         mv.visitInsn(ARETURN);
     }
 
