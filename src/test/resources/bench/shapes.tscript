@@ -1,0 +1,39 @@
+module shapes;
+
+class Shape {
+    public:
+    var scale;
+    constructor(scale) {
+        this.scale = scale;
+    }
+    function area() {
+        return 0;
+    }
+    function scaled() {
+        return area() * scale;
+    }
+}
+
+class Rect: Shape {
+    public:
+    var w;
+    var h;
+    constructor(w, h, scale): super(scale) {
+        this.w = w;
+        this.h = h;
+    }
+    function area() {
+        return w * h;
+    }
+}
+
+function total(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var r = Rect(i % 10, i % 7, 2);
+        s = s + r.scaled() % 1000;
+    }
+    return s;
+}
+
+print(total(2000000));
