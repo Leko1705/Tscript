@@ -9,6 +9,10 @@ public class InterpreterDecorator implements Interpreter {
 
     private final Interpreter interpreter;
 
+    public Interpreter getUnderlying() {
+        return interpreter;
+    }
+
     public InterpreterDecorator(Interpreter interpreter) {
         this.interpreter = interpreter;
     }
@@ -60,8 +64,8 @@ public class InterpreterDecorator implements Interpreter {
     }
 
     @Override
-    public void loadBuiltin(byte b, byte b1) {
-        interpreter.loadBuiltin(b, b1);
+    public void loadBuiltin(byte b1, byte b2) {
+        interpreter.loadBuiltin(b1, b2);
     }
 
     @Override
@@ -313,4 +317,5 @@ public class InterpreterDecorator implements Interpreter {
     public void extend(byte b1, byte b2) {
         interpreter.extend(b1, b2);
     }
+
 }

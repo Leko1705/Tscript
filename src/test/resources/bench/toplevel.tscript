@@ -1,0 +1,5 @@
+module toplevel;
+var s = 0;
+var k = 3;
+for var i in 0:5000000 do { s = s + i % k; }
+print(s);

@@ -7,6 +7,7 @@ import com.tscript.runtime.typing.*;
 import com.tscript.runtime.utils.Conversion;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,9 +15,9 @@ import java.util.function.Function;
 
 public class TThread extends Thread implements Environment, TObject {
 
-    public static final Type TYPE = new Type.Builder("Thread")
+    public static final Type TYPE = Type.newBuilder("Thread")
             .setAbstract(true)
-            .setConstructor(((thread, params) -> {
+            .setConstructor(((env, params) -> {
                 throw new AbstractMethodError();
             }))
             .build();
@@ -73,15 +74,18 @@ public class TThread extends Thread implements Environment, TObject {
         catch (Exception e){
             String s = "An Internal Error occurred";
             if (!frameStack.isEmpty()){
-                if (frameStack.element().line() != -1){
-                    s += " near line " + frameStack.element().line();
-                }
-                if (frameStack.element().getModule() == null){
-                    s += "in native context";
+
+                Frame frame = getFrame();
+
+                if (frame.getMetadata().isVirtual()) {
+                    VirtualFrame vframe = (VirtualFrame) frame;
+                    s += " near line " + vframe.line();
+                    s += " in module: " + vframe.getModule().getCanonicalPath();
                 }
                 else {
-                    s += " in module: " + frameStack.element().getModule().getCanonicalPath();
+                    s += "in native imageKey";
                 }
+
             }
             else {
                 System.out.println(" (frame is empty)");
@@ -103,9 +107,7 @@ public class TThread extends Thread implements Environment, TObject {
             result = returnValue;
         }
         else {
-            frameStack.push(Frame.createNativeFrame(callable));
             result = callable.call(this, args);
-            if (!frameStack.isEmpty()) frameStack.pop();
         }
 
         frameStackExitThreshold = prev;
@@ -113,10 +115,93 @@ public class TThread extends Thread implements Environment, TObject {
         return result;
     }
 
+    /**
+     * Pushes the given frame and runs it (and all frames it calls) to completion.
+     * Used to continue execution in the interpreter after compiled code deoptimized.
+     * @return the return value of the frame. Only valid if the frame stack has its original size afterwards
+     */
+    public TObject runFrame(VirtualFrame frame) {
+        return runFrames(frame);
+    }
+
+    /**
+     * Pushes the given frames (callers first) and runs them to completion.
+     * @return the return value of the first (outermost) frame. Only valid if the frame stack has
+     * its original size afterwards
+     */
+    public TObject runFrames(VirtualFrame... frames) {
+        int prev = frameStackExitThreshold;
+        frameStackExitThreshold = frameStack.size();
+        for (VirtualFrame frame : frames) frameStack.push(frame);
+        startExecutionCycle();
+        frameStackExitThreshold = prev;
+        return returnValue;
+    }
+
+    /**
+     * The current nesting depth of native images (compiled code) running on this thread.
+     */
+    public int jitDepth = 0;
+
+    /*
+     * Shadow frames: compiled code of a function runs without an interpreter frame. While it
+     * calls out (e.g. into another function), it registers a shadow frame, so that error
+     * messages still list the compiled function. A shadow frame sits logically on top of the
+     * first `depth` frames of the frame stack.
+     */
+    private VirtualFunction.VirtualMetadata[] shadowMetadata = new VirtualFunction.VirtualMetadata[16];
+    private int[] shadowLines = new int[16];
+    private int[] shadowDepths = new int[16];
+    private int shadowSize = 0;
+
+    /**
+     * Registers a shadow frame for compiled code of the given function.
+     * @return a mark to pass to {@link #popShadowFrames(int)}
+     */
+    public int pushShadowFrame(VirtualFunction.VirtualMetadata metadata, int line) {
+        int mark = shadowSize;
+        if (shadowSize == shadowMetadata.length) {
+            shadowMetadata = Arrays.copyOf(shadowMetadata, shadowSize * 2);
+            shadowLines = Arrays.copyOf(shadowLines, shadowSize * 2);
+            shadowDepths = Arrays.copyOf(shadowDepths, shadowSize * 2);
+        }
+        shadowMetadata[shadowSize] = metadata;
+        shadowLines[shadowSize] = line;
+        shadowDepths[shadowSize] = frameStack.size();
+        shadowSize++;
+        return mark;
+    }
+
+    public int shadowFrameCount() {
+        return shadowSize;
+    }
+
+    public void popShadowFrames(int mark) {
+        while (shadowSize > mark) {
+            shadowMetadata[--shadowSize] = null;
+        }
+    }
+
+    private void appendShadowFrames(StringBuilder errorLog, int depth) {
+        while (shadowSize > 0 && shadowDepths[shadowSize - 1] >= depth) {
+            VirtualFunction.VirtualMetadata metadata = shadowMetadata[--shadowSize];
+            shadowMetadata[shadowSize] = null;
+            errorLog.append("in ").append(metadata.name()).append(" (");
+            errorLog.append("line: ").append(shadowLines[shadowSize]).append("; ");
+            errorLog.append("module: ").append(metadata.module().getCanonicalPath()).append(")\n");
+        }
+    }
+
+    private void discardShadowFrames(int depth) {
+        while (shadowSize > 0 && shadowDepths[shadowSize - 1] >= depth) {
+            shadowMetadata[--shadowSize] = null;
+        }
+    }
+
     private void startExecutionCycle(){
         while (running && frameStack.size() > frameStackExitThreshold){
             if (halt) performHalt();
-            byte[] instruction = frameStack.element().fetch();
+            byte[] instruction = topVirtualFrame().fetch();
             decodeAndExecute(instruction);
         }
     }
@@ -178,7 +263,7 @@ public class TThread extends Thread implements Environment, TObject {
             case ADD, SUB, MUL, DIV, IDIV, MOD, POW,
                  AND, OR, XOR,
                  LT, GT, LEQ, GEQ,
-                 SLA, SRA, SRL -> interpreter.binaryOperation(opcode);
+                 SHL, SHR, USHR -> interpreter.binaryOperation(opcode);
             case EQUALS -> interpreter.equals(true);
             case NOT_EQUALS -> interpreter.equals(false);
             case NOT -> interpreter.not();
@@ -217,23 +302,28 @@ public class TThread extends Thread implements Environment, TObject {
         this.interpreter = interpreter;
     }
 
+    public Interpreter getInterpreter() {
+        return interpreter;
+    }
+
     protected void push(TObject object){
-        frameStack.element().push(object);
+        topVirtualFrame().push(object);
     }
 
     protected TObject pop(){
-        return frameStack.element().pop();
+        return topVirtualFrame().pop();
     }
 
-    protected Frame getFrame(){
+    public Frame getFrame(){
         return frameStack.element();
     }
 
     public void reportRuntimeError(TObject object) {
-        Frame frame = getFrame();
-        if (frame.inUnsafeSpot()){
-            frame.escapeError();
-            frame.push(object);
+        VirtualFrame vframe = topVirtualFrame();
+        if (vframe.inUnsafeSpot()){
+            discardShadowFrames(frameStack.size());
+            vframe.escapeError();
+            vframe.push(object);
             return;
         }
 
@@ -246,19 +336,23 @@ public class TThread extends Thread implements Environment, TObject {
         StringBuilder errorLog = new StringBuilder("error in ").append(threadName).append(": ");
         errorLog.append(msg).append('\n');
         do {
-            frame = frameStack.pop();
-            errorLog.append("in ").append(frame.getName());
-            int line = frame.line();
-            if (line != -1) {
+            appendShadowFrames(errorLog, frameStack.size());
+            Frame frame = frameStack.remove();
+            errorLog.append("in ").append(frame.getMetadata().name());
+
+            if (frame.getMetadata().isVirtual()) {
+                vframe = (VirtualFrame) frame;
                 errorLog.append(" (");
-                errorLog.append("line: ").append(frame.line()).append("; ");
-                errorLog.append("module: ").append(frame.getModule().getCanonicalPath()).append(")");
+                errorLog.append("line: ").append(vframe.line()).append("; ");
+                errorLog.append("module: ").append(vframe.getModule().getCanonicalPath()).append(")");
             }
             else {
                 errorLog.append(" (native)");
             }
             errorLog.append('\n');
-        }while (!frameStack.isEmpty() && !frameStack.element().inUnsafeSpot());
+        }while (!frameStack.isEmpty() && !topVirtualFrame().inUnsafeSpot());
+
+        appendShadowFrames(errorLog, frameStack.size());
 
         if (frameStack.isEmpty()){
             System.err.println(errorLog);
@@ -266,9 +360,9 @@ public class TThread extends Thread implements Environment, TObject {
             return;
         }
 
-        frame = getFrame();
-        frame.escapeError();
-        frame.push(object);
+        vframe = topVirtualFrame();
+        vframe.escapeError();
+        vframe.push(object);
     }
 
     @Override
@@ -278,6 +372,10 @@ public class TThread extends Thread implements Environment, TObject {
 
     @Override
     public TObject call(Callable called, List<TObject> arguments) {
+        return interpreter.call(called, arguments);
+    }
+
+    protected TObject call0(Callable called, List<TObject> arguments) {
         return invokeFromUnknownContext(called, arguments);
     }
 
@@ -303,6 +401,10 @@ public class TThread extends Thread implements Environment, TObject {
     @Override
     public Member loadMember(String name) {
         return members.get(name);
+    }
+
+    public VirtualFrame topVirtualFrame() {
+        return (VirtualFrame) getFrame();
     }
 
 

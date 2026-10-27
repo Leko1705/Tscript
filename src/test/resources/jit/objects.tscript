@@ -1,0 +1,177 @@
+module objects;
+
+class Point {
+    public:
+    var x;
+    var y;
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    function lensq() {
+        return x * x + y * y;
+    }
+    function move(dx, dy) {
+        x = x + dx;
+        y = y + dy;
+    }
+}
+
+class PointZ: Point {
+    public:
+    var z;
+    constructor(x, y, z): super(x, y) {
+        this.z = z;
+    }
+    function lensq() {
+        return x * x + y * y + z * z;
+    }
+}
+
+class Base {
+    protected:
+    var hidden = 10;
+    public:
+    var shared = 1;
+    function value() {
+        return hidden + shared;
+    }
+}
+
+class Derived: Base {
+    public:
+    var own = 100;
+    function bump() {
+        hidden = hidden + 1;
+        shared = shared * 1;
+        return own + hidden + super.value();
+    }
+}
+
+class MoreDerived: Derived {
+    public:
+    function deep() {
+        shared = shared + 2;
+        return shared + hidden + bump();
+    }
+}
+
+class Counter {
+    private:
+    var count = 0;
+    public:
+    var step = 1;
+    function inc() {
+        count = count + step;
+        return count;
+    }
+    function get() {
+        return count;
+    }
+}
+
+# field reads and writes from outside
+function fields(n) {
+    var p = Point(0, 0);
+    for var i in 0:n do {
+        p.x = p.x + i;
+        p.y = p.y - 1;
+    }
+    return [p.x, p.y];
+}
+
+# method calls (inlined) with internal accesses
+function methods(n) {
+    var p = Point(1, 2);
+    var s = 0;
+    for var i in 0:n do {
+        p.move(1, 0);
+        s = s + p.lensq() % 7;
+    }
+    return s;
+}
+
+# polymorphic receivers: the type guard fails for the subclass
+function poly(n) {
+    var points = [Point(1, 1), PointZ(1, 1, 1)];
+    var s = 0;
+    for var i in 0:n do {
+        var p = points[i % 2];
+        if i > n / 2 then p = points[0];
+        s = s + p.lensq() + p.x;
+    }
+    return s;
+}
+
+# inherited member accessed through the subclass instance
+function inherited(n) {
+    var p = PointZ(1, 2, 3);
+    var s = 0;
+    for var i in 0:n do {
+        s = s + p.x + p.z;
+        p.move(0, 1);
+    }
+    return [s, p.y];
+}
+
+# private members are only accessed internally; step changes its type
+function counter(n) {
+    var c = Counter();
+    for var i in 0:n do {
+        c.inc();
+        if i == n - 10 then c.step = 0.5;
+    }
+    return c.get();
+}
+
+# inherited and protected members accessed from subclass methods
+function hierarchy(n) {
+    var d = Derived();
+    var m = MoreDerived();
+    var s = 0;
+    for var i in 0:n do {
+        s = s + d.bump() + m.deep() + m.shared;
+        if i == n - 5 then m.shared = 0.5;
+    }
+    return [s, d.value(), m.value(), m.own];
+}
+
+# members of builtin objects
+function builtins(n) {
+    var a = [];
+    for var i in 0:n do {
+        a.push(i);
+        if a.size() > 10 then a.pop();
+    }
+    return a;
+}
+
+# errors inside of compiled code: missing member, private member, field type changes
+function missing(n) {
+    var p = Point(1, 1);
+    var s = 0;
+    for var i in 0:n do {
+        if i == n - 1 then p = Counter();
+        s = s + p.x;
+    }
+    return s;
+}
+
+function privateAccess(n) {
+    var c = Counter();
+    var s = 0;
+    for var i in 0:n do {
+        c.inc();
+        if i == n - 1 then s = s + c.count;
+    }
+    return s;
+}
+
+print(fields(3000));
+print(methods(3000));
+print(poly(3000));
+print(inherited(3000));
+print(counter(3000));
+print(builtins(3000));
+print(hierarchy(3000));
+print(missing(3000));

@@ -1,0 +1,183 @@
+module allocation;
+
+class Vec {
+    public:
+    var x;
+    var y;
+    var tag;
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        if x > 2990 then tag = "big";
+    }
+    function plus(other) {
+        return Vec(x + other.x, y + other.y);
+    }
+    function lensq() {
+        return x * x + y * y;
+    }
+}
+
+class Acc {
+    public:
+    var total;
+    var count;
+    constructor(total, count) {
+        this.total = total;
+        this.count = count;
+    }
+    function add(v) {
+        return Acc(total + v, count + 1);
+    }
+    function bump() {
+        count = count + 1;
+    }
+    function mean() {
+        return total / count;
+    }
+}
+
+class Counter {
+    public:
+    var n = 0;
+    function inc() {
+        n = n + 1;
+        return this;
+    }
+}
+
+# temporaries that never escape
+function temporaries(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var a = Vec(i, 1);
+        var b = a.plus(Vec(1, i));
+        s = s + b.lensq() % 1000 + a.x;
+    }
+    return s;
+}
+
+# a member changes its type while the object is virtual: the object is created on deoptimization
+function typeChange(n) {
+    var s = 0;
+    var last = null;
+    for var i in 0:n do {
+        var v = Vec(i, 2);
+        if i == n - 3 then v.x = 0.5;
+        s = s + v.x * v.y;
+        last = v.x;
+    }
+    return [s, last];
+}
+
+# the branch in the constructor is taken late (deoptimization inside of the inlined constructor)
+function constructorBranch(n) {
+    var tags = 0;
+    for var i in 0:n do {
+        var v = Vec(i, 0);
+        if v.tag == "big" then tags = tags + 1;
+    }
+    return tags;
+}
+
+# the object escapes into an array in some iterations only
+function sometimesEscapes(n) {
+    var kept = [];
+    var s = 0;
+    for var i in 0:n do {
+        var v = Vec(i, i);
+        if i % 1000 == 999 then kept.push(v);
+        s = s + v.y;
+    }
+    var t = 0;
+    for var k in kept do t = t + k.x;
+    return [s, t, kept.size()];
+}
+
+# aliases, chained methods returning this, method values
+function aliases(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var c = Counter();
+        var d = c;
+        d.inc().inc();
+        var f = c.inc;
+        f();
+        s = s + c.n + d.n;
+    }
+    return s;
+}
+
+# objects carried into the next iteration escape (phi)
+function carried(n) {
+    var v = Vec(0, 0);
+    for var i in 0:n do {
+        v = v.plus(Vec(1, 2));
+    }
+    return [v.x, v.y];
+}
+
+# carried objects: a member changes its type in a late iteration (created on deoptimization)
+function carriedTypeChange(n) {
+    var a = Acc(0, 0);
+    for var i in 0:n do {
+        var v = i;
+        if i == n - 7 then v = 0.25;
+        a = a.add(v);
+    }
+    return [a.total, a.count, a.mean()];
+}
+
+# carried objects that are changed in the loop (not split, but must stay correct)
+function carriedMutated(n) {
+    var a = Acc(0, 0);
+    for var i in 0:n do {
+        a = a.add(i);
+        a.bump();
+    }
+    return [a.total, a.count];
+}
+
+# carried objects that escape in some iterations
+function carriedEscapes(n) {
+    var a = Acc(0, 0);
+    var kept = [];
+    for var i in 0:n do {
+        a = a.add(1);
+        if i % 1000 == 0 then kept.push(a);
+    }
+    var s = 0;
+    for var k in kept do s = s + k.count;
+    return [s, a.count, kept.size()];
+}
+
+# the carried object is used after the loop (identity of an escaping object)
+function carriedAfterLoop(n) {
+    var a = Acc(0, 0);
+    for var i in 0:n do a = a.add(2);
+    var b = a;
+    b.bump();
+    return [a.count, b.count, a.total];
+}
+
+# a member that is read before the constructor wrote it
+function uninitialized(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var v = Vec(1, 1);
+        if v.tag == null then s = s + 1;
+    }
+    return s;
+}
+
+print(temporaries(3000));
+print(typeChange(3000));
+print(constructorBranch(3000));
+print(sometimesEscapes(3000));
+print(aliases(3000));
+print(carried(3000));
+print(uninitialized(3000));
+print(carriedTypeChange(3000));
+print(carriedMutated(3000));
+print(carriedEscapes(3000));
+print(carriedAfterLoop(3000));

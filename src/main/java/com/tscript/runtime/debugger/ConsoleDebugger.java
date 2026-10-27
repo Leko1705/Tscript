@@ -12,14 +12,16 @@ public class ConsoleDebugger implements Debugger {
     private Deque<Object> stack;
 
     @Override
-    public void onHalt(long threadId, VMState state, DebugActionObserver observer) {
+    public void onHalt(long threadId, VMState state, int line, DebugActionObserver observer) {
 
         Scanner scanner = new Scanner(System.in);
         stack = new ArrayDeque<>(List.of(state));
 
         final String ANSI_YELLOW = "\u001B[33m";
         final String ANSI_RESET = "\u001B[0m";
-        System.out.println(ANSI_YELLOW + "debug mode entered (called from thread-id: " + threadId + ")\nType 'help' for more information.");
+        System.out.println(
+                ANSI_YELLOW + "debug mode entered (called from thread-id: " + threadId + ") in line "
+                + line + "\nType 'help' for more information.");
 
         label:
         while (true) {
@@ -100,7 +102,7 @@ public class ConsoleDebugger implements Debugger {
         else if (currentInfo instanceof ThreadState){
             System.out.print("""
                         m/move   ->  move into another info:
-                            - f/frame <frame-index> -> the n-th top frame  |  e.g.:  'm f 0' or 'move frame 0'
+                            - f/imageFrame <imageFrame-index> -> the n-th top imageFrame  |  e.g.:  'm f 0' or 'move imageFrame 0'
                         """);
         }
     }
@@ -150,14 +152,14 @@ public class ConsoleDebugger implements Debugger {
         }
 
         else if (currentInfo instanceof ThreadState t){
-            if (input[1].equals("f") || input[1].equals("frame")){
+            if (input[1].equals("f") || input[1].equals("imageFrame")){
                 if (isInt(input[2])) {
                     int index = Integer.parseInt(input[2]);
                     if (index >= 0 && index < t.getFrames().size()){
                         stack.push(t.getFrames().get(index));
                     }
                     else {
-                        System.out.println("frame index " + index + " is not existent");
+                        System.out.println("imageFrame index " + index + " is not existent");
                     }
                 }
             }

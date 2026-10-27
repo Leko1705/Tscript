@@ -4,6 +4,7 @@ import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.core.VirtualType;
 import com.tscript.runtime.stroage.TypeArea;
 import com.tscript.runtime.typing.Function;
+import com.tscript.runtime.typing.TObject;
 import com.tscript.runtime.typing.Type;
 
 import java.util.List;
@@ -26,7 +27,8 @@ class LoadedTypeArea implements TypeArea {
             Function staticBlock = unloadedStaticBlocks[index];
             staticBlock.setOwner(type);
             unloadedStaticBlocks[index] = null;
-            thread.call(staticBlock, List.of());
+            TObject result = thread.call(staticBlock, List.of());
+            if (result == null) return null;
         }
 
         return type;

@@ -2,17 +2,21 @@ package com.tscript.runtime.typing;
 
 
 
+import com.tscript.runtime.jit.JITSensitive;
+
 import java.util.List;
 import java.util.Objects;
 
 public abstract class PrimitiveObject<V> implements TObject {
 
-    private final V value;
+    @JITSensitive
+    protected final V value;
 
     protected PrimitiveObject(V value) {
         this.value = value;
     }
 
+    @JITSensitive
     public abstract Type getType();
 
     @Override
@@ -44,6 +48,7 @@ public abstract class PrimitiveObject<V> implements TObject {
         return getDisplayName();
     }
 
+    @JITSensitive
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

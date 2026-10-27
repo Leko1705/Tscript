@@ -1,0 +1,352 @@
+package com.tscript.runtime.jit.comp.optim;
+
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.ir.nodes.*;
+import com.tscript.runtime.typing.Null;
+import com.tscript.runtime.typing.TObject;
+
+import java.util.*;
+
+/**
+ * Removes allocations of class instances that do not escape the trace (escape analysis and
+ * scalar replacement).
+ * <p>
+ * An object does not escape if it is only used to read and write its members (with known
+ * indices), to create its methods (function objects owned by the object, which must not escape
+ * either: calls of them have to be inlined) and in frame states. Since the effects of a trace form
+ * a linear chain, the values of the members are known at every point: reads are replaced by the
+ * last value written. Values that turn out to be the object or one of its methods (reads of
+ * members holding them, the owner of an inlined method, type narrowings) are aliases and are
+ * replaced as well. Guards (and exits) whose state refers to the object record the values of its
+ * members ({@link VirtualObjectState}), so that the object can be created when compiled code is
+ * left there.
+ * <p>
+ * Instances of classes with super classes consist of one object per class (see
+ * {@link com.tscript.runtime.core.VirtualType#newInstance()}). The super objects are reached with
+ * {@code GetSuper}; their members are identified by the depth of the super object and the index
+ * (see {@link VirtualObjectState#key(int, int)}).
+ */
+public class ObjectScalarReplacement implements IROptimizer {
+
+    @Override
+    public boolean optimize(Graph graph) {
+        boolean changed = false;
+        for (IREffect effect : graph.effects()) {
+            if (effect instanceof Anchor anchor && anchor.getValue() instanceof NewObject object && !object.isDead()) {
+                changed |= new Analysis(graph, anchor, object).run();
+            }
+        }
+        if (changed) {
+            graph.typeMap().flush();
+            graph.rehash();
+        }
+        return changed;
+    }
+
+    /**
+     * @return true if the allocation could be removed if the given phi did not use it (see
+     * {@link ObjectPhiSplitting})
+     */
+    static boolean isRemovableExcept(Graph graph, NewObject object, Phi phi) {
+        for (IREffect effect : Canonicalizer.anchorsOf(object)) {
+            Analysis analysis = new Analysis(graph, (Anchor) effect, object);
+            analysis.allowedPhi = phi;
+            return analysis.check();
+        }
+        return false;
+    }
+
+    private static final class Analysis {
+
+        final Graph graph;
+        final Anchor allocation;
+        final NewObject object;
+        /** a phi that may use the object (dry run, see isRemovableExcept) */
+        Phi allowedPhi = null;
+
+        /** the function objects owned by the object */
+        final Set<IRValue> methods = new HashSet<>();
+        /** nodes that are replaced (reads of members, aliases of the object) */
+        final Map<IRValue, IRValue> replacements = new LinkedHashMap<>();
+        final List<StoreMember> stores = new ArrayList<>();
+        final List<Anchor> removedAnchors = new ArrayList<>();
+        final Map<StateCarrier, Map<Integer, IRValue>> snapshots = new LinkedHashMap<>();
+
+        Analysis(Graph graph, Anchor allocation, NewObject object) {
+            this.graph = graph;
+            this.allocation = allocation;
+            this.object = object;
+            for (IRNode user : object.getUsers()) {
+                if (user instanceof NewFunction function && function.getOwner() == object) methods.add(function);
+            }
+        }
+
+        /**
+         * Runs the analysis without changing the graph.
+         */
+        boolean check() {
+            for (int round = 0; round < 4; round++) {
+                stores.clear();
+                removedAnchors.clear();
+                snapshots.clear();
+                if (!walk()) return false;
+                int known = replacements.size();
+                if (escapes()) return false;
+                if (replacements.size() == known) return true;
+            }
+            return false;
+        }
+
+        boolean run() {
+            // the escape check may find further aliases (e.g. type narrowings), which the walk
+            // has to know about: repeat until nothing new is found
+            for (int round = 0; round < 4; round++) {
+                stores.clear();
+                removedAnchors.clear();
+                snapshots.clear();
+                if (!walk()) return false;
+                int known = replacements.size();
+                if (escapes()) return false;
+                if (replacements.size() == known) {
+                    apply();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        IRValue resolve(IRValue value) {
+            IRValue replacement;
+            while ((replacement = replacements.get(value)) != null) value = replacement;
+            return value;
+        }
+
+        /**
+         * @return the depth of the (super) object the value is an alias of (0 for the object
+         * itself), -1 if it is no alias of the object
+         */
+        int depth(IRValue value) {
+            value = resolve(value);
+            if (value == object) return 0;
+            if (value instanceof Pi pi) return depth(pi.getValue());
+            if (value instanceof GetSuper getSuper) {
+                int depth = depth(getSuper.getValue());
+                return depth < 0 ? -1 : depth + 1;
+            }
+            if (value instanceof FunctionOwner owner && isMethod(owner.getValue())) {
+                return depth(((NewFunction) resolve(owner.getValue())).getOwner());
+            }
+            return -1;
+        }
+
+        boolean isObject(IRValue value) {
+            return depth(value) >= 0;
+        }
+
+        /**
+         * @return the node the alias stands for: the object or one of its super objects (GetSuper)
+         */
+        IRValue base(IRValue value) {
+            value = resolve(value);
+            if (value instanceof Pi pi) return base(pi.getValue());
+            if (value instanceof FunctionOwner owner) return base(((NewFunction) resolve(owner.getValue())).getOwner());
+            return value;
+        }
+
+        boolean isMethod(IRValue value) {
+            return methods.contains(resolve(value));
+        }
+
+        boolean isAlias(IRValue value) {
+            return isObject(value) || isMethod(value);
+        }
+
+        /**
+         * Walks the effects after the allocation and computes the values of the members.
+         * @return false if the object can not be replaced
+         */
+        boolean walk() {
+            removedAnchors.add(allocation);
+            Map<Integer, IRValue> members = new TreeMap<>();
+
+            for (IREffect e = allocation.next; e != null; e = e.next) {
+                if (e instanceof LoopBegin) {
+                    // an object allocated before a loop must not be used in the loop (the members
+                    // would differ between iterations)
+                    return !usedFrom(e);
+                }
+                if (e instanceof Anchor anchor) {
+                    IRValue value = anchor.getValue();
+                    if (value instanceof NewFunction function && isObject(function.getOwner())) {
+                        // a method of the object (or of one of its super objects)
+                        methods.add(function);
+                        removedAnchors.add(anchor);
+                    }
+                    else if (value instanceof GetSuper && isObject(value)) {
+                        // a super object: stays as a value that is only created on deoptimization
+                        removedAnchors.add(anchor);
+                    }
+                    else if (value instanceof LoadMember load && isObject(load.getObject())) {
+                        if (!isIndexed(load.access)) return false;
+                        int key = VirtualObjectState.key(depth(load.getObject()), load.index);
+                        IRValue member = members.get(key);
+                        if (member == null) member = initialValue(key);
+                        if (member == null) return false;
+                        replacements.put(load, resolve(member));
+                    }
+                    else if (isObject(value)) {
+                        // the owner of an inlined method or a type narrowing of the object
+                        replacements.put(value, base(value));
+                    }
+                }
+                else if (e instanceof StoreMember store) {
+                    if (isObject(store.getObject())) {
+                        if (!isIndexed(store.access) || isObject(store.getValue())) return false;
+                        members.put(VirtualObjectState.key(depth(store.getObject()), store.index), resolve(store.getValue()));
+                        stores.add(store);
+                    }
+                    else if (isAlias(store.getValue())) {
+                        return false;
+                    }
+                }
+                else if (e instanceof StateCarrier carrier && refersTo(carrier)) {
+                    snapshots.put(carrier, new TreeMap<>(members));
+                }
+            }
+            if (graph.exitControl() instanceof Exit exit && refersTo(exit)) {
+                snapshots.put(exit, new TreeMap<>(members));
+            }
+            return true;
+        }
+
+        /**
+         * @return the value of the member before the constructor wrote it, null if it can not be expressed
+         */
+        IRValue initialValue(int key) {
+            com.tscript.runtime.typing.Type type = object.type;
+            for (int i = 0; i < VirtualObjectState.depthOf(key); i++) type = type.getSuperType();
+            TObject template = ((com.tscript.runtime.core.VirtualType) type).getInstanceMemberTemplate(VirtualObjectState.indexOf(key));
+            if (template == null || template == Null.INSTANCE) return graph.builder().nullValue();
+            return null;
+        }
+
+        boolean refersTo(StateCarrier carrier) {
+            for (IRValue value : carrier.getStateValues()) {
+                if (isAlias(value)) return true;
+            }
+            return false;
+        }
+
+        boolean usedFrom(IREffect start) {
+            for (IREffect e = start; e != null; e = e.next) {
+                List<IRValue> inputs = new ArrayList<>(e.getInputs());
+                if (e instanceof Anchor anchor) inputs.addAll(anchor.getValue().getInputs());
+                for (IRValue input : inputs) if (isAlias(input)) return true;
+            }
+            return false;
+        }
+
+        /**
+         * Checks the users of the object, its methods and all their aliases.
+         */
+        boolean escapes() {
+            Set<IRValue> aliases = new LinkedHashSet<>();
+            aliases.add(object);
+            aliases.addAll(methods);
+            for (Map.Entry<IRValue, IRValue> entry : replacements.entrySet()) {
+                if (isAlias(entry.getValue())) aliases.add(entry.getKey());
+            }
+            for (Anchor anchor : removedAnchors) aliases.add(anchor.getValue());
+            Deque<IRValue> work = new ArrayDeque<>(aliases);
+            while (!work.isEmpty()) {
+                IRValue alias = work.poll();
+                boolean isMethod = isMethod(alias);
+                for (IRNode user : alias.getUsers()) {
+                    if (user instanceof Anchor) continue;
+                    // the state on loop entry is only used by guards created with it (see
+                    // containsRemovedAllocation)
+                    if (user instanceof LoopHeadNode) continue;
+                    if (user == allowedPhi) continue;
+                    if (user instanceof LoadMember || user instanceof StoreMember) {
+                        if (replacements.containsKey(user) || stores.contains(user)) continue;
+                        return true;
+                    }
+                    if (user instanceof NewFunction function && methods.contains(function)) continue;
+                    if (user instanceof IsType || user instanceof IsCallee) continue; // folded once replaced
+                    if (user instanceof GetSuper getSuper && !isMethod) {
+                        if (aliases.add(getSuper)) work.add(getSuper);
+                        continue;
+                    }
+                    if (user instanceof Pi || user instanceof FunctionOwner) {
+                        IRValue value = (IRValue) user;
+                        if (user instanceof FunctionOwner && !isMethod) return true;
+                        if (aliases.add(value)) {
+                            replacements.putIfAbsent(value, base(value));
+                            work.add(value);
+                        }
+                        continue;
+                    }
+                    if (user instanceof StateCarrier carrier && onlyInState(carrier, alias)) continue;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void apply() {
+            // the states first (so that they are updated when reads are replaced)
+            for (Map.Entry<StateCarrier, Map<Integer, IRValue>> entry : snapshots.entrySet()) {
+                Map<Integer, IRValue> snapshot = entry.getValue();
+                int[] indices = new int[snapshot.size()];
+                List<IRValue> values = new ArrayList<>(snapshot.size());
+                int i = 0;
+                for (Map.Entry<Integer, IRValue> member : snapshot.entrySet()) {
+                    indices[i++] = member.getKey();
+                    values.add(resolve(member.getValue()));
+                }
+                entry.getKey().addVirtualObject(object, indices, values);
+            }
+            for (IRValue replaced : replacements.keySet()) {
+                if (!replaced.isDead()) Canonicalizer.replace(replaced, resolve(replaced));
+            }
+            for (StoreMember store : stores) store.remove();
+            for (Anchor anchor : removedAnchors) anchor.remove();
+            if (Boolean.getBoolean("tscript.jit.debug")) {
+                System.err.println("[jit] removed allocation of " + object.type.getName()
+                        + " (created at " + snapshots.size() + " exits)");
+            }
+        }
+    }
+
+    /**
+     * @return true if one of the values is an object (or part of one) whose allocation was removed.
+     * Such values can only be used by guards that know the state of the object, so no new guards
+     * with these values may be created.
+     */
+    public static boolean containsRemovedAllocation(List<IRValue> values) {
+        for (IRValue value : values) {
+            if ((value instanceof NewObject || value instanceof NewFunction || value instanceof GetSuper)
+                    && Canonicalizer.anchorsOf(value).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isIndexed(MemberAccess access) {
+        return access == MemberAccess.FIELD || access == MemberAccess.INTERNAL;
+    }
+
+    /**
+     * @return true if the value is only part of the frame state of the carrier (and not e.g. the
+     * value of a promoted global written back on exit)
+     */
+    private static boolean onlyInState(StateCarrier carrier, IRValue value) {
+        if (carrier.getGlobalWriteValues().contains(value)) return false;
+        if (carrier instanceof GuardBool guard && guard.getCondition() == value) return false;
+        for (VirtualObjectState state : carrier.getVirtualObjects()) {
+            if (carrier.getVirtualObjectValues(state).contains(value)) return false;
+        }
+        return carrier instanceof Guard || carrier instanceof Exit;
+    }
+}

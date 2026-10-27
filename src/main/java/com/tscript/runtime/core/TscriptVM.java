@@ -5,8 +5,8 @@ import com.tscript.runtime.VirtualMachine;
 import com.tscript.runtime.debugger.BreakPoint;
 import com.tscript.runtime.debugger.DebugInterpreter;
 import com.tscript.runtime.debugger.Debugger;
-import com.tscript.runtime.debugger.states.ThreadState;
-import com.tscript.runtime.debugger.states.VMState;
+import com.tscript.runtime.jit.JITCompiler;
+import com.tscript.runtime.jit.tracing.Profiler;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.loading.*;
 import com.tscript.runtime.typing.Callable;
@@ -17,7 +17,6 @@ import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class TscriptVM implements VirtualMachine {
 
@@ -40,9 +39,10 @@ public class TscriptVM implements VirtualMachine {
     private final Map<Long, TThread> runningThreads;
     private volatile int exitCode = 0;
     private final Set<TerminationListener> terminationListeners = new HashSet<>();
-    protected ProjectFile projectFile = null;
-    private Function<TThread, Interpreter> interpreterSupplier = BaseInterpreter::new;
+    public ProjectFile projectFile = null;
+    private Function<TThread, Interpreter> interpreterSupplier = t -> new Profiler(new BaseInterpreter(t));
     private Set<BreakPoint> breakPoints = new HashSet<>();
+    private JITCompiler jitCompiler;
 
     private TscriptVM(File[] rootPath, PrintStream out, PrintStream err){
         this.rootPaths = rootPath;
@@ -50,6 +50,7 @@ public class TscriptVM implements VirtualMachine {
         this.err = err;
         this.sharedModuleLoader = new ModuleLoaderImpl(new BruteForcePathResolver(new DirectoryPathResolver(new FileHierarchyPathResolver())));
         this.runningThreads = new ConcurrentHashMap<>();
+        this.jitCompiler = getInitialJIT();
     }
 
     public int execute(String moduleName){
@@ -70,7 +71,10 @@ public class TscriptVM implements VirtualMachine {
 
         // run the main thread
         Callable entryPoint = module.getEntryPoint();
+        if (entryPoint instanceof VirtualFunction vfunc) vfunc.setOwner(vfunc);
         TThread thread = spawnThread(entryPoint, List.of());
+
+        jitCompiler.boot();
         thread.begin();
 
         // wait for daemon threads
@@ -90,6 +94,7 @@ public class TscriptVM implements VirtualMachine {
             listener.onTermination(this);
         }
 
+        jitCompiler.shutdown();
         return exitCode;
     }
 
@@ -108,19 +113,26 @@ public class TscriptVM implements VirtualMachine {
     }
 
     public void setDebugger(Debugger debugger) {
+        Objects.requireNonNull(debugger);
         checkNotRunning();
-        if (debugger == null){
-            interpreterSupplier = BaseInterpreter::new;
-        }
-        else {
-            interpreterSupplier =
-                    t -> new DebugInterpreter(new BaseInterpreter(t), debugger);
-        }
+        interpreterSupplier =
+                t -> new DebugInterpreter(new BaseInterpreter(t), debugger);
     }
 
     public void setBreakPoints(Set<BreakPoint> breakPoints) {
         Objects.requireNonNull(breakPoints);
         this.breakPoints = breakPoints;
+    }
+
+    public void setJitEnabled(boolean jitEnabled) {
+        if (jitEnabled) {
+            jitCompiler = getInitialJIT();
+            interpreterSupplier = t -> new Profiler(new BaseInterpreter(t));
+        }
+        else {
+            jitCompiler = JITCompiler.disabled();
+            interpreterSupplier = BaseInterpreter::new;
+        }
     }
 
     public Set<BreakPoint> getBreakPoints() {
@@ -184,4 +196,11 @@ public class TscriptVM implements VirtualMachine {
             throw new IllegalStateException("vm already running");
     }
 
+    public JITCompiler getJitCompiler() {
+        return jitCompiler;
+    }
+
+    private static JITCompiler getInitialJIT(){
+        return new JITCompiler();
+    }
 }

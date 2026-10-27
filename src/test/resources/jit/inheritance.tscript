@@ -1,0 +1,106 @@
+module inheritance;
+
+class Shape {
+    protected:
+    var name;
+    public:
+    var scale = 1;
+    constructor(name = "shape") {
+        this.name = name;
+        if name == "late" then scale = 2;
+    }
+    function area() {
+        return 0;
+    }
+    function describe() {
+        return area() * scale;
+    }
+}
+
+class Rect: Shape {
+    public:
+    var w;
+    var h;
+    constructor(w, h): super("rect") {
+        this.w = w;
+        this.h = h;
+    }
+    function area() {
+        return w * h;
+    }
+}
+
+class Square: Rect {
+    public:
+    constructor(s): super(s, s) {
+        scale = scale + 1;
+    }
+    function label() {
+        return name;
+    }
+}
+
+class Named: Shape {
+    public:
+    constructor(n): super(n) { }
+}
+
+class Plain: Shape {
+    public:
+    var extra = 5;
+}
+
+# temporaries with a two level hierarchy
+function areas(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var r = Rect(i % 7, 3);
+        var q = Square(i % 5);
+        s = s + r.area() + q.area() + q.scale + r.scale + q.w;
+    }
+    return s;
+}
+
+# the branch in the super constructor is taken late (deoptimization inside of it)
+function lateBranch(n) {
+    var s = 0;
+    var names = ["early", "late"];
+    for var i in 0:n do {
+        # no branch in the loop: the guard in the super constructor fails
+        var x = Named(names[i // (n - 2)]);
+        s = s + x.scale;
+    }
+    return s;
+}
+
+# default constructor of a subclass, inherited and protected members, overridden methods
+function members(n) {
+    var s = 0;
+    var last = "";
+    for var i in 0:n do {
+        var p = Plain();
+        var q = Square(2);
+        s = s + p.extra + p.scale + p.describe() + q.describe();
+        last = q.label();
+        if i == n - 4 then q.w = 0.5;
+        s = s + q.w;
+    }
+    return [s, last];
+}
+
+# objects of the hierarchy escape sometimes
+function escapes(n) {
+    var kept = [];
+    for var i in 0:n do {
+        var q = Square(i);
+        if i % 997 == 0 then kept.push(q);
+    }
+    var s = 0;
+    for var k in kept do s = s + k.area() + k.scale;
+    return s;
+}
+
+print(areas(3000));
+print(lateBranch(3000));
+print(members(3000));
+print(escapes(3000));

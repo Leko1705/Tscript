@@ -17,7 +17,7 @@ public final class NativeQuitEventMode extends NativeFunction {
 
     @Override
     public Parameters doGetParameters(Environment env) {
-        return Parameters.newInstance().add("result", Null.INSTANCE);
+        return Parameters.newInstance().add("value", Null.INSTANCE);
     }
 
     @Override

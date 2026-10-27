@@ -89,6 +89,23 @@ public class ProjectFile {
                         File root = new File(split[1]);
                         projectFile.roots.add(root);
                     }
+                    case "jit" -> {
+                        try {
+                            if (split.length != 2) throw new Exception();
+                            if (split[1].equalsIgnoreCase("on")){
+                                projectFile.jitEnabled = true;
+                            }
+                            else if (split[1].equalsIgnoreCase("off")){
+                                projectFile.jitEnabled = false;
+                            }
+                           else {
+                               throw new NumberFormatException();
+                            }
+                        }
+                        catch (NumberFormatException e){
+                            throw new Exception("'on' or 'off' expected for flag 'jit'");
+                        }
+                    }
                 }
 
             }
@@ -130,6 +147,8 @@ public class ProjectFile {
 
     private String bootModule;
 
+    private boolean jitEnabled = true;
+
     private ProjectFile() {}
 
     public NativeFunction getNative(String name) {
@@ -154,5 +173,9 @@ public class ProjectFile {
 
     public String getInspectionPath() {
         return inspectionPath;
+    }
+
+    public boolean isJitEnabled() {
+        return jitEnabled;
     }
 }

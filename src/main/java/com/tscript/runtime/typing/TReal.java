@@ -1,6 +1,7 @@
 package com.tscript.runtime.typing;
 
 
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 
@@ -11,15 +12,16 @@ import java.util.Map;
 public class TReal extends PrimitiveObject<Double> {
 
     public static final Type TYPE =
-            new Type.Builder("Real")
+            Type.newBuilder("Real")
                     .addMember(Member.of(Visibility.PUBLIC, false, "nan", new GetNanStaticMethod()))
                     .addMember(Member.of(Visibility.PUBLIC, false, "inf", new GetInfiniteStaticMethod()))
                     .setParameters(Parameters.newInstance().add("value", null))
-                    .setConstructor((thread, params) -> {
+                    .setConstructor((env, params) -> {
                         TObject value = params.get(0);
 
-                        if (value instanceof TReal)
-                            return value;
+                        if (value instanceof TReal r) {
+                            return new TReal(r.getValue());
+                        }
 
                         if (value instanceof TInteger integer){
                             return new TReal(integer.getValue().doubleValue());
@@ -30,18 +32,19 @@ public class TReal extends PrimitiveObject<Double> {
                                 return new TReal(Double.parseDouble(string.getValue()));
                             }
                             catch (NumberFormatException e){
-                                thread.reportRuntimeError("can not convert string '" + string.getValue() + "' to Real");
+                                env.reportRuntimeError("can not convert string '" + string.getValue() + "' to Real");
                                 return null;
                             }
                         }
 
-                        thread.reportRuntimeError("can not convert " + value.getDisplayName() + " to Real");
+                        env.reportRuntimeError("can not convert " + value.getDisplayName() + " to Real");
                         return null;
                     }).build();
 
     private final Map<String, Member> methods;
 
-    public TReal(Double value) {
+    @JITSensitive
+    public TReal(double value) {
         super(value);
         methods = new HashMap<>(Map.of(
                 "isFinite", Member.of(Visibility.PUBLIC, false, "isFinite", new IsFiniteMethod()),

@@ -1,5 +1,7 @@
 package com.tscript.runtime.core;
 
+import com.tscript.runtime.jit.JITSensitive;
+
 import com.tscript.runtime.typing.Member;
 import com.tscript.runtime.typing.TObject;
 import com.tscript.runtime.typing.Type;
@@ -9,17 +11,17 @@ import java.util.Arrays;
 public class VirtualObject implements TObject {
 
     protected TObject superObject = null;
-    protected VirtualObject subObject = null;
-    private final Type type;
+    public VirtualObject subObject = null;
+    private final VirtualType type;
     private final Member[] members;
 
-    public VirtualObject(Type type, Member[] members) {
+    public VirtualObject(VirtualType type, Member[] members) {
         this.type = type;
         this.members = members;
     }
 
     @Override
-    public Type getType() {
+    public VirtualType getType() {
         return type;
     }
 
@@ -32,6 +34,14 @@ public class VirtualObject implements TObject {
     public Member loadMember(String name) {
         int index = type.getInstanceFields().getOrDefault(name, -1);
         if (index == -1) return null;
+        return members[index];
+    }
+
+    /**
+     * @return the instance member at the given index (see {@link VirtualType#getInstanceFields()})
+     */
+    @JITSensitive
+    public Member member(int index) {
         return members[index];
     }
 

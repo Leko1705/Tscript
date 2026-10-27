@@ -1,0 +1,10 @@
+module test;
+
+function sum(x) {
+    if x == 0 then return 0;
+    return 1 + sum(x - 1);
+}
+
+for var i in 0:1000 do {
+    print(sum(5));
+}

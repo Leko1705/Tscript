@@ -1,0 +1,48 @@
+module objects;
+
+class Vec {
+    public:
+    var x;
+    var y;
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    function add(other) {
+        x = x + other.x;
+        y = y + other.y;
+    }
+    function dot(other) {
+        return x * other.x + y * other.y;
+    }
+}
+
+class Particle {
+    public:
+    var pos;
+    var vel;
+    constructor(i) {
+        pos = Vec(i, 0);
+        vel = Vec(1, i % 3);
+    }
+    function step() {
+        pos.add(vel);
+        if pos.y > 100 then vel.y = 0 - vel.y;
+        if pos.y < 0 then vel.y = 0 - vel.y;
+    }
+}
+
+function simulate(n, steps) {
+    var particles = [];
+    for var i in 0:n do particles.push(Particle(i));
+    var energy = 0;
+    for var s in 0:steps do {
+        for var p in particles do {
+            p.step();
+            energy = energy + p.vel.dot(p.vel);
+        }
+    }
+    return energy;
+}
+
+print(simulate(100, 6000));

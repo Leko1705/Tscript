@@ -1,8 +1,8 @@
 package com.tscript.runtime.typing;
 
 
-import com.tscript.runtime.core.ALU;
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.utils.Tuple;
@@ -13,11 +13,11 @@ public class TArray extends PrimitiveObject<List<TObject>>
         implements ContainerWriteableObject, ContainerAccessibleObject, IterableObject {
 
     public static final Type TYPE =
-            new Type.Builder("Array")
+            Type.newBuilder("Array")
                     .setParameters(Parameters.newInstance()
                             .add("size_or_other", new TInteger(0))
                             .add("value", Null.INSTANCE))
-                    .setConstructor((thread, params) -> {
+                    .setConstructor((env, params) -> {
                         TObject size_or_other = params.get(0);
 
                         if (size_or_other instanceof TInteger integer) {
@@ -28,24 +28,25 @@ public class TArray extends PrimitiveObject<List<TObject>>
                             return new TArray(list);
                         }
 
-                        else if (size_or_other instanceof TArray arr){
-                            return new TArray(arr.getValue());
+                        else if (size_or_other instanceof TArray other){
+                            return new TArray(other.getValue());
                         }
 
-                        thread.reportRuntimeError("can not convert " + size_or_other.getType() + " to Array");
+                        env.reportRuntimeError("can not convert " + size_or_other.getType() + " to Array");
                         return null;
                     })
                     .build();
 
     public static final Type ITR_TYPE =
-            new Type.Builder("ArrayIterator")
+            Type.newBuilder("ArrayIterator")
                     .setAbstract(true)
                     .addMember(Member.of(Visibility.PUBLIC, false, "concat", new ConcatStaticMethod()))
-                    .setConstructor((thread, params) -> Null.INSTANCE)
+                    .setConstructor((env, params) -> { throw new AssertionError(); })
                     .build();
 
     private final Map<String, Member> methods;
 
+    @JITSensitive
     public TArray(List<TObject> value) {
         super(value);
         methods = new HashMap<>(Map.of(
@@ -64,6 +65,7 @@ public class TArray extends PrimitiveObject<List<TObject>>
         this(new ArrayList<>());
     }
 
+    @JITSensitive
     public TArray(TObject... value) {
         this(new ArrayList<>(List.of(value)));
     }

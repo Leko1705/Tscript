@@ -1,15 +1,19 @@
 package com.tscript.runtime.typing;
 
 
+import com.tscript.runtime.core.TThread;
+
+import java.util.List;
 
 public abstract class Function implements Callable {
 
-    public static final Type TYPE = new Type.Builder("Function")
+
+    public static final Type TYPE = Type.newBuilder("Function")
             .setConstructor((thread, params) -> {
 
                 TObject value = params.get(0);
-                if (value instanceof Function) {
-                    return value;
+                if (value instanceof Function fun) {
+                    return fun.dup();
                 }
 
                 thread.reportRuntimeError("can not convert " + value.getType() + " to Function");
@@ -29,13 +33,20 @@ public abstract class Function implements Callable {
 
     public abstract Function dup();
 
+    public abstract TObject eval0(TThread thread, List<TObject> params);
+
+    @Override
+    public TObject eval(TThread thread, List<TObject> params) {
+        return eval0(thread, params);
+    }
+
     @Override
     public  String getDisplayName() {
         return "Function<" + getName() + ">";
     }
 
     @Override
-    public final  Type getType() {
+    public final Type getType() {
         return TYPE;
     }
 
@@ -43,4 +54,5 @@ public abstract class Function implements Callable {
     public String toString() {
         return getDisplayName();
     }
+
 }

@@ -57,17 +57,17 @@ class JavaField implements TObject, Member {
     }
 
     @Override
-    public void set(TObject value, Environment env) {
+    public boolean set(TObject value, Environment env) {
 
         if (field.getType().isPrimitive() && value == Null.INSTANCE) {
             env.reportRuntimeError(APIUtils.primitiveNotNullableError(field.getType()));
-            return;
+            return false;
         }
 
         Object candidate = APIUtils.validate(field.getType(), value);
         if (candidate == null && value != Null.INSTANCE) {
             env.reportRuntimeError(APIUtils.invalidType(field.getType(), value));
-            return;
+            return false;
         }
         try {
             field.set(instance, candidate);
@@ -75,5 +75,6 @@ class JavaField implements TObject, Member {
         catch (Exception e){
             throw new AssertionError(e.getMessage());
         }
+        return true;
     }
 }

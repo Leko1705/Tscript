@@ -1,0 +1,67 @@
+module edgecases;
+
+function depth(n) {
+    if n == 0 then return 0;
+    return 1 + depth(n - 1);
+}
+
+function strs(x) {
+    return "" + x + "|" + (x / 3) + "|" + (x * 100000.0 * 100000.0) + "|" + (x > 2) + "|" + null;
+}
+
+function inc(x) { return x + 1; }
+function dec(x) { return x - 1; }
+
+var op = inc;
+var acc = 0;
+for var i in 0:600 do {
+    if i == 300 then op = dec;
+    acc = op(acc);
+}
+print(acc);
+
+for var i in 0:200 do depth(50);
+print(depth(5000));
+
+var s = "";
+for var i in 0:300 do s = strs(i);
+print(s);
+print(strs(0.5));
+print(strs(-7));
+
+function poly(x) {
+    return x + x;
+}
+var res = [];
+for var i in 0:400 do {
+    if i % 4 == 0 then res = [poly(i), poly(i * 0.5), poly("a")];
+}
+print(res);
+
+function realEdge(x) {
+    return [x / 0.0, -x / 0.0, 0.0 / 0.0 == 0.0 / 0.0, 0.0 == -0.0, x ^ 0.5];
+}
+for var i in 0:300 do res = realEdge(i);
+print(res);
+print(realEdge(-4));
+
+function overflow(x) {
+    return x * x * x * x;
+}
+for var i in 0:300 do res = overflow(i + 50000);
+print(res);
+
+function cmpMixed(a, b) {
+    return [a == b, a != b, a < b, a <= b, a > b, a >= b];
+}
+for var i in 0:300 do res = cmpMixed(i, i * 1.0);
+print(res);
+print(cmpMixed(2, 2.0));
+print(cmpMixed("x", "x"));
+
+function globalsInLoop(n) {
+    for var i in 0:n do acc = acc + i;
+    return acc;
+}
+for var i in 0:100 do globalsInLoop(10);
+print(acc);

@@ -1,0 +1,74 @@
+module localloops;
+
+function countUp(n) {
+    var i = 0;
+    var acc = 0.0;
+    while i < n do {
+        acc = acc + i / 2;
+        i = i + 1;
+    }
+    return [i, acc];
+}
+
+function nested(n) {
+    var total = 0;
+    var last = -1;
+    for var a in 0:n do {
+        for var b in 0:a do {
+            total = total + a * b % 13;
+            last = b;
+        }
+    }
+    return [total, last];
+}
+
+function branchy(n) {
+    var even = 0;
+    var odd = 0;
+    var str = "";
+    for var i in 0:n do {
+        if i % 2 == 0 then even = even + i;
+        else odd = odd - i;
+        if i % 50 == 0 then str = str + i + ";";
+    }
+    return [even, odd, str];
+}
+
+function findFirst(limit, target) {
+    for var i in 0:limit do {
+        if i * i > target then return i;
+    }
+    return -1;
+}
+
+function changesType(n) {
+    var x = 1;
+    for var i in 0:n do {
+        if i == n // 2 then x = x + 0.5;
+        x = x + 1;
+    }
+    return x;
+}
+
+function collatz(start) {
+    var k = start;
+    var steps = 0;
+    while k != 1 do {
+        if k % 2 == 0 then k = k // 2;
+        else k = 3 * k + 1;
+        steps = steps + 1;
+    }
+    return steps;
+}
+
+for var r in 0:30 do {
+    print(countUp(r * 40));
+    print(nested(r * 3));
+    print(branchy(r * 20));
+    print(findFirst(1000, r * r * 50));
+    print(changesType(r * 30));
+    print(collatz(r + 7));
+}
+var s = 0;
+for var r in 1:3000 do s = s + collatz(r);
+print(s);

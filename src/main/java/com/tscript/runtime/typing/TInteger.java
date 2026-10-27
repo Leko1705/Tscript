@@ -1,34 +1,37 @@
 package com.tscript.runtime.typing;
 
 
+import com.tscript.runtime.jit.JITSensitive;
 
 public class TInteger extends PrimitiveObject<Integer> {
 
     public static final Type TYPE =
-            new Type.Builder("Integer")
+            Type.newBuilder("Integer")
                     .setParameters(Parameters.newInstance().add("value", null))
-                    .setConstructor(((thread, params) -> {
+                    .setConstructor(((env, params) -> {
                         TObject value = params.get(0);
 
-                        if (value instanceof TInteger)
-                            return value;
+                        if (value instanceof TInteger i) {
+                            return i;
+                        }
                         if (value instanceof TReal real){
-                            return new TInteger(real.getValue().intValue());
+                            return new TInteger(real.value.intValue());
                         }
                         if (value instanceof TString string){
                             try {
                                 return new TInteger(Integer.parseInt(string.getValue()));
                             }
                             catch (NumberFormatException e){
-                                thread.reportRuntimeError("can not convert string '" + string.getValue() + "' to Integer");
+                                env.reportRuntimeError("can not convert string '" + string.getValue() + "' to Integer");
                                 return null;
                             }
                         }
 
-                        thread.reportRuntimeError("can not convert " + value.getDisplayName() + " to Integer");
+                        env.reportRuntimeError("can not convert " + value.getDisplayName() + " to Integer");
                         return null;
                     })).build();
 
+    @JITSensitive
     public TInteger(int value) {
         super(value);
     }

@@ -1,0 +1,42 @@
+module caught_errors;
+
+function h(x) {
+    if x % 97 == 96 then throw "bad " + x;
+    return x;
+}
+
+function g(x) {
+    var s = 0;
+    for var i in 0:x do s = s + h(i);
+    return s;
+}
+
+function f(x) {
+    try {
+        return g(x);
+    }
+    catch var e do {
+        return e;
+    }
+    return null;
+}
+
+var results = [];
+var total = 0;
+for var i in 0:150 do {
+    var r = f(i);
+    if Type(r) == Integer then total = total + r;
+    else results = [r, i];
+}
+print(total);
+print(results);
+
+function container(a, k) {
+    return a[k] + 1;
+}
+var arr = [1, 2, 3];
+var t = 0;
+for var i in 0:300 do t = t + container(arr, i % 3);
+print(t);
+print(container(arr, 5));
+print("unreachable?");

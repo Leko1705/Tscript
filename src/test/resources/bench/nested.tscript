@@ -1,0 +1,11 @@
+module nested;
+function f(n) {
+    var total = 0;
+    for var a in 0:n do {
+        for var b in 0:n do {
+            total = total + (a * b) % 7;
+        }
+    }
+    return total;
+}
+print(f(2000));

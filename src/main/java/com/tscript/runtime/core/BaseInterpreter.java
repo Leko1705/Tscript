@@ -35,7 +35,7 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public TObject call(Callable called, List<TObject> arguments) {
-        return thread.call(called, arguments);
+        return thread.call0(called, arguments);
     }
 
     @Override
@@ -55,7 +55,7 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void loadConst(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
+        Module module = thread.topVirtualFrame().getModule();
         Pool pool = module.getPool();
         thread.push(pool.loadConstant(b1, b2));
     }
@@ -82,10 +82,11 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void loadVirtual(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
+        Module module = thread.topVirtualFrame().getModule();
         FunctionArea functionArea = module.getFunctionArea();
         int index = Conversion.from2Bytes(b1, b2);
-        VirtualFunction func = functionArea.loadFunction(index, module);
+        VirtualFunction func = functionArea.loadFunction(index);
+        func.setOwner(func);
         thread.push(func);
     }
 
@@ -98,7 +99,7 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void loadType(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
+        Module module = thread.topVirtualFrame().getModule();
         TypeArea typeArea = module.getTypeArea();
         int index = Conversion.from2Bytes(b1, b2);
         Type type = typeArea.loadType(thread, index);
@@ -110,7 +111,7 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void buildType(byte b1, byte b2) {
-        Module module = thread.getFrame().getModule();
+        Module module = thread.topVirtualFrame().getModule();
         TypeArea typeArea = module.getTypeArea();
         int index = Conversion.from2Bytes(b1, b2);
         VirtualType type = typeArea.loadType(thread, index);
@@ -142,12 +143,12 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void newLine(int line) {
-        thread.getFrame().setLine(line);
+        thread.topVirtualFrame().setLine(line);
     }
 
     @Override
     public void loadGlobal(byte address) {
-        Module module = thread.getFrame().getModule();
+        Module module = thread.topVirtualFrame().getModule();
         TObject value = module.loadMember(address).get();
         thread.push(value);
     }
@@ -155,18 +156,18 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void storeGlobal(byte address) {
         TObject value = thread.pop();
-        Module module = thread.getFrame().getModule();
+        Module module = thread.topVirtualFrame().getModule();
         module.loadMember(address).set(value, thread);
     }
 
     @Override
     public void loadLocal(byte address) {
-        thread.push(thread.getFrame().load(address));
+        thread.push(thread.topVirtualFrame().load(address));
     }
 
     @Override
     public void storeLocal(byte address) {
-        thread.getFrame().store(address, thread.pop());
+        thread.topVirtualFrame().store(address, thread.pop());
     }
 
     @Override
@@ -380,8 +381,8 @@ public class BaseInterpreter implements Interpreter {
     public void makeDict(byte size) {
         Map<TObject, TObject> content = new LinkedHashMap<>();
         for (; size > 0; size--) {
-            TObject key = thread.pop();
             TObject value = thread.pop();
+            TObject key = thread.pop();
             content.put(key, value);
         }
         thread.push(new TDictionary(content));
@@ -408,7 +409,7 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void jumpTo(byte b1, byte b2) {
-        thread.getFrame().jumpTo(Conversion.from2Bytes(b1, b2));
+        thread.topVirtualFrame().jumpTo(Conversion.from2Bytes(b1, b2));
     }
 
     @Override
@@ -448,12 +449,12 @@ public class BaseInterpreter implements Interpreter {
 
     @Override
     public void enterTry(byte b1, byte b2) {
-        thread.getFrame().enterUnsafeSpot(Conversion.from2Bytes(b1, b2));
+        thread.topVirtualFrame().enterUnsafeSpot(Conversion.from2Bytes(b1, b2));
     }
 
     @Override
     public void leaveTry() {
-        thread.getFrame().leaveUnsafeSpot();
+        thread.topVirtualFrame().leaveUnsafeSpot();
     }
 
     @Override
@@ -468,7 +469,7 @@ public class BaseInterpreter implements Interpreter {
         Callable called = checkCall(thread.pop());
         if (called == null) return;
 
-        List<TObject> args = new ArrayList<>(3); // avg. param amount
+        List<TObject> args = new ArrayList<>(argCount);
         for (int i = 0; i < argCount; i++) args.add(thread.pop());
         TObject res = called.call(thread, args);
         if (res != null && thread.frameStack.size() > thread.frameStackExitThreshold)
@@ -480,10 +481,8 @@ public class BaseInterpreter implements Interpreter {
         Callable called = checkCall(thread.pop());
         if (called == null) return;
 
-        // choose 3 as the most avg. max. number of arguments to
-        // reduce the amount of array growth in ArrayList.
-        List<String> names = new ArrayList<>(3);
-        List<TObject> values = new ArrayList<>(3);
+        List<String> names = new ArrayList<>(argCount);
+        List<TObject> values = new ArrayList<>(argCount);
 
         for (int i = 0; i < argCount; i++) {
             Argument arg = (Argument) thread.pop();
@@ -525,7 +524,7 @@ public class BaseInterpreter implements Interpreter {
     }
 
     private boolean isStackOverflowError(){
-        if (thread.frameStack.size() == 30_000){
+        if (thread.frameStack.size() + thread.shadowFrameCount() >= 30_000){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.stackOverflowError());
             return true;
         }
@@ -535,35 +534,33 @@ public class BaseInterpreter implements Interpreter {
     @Override
     public void returnFunction() {
         TObject returnValue = thread.pop();
-        thread.frameStack.remove();
+        Frame returned = thread.frameStack.remove();
         thread.returnValue = returnValue;
         if (thread.frameStack.size() <= thread.frameStackExitThreshold) return;
+        if (returned instanceof VirtualFrame frame && frame.discardsResult) return;
         thread.push(returnValue);
     }
 
     @Override
     public void callSuper(byte argCount) {
-        TObject owner = thread.getFrame().getOwner();
-        if (!(owner instanceof VirtualObject vobj)){
-            thread.reportRuntimeError("can not bind to builtin or native type");
-            return;
-        }
-        if (vobj.superObject != null){
-            thread.reportRuntimeError("super has already been called");
-            return;
-        }
-        Type type = owner.getType();
+        VirtualObject owner = (VirtualObject) thread.getFrame().getOwner();
+
+        VirtualType type = owner.getType();
         Type superType = type.getSuperType();
-        assert superType != null; // should have been checked by the compiler earlier
-        List<TObject> args = new ArrayList<>(); // avg. param amount
+
+        Function constructor = superType.getConstructor().dup();
+        constructor.setOwner(owner.getSuper());
+
+        List<TObject> args = new ArrayList<>();
         for (int i = 0; i < argCount; i++) args.add(thread.pop());
-        boolean isAbstract = superType.isAbstract();
-        if (superType instanceof VirtualType vt) vt.isAbstract = false;
-        TObject superObj = thread.call(superType, args);
-        if (superType instanceof VirtualType vt) vt.isAbstract = isAbstract;
-        if (superObj == null) return;
-        vobj.superObject = superObj;
-        if (superObj instanceof VirtualObject vo) vo.subObject = vobj;
+
+        TObject superObject = call(constructor, args);
+        if (superObject != null) {
+            owner.superObject = superObject;
+            if (superObject instanceof VirtualObject superVObj) {
+                superVObj.subObject = owner;
+            }
+        }
     }
 
     @Override
@@ -604,7 +601,7 @@ public class BaseInterpreter implements Interpreter {
     }
 
     private void storeMember(String name, TObject value){
-        Frame frame = thread.getFrame();
+        VirtualFrame frame = thread.topVirtualFrame();
         boolean success = frame.storeName(name, value);
         if (!success){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.nameAlreadyExists(name));
@@ -615,7 +612,7 @@ public class BaseInterpreter implements Interpreter {
     public void loadName(byte b1, byte b2) {
         String name = getUtf8Constant(b1, b2);
 
-        TObject value = thread.getFrame().loadName(name);
+        TObject value = thread.topVirtualFrame().loadName(name);
         if (value != null){
             thread.push(value);
             return;
@@ -639,7 +636,7 @@ public class BaseInterpreter implements Interpreter {
             }
         }
 
-        Member member = thread.getFrame().getModule().loadMember(name);
+        Member member = thread.topVirtualFrame().getModule().loadMember(name);
         if (member != null){
             thread.push(member.get());
             return;
@@ -723,7 +720,7 @@ public class BaseInterpreter implements Interpreter {
 
 
     private String getUtf8Constant(byte b1, byte b2){
-        Module module = thread.getFrame().getModule();
+        Module module = thread.topVirtualFrame().getModule();
         Pool pool = module.getPool();
         return pool.loadName(b1, b2);
     }

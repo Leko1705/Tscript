@@ -1,0 +1,90 @@
+/**
+ * The tracing just-in-time compiler of the tscript VM.
+ *
+ * <h2>Pipeline</h2>
+ * <ol>
+ *     <li><b>Profiling</b> ({@link com.tscript.runtime.jit.tracing.Profiler}): counts function calls
+ *     (per argument type specialization) and loop back edges. Counters and compiled images live in the
+ *     {@link com.tscript.runtime.jit.caching.images.ImageCache}; every entry walks through the
+ *     configured {@link com.tscript.runtime.jit.CompilationLevel}s.</li>
+ *     <li><b>Tracing</b> ({@link com.tscript.runtime.jit.tracing.Tracer}): a front end that records one
+ *     execution path of the interpreter into a sea of nodes {@link com.tscript.runtime.jit.comp.ir.Graph}.
+ *     A method JIT could be added as another front end producing the same graphs
+ *     (the IR contains {@code IfElse}/{@code MergeControl} for that purpose).</li>
+ *     <li><b>Optimization</b> ({@link com.tscript.runtime.jit.comp.levels}): every level runs the optimizer
+ *     passes until a fixpoint is reached: global promotion (globals used in loops live in phis and are
+ *     written back on loop exits), scalar replacement (reads of non escaping arrays, allocations of
+ *     non escaping objects), the
+ *     {@link com.tscript.runtime.jit.comp.optim.Canonicalizer} (with global value numbering), guard
+ *     hoisting, guard elimination (duplicate and range implied guards) and dead code elimination
+ *     (including dead phis). L1 compiles the recorded trace; L2 and L3 recompile the same graph
+ *     without recording a new trace and stitch the compiled side traces of its guards into the code
+ *     (trace trees). L3 only differs in that it picks up side traces compiled after L2 and stitches
+ *     deeper. Large graphs are not recompiled if no new side trace can be stitched, since the
+ *     JVM would spend a lot of time compiling the same code again. Running the passes already at L1 matters, since long running loops are often entered
+ *     only once and never reach L2.</li>
+ *     <li><b>Emission</b> ({@link com.tscript.runtime.jit.comp.emit.Emitter}): the JVM bytecode emitter turns
+ *     a graph into a {@link com.tscript.runtime.jit.NativeImage}.</li>
+ *     <li><b>Execution and deoptimization</b> ({@link com.tscript.runtime.jit.tracing.ImageRunner}):
+ *     images run instead of the interpreter. If a guard fails, the image returns a
+ *     {@link com.tscript.runtime.jit.tracing.Deoptimization} describing the interpreter state and the
+ *     interpreter continues from there.</li>
+ * </ol>
+ *
+ * <h2>Traces</h2>
+ * <ul>
+ *     <li><b>Function traces</b> start at a function entry and end at its return.</li>
+ *     <li><b>Loop traces</b> start at a hot loop header and end at the back edge.</li>
+ *     <li><b>Side traces</b> start at a hot guard exit of another trace (e.g. the base case of a recursive
+ *     function) and continue until the function returns or execution reaches a loop header.</li>
+ * </ul>
+ *
+ * <h2>Loops, phis and recursion</h2>
+ * Whenever the tracer passes a loop header, it opens a {@code LoopHeadNode} and creates a phi for every
+ * local variable and stack slot whose first input is the value on loop entry. The body is recorded
+ * against these phis. When execution jumps back to the header, the second input of every phi is set to
+ * the value at the end of the body. Headers that are never jumped back to are degenerate; their phis
+ * collapse to the entry values. Phis are never created by replacing uses of existing nodes, so shared
+ * (value numbered) nodes are never affected.
+ * <p>
+ * The entry of every function trace is such a loop header with the parameters as phis: a self tail call
+ * ({@code return f(...)} inside {@code f}) closes this loop, i.e. tail recursion becomes a loop. All other
+ * calls, including non-tail recursion, stay calls ({@code Call} nodes) that dispatch to the compiled image
+ * of the callee at runtime.
+ *
+ * <h2>Speculation</h2>
+ * Types are speculated with guards ({@code IsType}) followed by {@code Pi} nodes carrying the narrowed type,
+ * so values of type Integer, Real, Boolean and String can be kept unboxed. Branch directions are
+ * guarded as well. Every guard captures a {@link com.tscript.runtime.jit.comp.ir.FrameState}: the
+ * interpreter re-executes the instruction that was speculated on.
+ *
+ * <h2>Objects</h2>
+ * Member accesses ({@code obj.x}, {@code this.x}, {@code super.x} and inherited members) are traced.
+ * If the object is a class instance, the lookup by name is done while tracing: guards on the exact
+ * types of the object (and of the super objects that were walked) make the member a read or write
+ * at a fixed index. Other accesses (e.g. methods of builtin objects) look the member up at runtime
+ * and report errors exactly like the interpreter. Method calls on objects are inlined like
+ * function calls.
+ * <p>
+ * Instantiations of classes without a super class are inlined as well: the object is allocated
+ * ({@code NewObject}) and the constructor is recorded with the new object as its owner (the
+ * methods of the object are created by the constructor). Objects that do not escape the trace are
+ * never allocated ({@link com.tscript.runtime.jit.comp.optim.ObjectScalarReplacement}): reads of
+ * their members are replaced by the values written before, and every guard whose state refers to
+ * such an object records its member values, so that the object is created only if that guard fails.
+ * Super constructor calls are inlined as well (the super objects are parts of the instance, reached
+ * with {@code GetSuper}). Objects carried from one iteration to the next ({@code v = v.plus(w)}) are
+ * handled by {@link com.tscript.runtime.jit.comp.optim.ObjectPhiSplitting}: the loop phi of the
+ * object is replaced by phis of its members.
+ *
+ * <h2>Configuration</h2>
+ * System properties: {@code tscript.jit.threshold} (L1, default 100), {@code tscript.jit.threshold2}
+ * (L2, default 1000), {@code tscript.jit.threshold3} (L3, default 3000, 0 disables it),
+ * {@code tscript.jit.inlineDepth}, {@code tscript.jit.inlineSize}, {@code tscript.jit.peel}
+ * ({@code loops}, {@code all} or {@code none}), {@code tscript.jit.background=true} (compile on a
+ * background thread; off by default since it did not pay off in the benchmarks),
+ * {@code tscript.jit.l1plain=true} (emit L1 without optimizations) and {@code tscript.jit.debug=true}
+ * (prints traces, generated bytecode and failures). The defaults were chosen with
+ * {@code scripts/jit-bench.sh}.
+ */
+package com.tscript.runtime.jit;

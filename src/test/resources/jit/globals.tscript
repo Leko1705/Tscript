@@ -1,0 +1,36 @@
+module globals;
+
+var total = 0;
+var flag = 0;
+var name = "";
+var ratio = 1;
+
+for var i in 0:3000 do {
+    total = total + i % 7;
+    if i % 3 == 0 then flag = flag + 1;
+    else flag = flag - 1;
+    if i == 2000 then ratio = 0.5;
+    ratio = ratio * 1;
+    if i % 500 == 0 then name = name + i;
+}
+print([total, flag, name, ratio]);
+
+function show() {
+    return [total, flag];
+}
+
+var j = 0;
+while j < 2500 do {
+    total = total - 1;
+    if total < 0 then total = 100;
+    j = j + 1;
+}
+print(show());
+
+var k = 0;
+for var i in 0:1000 do {
+    k = k + total;
+    if i == 900 then total = "s";
+    if i > 900 then total = 1;
+}
+print([k, total]);

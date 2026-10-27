@@ -1,0 +1,32 @@
+module loops;
+
+var s = 0;
+for var i in 0:5000 do {
+    s = s + i * 2;
+}
+print(s);
+
+var j = 0;
+var r = 0.5;
+while j < 3000 do {
+    r = r + j / 4;
+    j = j + 1;
+}
+print(r);
+
+var total = 0;
+for var a in 0:120 do {
+    for var b in 0:120 do {
+        total = total + a * b - (a % 7);
+    }
+}
+print(total);
+
+var k = 10000;
+var steps = 0;
+while k != 1 and steps < 100000 do {
+    if k % 2 == 0 then k = k // 2;
+    else k = 3 * k + 1;
+    steps = steps + 1;
+}
+print(steps);

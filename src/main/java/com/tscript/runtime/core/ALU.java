@@ -69,9 +69,9 @@ public class ALU {
         addOperation(Opcode.POW, TInteger.class, TReal.class, (i1, i2) -> new TReal(Math.pow(i1.getValue(), i2.getValue())));
         addOperation(Opcode.POW, TReal.class, TReal.class, (i1, i2) -> new TReal(Math.pow(i1.getValue(), i2.getValue())));
 
-        addOperation(Opcode.SLA, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() << i2.getValue()));
-        addOperation(Opcode.SRA, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() >> i2.getValue()));
-        addOperation(Opcode.SRL, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.getValue() >>> i2.getValue()));
+        addOperation(Opcode.SHL, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() << i2.getValue()));
+        addOperation(Opcode.SHR, TInteger.class, TInteger.class, (i1, i2) -> new TInteger( i1.getValue() >> i2.getValue()));
+        addOperation(Opcode.USHR, TInteger.class, TInteger.class, (i1, i2) -> new TInteger(i1.getValue() >>> i2.getValue()));
 
         addOperation(Opcode.LT, TInteger.class, TInteger.class, (i1, i2) -> TBoolean.of(i1.getValue() < i2.getValue()));
         addOperation(Opcode.LT, TInteger.class, TReal.class, (i1, i2) -> TBoolean.of(i1.getValue() < i2.getValue()));

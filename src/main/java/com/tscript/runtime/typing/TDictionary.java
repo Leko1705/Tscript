@@ -3,6 +3,7 @@ package com.tscript.runtime.typing;
 
 
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 
@@ -12,33 +13,34 @@ public class TDictionary extends PrimitiveObject<Map<TObject, TObject>>
         implements ContainerAccessibleObject, ContainerWriteableObject, IterableObject{
 
     public static final Type TYPE =
-            new Type
-                    .Builder("Dictionary")
+            Type.newBuilder("Dictionary")
                     .setParameters(Parameters.newInstance()
                             .add("other", Null.INSTANCE))
-                    .setConstructor((thread, params) -> {
+                    .setConstructor((env, params) -> {
                         TObject value = params.get(0);
 
-                        if (value == Null.INSTANCE)
+                        if (value == Null.INSTANCE) {
                             return new TDictionary();
-
-                        if (value instanceof TDictionary dict){
-                            return new TDictionary(dict.getValue());
                         }
 
-                        thread.reportRuntimeError("can not convert " + value.getType() + " to Dictionary");
+                        if (value instanceof TDictionary other){
+                            return new TDictionary(new LinkedHashMap<>(other.value));
+                        }
+
+                        env.reportRuntimeError("can not convert " + value.getType() + " to Dictionary");
                         return null;
                     })
                     .build();
 
     public static final Type ITR_TYPE =
-            new Type.Builder("DictionaryIterator")
+            Type.newBuilder("DictionaryIterator")
                     .setAbstract(true)
-                    .setConstructor((thread, params) -> Null.INSTANCE)
+                    .setConstructor((env, params) -> { throw new AssertionError(); })
                     .build();
 
     private final Map<String, Member> methods;
 
+    @JITSensitive
     public TDictionary(Map<TObject, TObject> value) {
         super(value);
         methods = new HashMap<>(Map.of(

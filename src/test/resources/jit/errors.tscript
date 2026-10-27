@@ -1,0 +1,38 @@
+module errors;
+
+function risky(x) {
+    if x == 290 then throw "boom at " + x;
+    return x * 2;
+}
+
+function safe(x) {
+    try {
+        return risky(x);
+    }
+    catch var e do {
+        print(e);
+    }
+    return 0;
+}
+
+var total = 0;
+for var i in 0:300 do {
+    total = total + safe(i);
+}
+print(total);
+
+function divide(a, b) {
+    return a / b;
+}
+var q = 0;
+for var i in 1:400 do q = q + divide(i, 2);
+print(q);
+
+function bad(x) {
+    return x + 1;
+}
+var r = 0;
+for var i in 0:300 do r = bad(i);
+print(r);
+print(bad("s"));
+print(bad(null));

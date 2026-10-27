@@ -7,4 +7,8 @@ import java.io.File;
 public interface ModuleLoader {
 
     Module loadModule(File[] rootPaths, String[] moduleName) throws ModuleLoadingException;
+
+    Module loadModule(int index) throws ModuleLoadingException;
+
+    int indexOf(String[] moduleName);
 }

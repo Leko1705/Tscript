@@ -1,0 +1,13 @@
+module unstable;
+function f(n) {
+    var x = 0;
+    var y = 1;
+    for var i in 0:n do {
+        x = x + 0.5;
+        y = y * 1.000001;
+    }
+    return x + y;
+}
+var r = 0;
+for var k in 0:20 do r = f(200000);
+print(r);

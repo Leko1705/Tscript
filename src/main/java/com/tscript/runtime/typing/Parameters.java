@@ -4,6 +4,9 @@ import java.util.*;
 
 public class Parameters {
 
+    public static final Parameters EMPTY = new Parameters();
+
+
     public static Parameters newInstance(){
         return new Parameters();
     }
@@ -20,8 +23,9 @@ public class Parameters {
     }
 
     public Parameters add(String name, TObject defaultValue) {
-        if (defaultValue == null)
+        if (defaultValue == null) {
             lastNonDefinedParameter = defaultValues.size();
+        }
         defaultValues.put(name, defaultValue);
         orderedParameterNames.add(name);
         orderedDefaultList.add(defaultValue);
@@ -40,15 +44,15 @@ public class Parameters {
         return orderedParameterNames.contains(name);
     }
 
-    public TObject getDefaultValue(String name) {
-        return defaultValues.get(name);
+    public Map<String, TObject> toMap(){
+        return new LinkedHashMap<>(defaultValues);
     }
 
-    protected int getLastNonDefinedParameterIndex() {
+    public int getLastNonDefinedParameterIndex() {
         return lastNonDefinedParameter;
     }
 
-    protected List<TObject> getTail(int fromIndex){
+    public List<TObject> getTail(int fromIndex){
         return orderedDefaultList.subList(fromIndex, orderedDefaultList.size());
     }
 
@@ -58,4 +62,5 @@ public class Parameters {
                 "defaultValues=" + defaultValues +
                 '}';
     }
+
 }

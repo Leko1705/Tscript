@@ -1,6 +1,6 @@
 .gradle
 build/
-!gradle/wrapper/gradle-wrapper.jar
+!gradle/aReturn/gradle-aReturn.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 

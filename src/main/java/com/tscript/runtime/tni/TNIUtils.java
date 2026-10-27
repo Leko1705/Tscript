@@ -1,22 +1,29 @@
 package com.tscript.runtime.tni;
 
-import com.tscript.runtime.core.Frame;
+import com.tscript.runtime.core.NativeFrame;
+import com.tscript.runtime.core.VirtualFrame;
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.typing.*;
 
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 public class TNIUtils {
 
     public static String toString(Environment env, TObject object) {
-        Member definedFunction = object.loadMember("__str__");
+        Member definedFunction = lookupStrMethod(object);
         if (definedFunction == null)
             return object.getDisplayName();
         else
             return getDefinedPrintable((TThread) env, object, definedFunction);
+    }
+
+    private static Member lookupStrMethod(TObject object) {
+        Member definedFunction = object.loadMember("__str__");
+        if (definedFunction != null) return definedFunction;
+        if (object.getSuper() == null) return null;
+        return lookupStrMethod(object.getSuper());
     }
 
     private static String getDefinedPrintable(TThread thread,
@@ -42,6 +49,7 @@ public class TNIUtils {
         return o1.equals(o2);
     }
 
+    @JITSensitive
     public static boolean isTrue(TObject object) {
         if (object instanceof TBoolean i && !i.getValue()) return false;
         if (object == Null.INSTANCE) return false;
@@ -65,8 +73,8 @@ public class TNIUtils {
             Callable callable,
             Supplier<TObject> callback
     ) {
-
-        thread.frameStack.push(Frame.createNativeFrame(callable));
+        NativeFrame frame = new NativeFrame(callable);
+        thread.frameStack.push(frame);
         TObject result = callback.get();
         if (result == null) return null;
         thread.frameStack.pop();

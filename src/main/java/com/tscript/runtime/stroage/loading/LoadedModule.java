@@ -1,7 +1,5 @@
 package com.tscript.runtime.stroage.loading;
 
-import com.tscript.runtime.core.VirtualFunction;
-import com.tscript.runtime.core.VirtualType;
 import com.tscript.runtime.stroage.FunctionArea;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.Pool;
@@ -14,15 +12,6 @@ import java.util.List;
 import java.util.Map;
 
 public class LoadedModule implements Module {
-
-    public static final Type TYPE =
-            new Type.Builder("Module")
-                    .setConstructor((thread, params) -> {
-                        throw new AssertionError("Module is abstract");
-                    })
-                    .setAbstract(true)
-                    .build();
-
 
     private final String path;
     private final String canonicalPath;
@@ -138,7 +127,7 @@ public class LoadedModule implements Module {
 
 
     public Function getEntryPoint() {
-        return functionArea.loadFunction(entryPoint, this);
+        return functionArea.loadFunction(entryPoint);
     }
 
     public boolean isEvaluated() {

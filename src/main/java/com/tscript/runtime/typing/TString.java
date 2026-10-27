@@ -1,6 +1,7 @@
 package com.tscript.runtime.typing;
 
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.tni.TNIUtils;
@@ -15,15 +16,19 @@ public class TString extends PrimitiveObject<String>
     public static final TString EMPTY = new TString("");
 
     public static final Type TYPE =
-            new Type.Builder("String")
+            Type.newBuilder("String")
                     .addMember(Member.of(Visibility.PUBLIC, false, "fromUnicode", new FromUnicodeStaticMethod()))
                     .addMember(Member.of(Visibility.PUBLIC, false, "join", new JoinStaticMethod()))
                     .setParameters(Parameters.newInstance().add("value", EMPTY))
-                    .setConstructor((thread, params) -> new TString(TNIUtils.toString(thread, params.get(0))))
+                    .setConstructor((env, args) -> {
+                        String repr = TNIUtils.toString(env, args.get(0));
+                        if (repr == null) return null;
+                        return new TString(repr);
+                    })
                     .build();
 
-    public static final Type ITR_TYPE = new Type.Builder("StringIterator")
-            .setConstructor((thread, params) ->  Null.INSTANCE)
+    public static final Type ITR_TYPE = Type.newBuilder("StringIterator")
+            .setConstructor((env, args) -> { throw new AssertionError(); })
             .setAbstract(true)
             .build();
 
@@ -36,6 +41,7 @@ public class TString extends PrimitiveObject<String>
             "replace", Member.of(Visibility.PUBLIC, false, "replace", new ReplaceMethod())
     ));
 
+    @JITSensitive
     public TString(String value) {
         super(value);
     }

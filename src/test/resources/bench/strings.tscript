@@ -1,0 +1,11 @@
+module strings;
+function f(n) {
+    var c = 0;
+    for var i in 0:n do {
+        var s = "x" + i;
+        if s == "x5" then c = c + 1;
+        c = c + 1;
+    }
+    return c;
+}
+print(f(1000000));

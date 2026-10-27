@@ -1,6 +1,7 @@
 package com.tscript.runtime.typing;
 
 import com.tscript.runtime.core.TThread;
+import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.utils.Tuple;
@@ -13,11 +14,11 @@ import java.util.Map;
 public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements ContainerAccessibleObject, IterableObject {
 
     public static final Type TYPE =
-            new Type.Builder("Range")
+            Type.newBuilder("Range")
                     .setParameters(Parameters.newInstance()
                             .add("begin", null)
                             .add("end", null))
-                    .setConstructor((thread, params) -> {
+                    .setConstructor((env, params) -> {
                         TObject from = params.get(0);
                         TObject to = params.get(1);
 
@@ -30,7 +31,7 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
                             fromVal = real.getValue().intValue();
                         }
                         else {
-                            thread.reportRuntimeError("Integer expected; got: " + from.getType());
+                            env.reportRuntimeError("Integer expected; got: " + from.getType());
                             return null;
                         }
 
@@ -41,7 +42,7 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
                             toVal = real.getValue().intValue();
                         }
                         else {
-                            thread.reportRuntimeError("Integer expected, got; " + from.getType());
+                            env.reportRuntimeError("Integer expected, got; " + from.getType());
                             return null;
                         }
 
@@ -54,6 +55,7 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
         this(new TInteger(start), new TInteger(end));
     }
 
+    @JITSensitive
     public Range(TInteger from, TInteger to) {
         super(new Tuple<>(from, to));
         methods = new HashMap<>(Map.of(
@@ -112,43 +114,12 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
 
     @Override
     public IteratorObject iterator() {
-        return new TRangeIterator();
+        return new RangeIterator(getFrom(), getTo());
     }
 
     @Override
     public String getDisplayName() {
         return getFrom() + ":" + getTo();
-    }
-
-    private class TRangeIterator implements IteratorObject {
-
-        private static final Type type = new Type.Builder("RangeIterator")
-                .setConstructor((thread, params) -> Null.INSTANCE)
-                .setAbstract(true).build();
-
-        private int curr = Range.this.getFrom();
-        private final int border = Range.this.getTo();
-
-        @Override
-        public boolean hasNext() {
-            return curr < border;
-        }
-
-        @Override
-        public TObject next() {
-            return new TInteger(curr++);
-        }
-
-        @Override
-        public Type getType() {
-            return type;
-        }
-
-        @Override
-        public Iterable<Member> getMembers() {
-            return List.of();
-        }
-
     }
 
     private class BeginMethod extends NativeFunction {

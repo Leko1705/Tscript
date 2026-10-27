@@ -3,25 +3,30 @@ package com.tscript.runtime.stroage.loading;
 import com.tscript.runtime.core.*;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.Pool;
-import com.tscript.runtime.stroage.TypeArea;
 import com.tscript.runtime.typing.*;
 import com.tscript.runtime.utils.Conversion;
 import com.tscript.runtime.utils.Tuple;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
 
 public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
     private final FilePathResolver resolver;
-    private final Map<String, Module> cache;
+    private final HashMap<String, Module> cache;
+
+    private final HashMap<String, Integer> moduleIndices;
+    private final ArrayList<Module> modules;
 
     public ModuleLoaderImpl(FilePathResolver resolver) {
         this.resolver = resolver;
         this.cache = new HashMap<>();
+        this.modules = new ArrayList<>();
+        this.moduleIndices = new HashMap<>();
     }
+
 
     @Override
     public synchronized Module loadModule(File[] rootPaths, String[] moduleName) throws ModuleLoadingException {
@@ -32,7 +37,28 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         if (file == null) throw new ModuleLoadingException(InternalRuntimeErrorMessages.canNotFindModule(canonicalPath));
         module = loadModule(file);
         cache.put(canonicalPath, module);
+
+        int index = modules.size();
+        modules.add(module);
+        moduleIndices.put(canonicalPath, index);
+
         return module;
+    }
+
+    @Override
+    public Module loadModule(int index) throws ModuleLoadingException {
+        try {
+            return modules.get(index);
+        }
+        catch (Exception e) {
+            throw new ModuleLoadingException(InternalRuntimeErrorMessages.canNotFindModule(String.valueOf(index)));
+        }
+    }
+
+    @Override
+    public int indexOf(String[] moduleName) {
+        String canonicalPath = makeCanonicalFilePath(moduleName);
+        return moduleIndices.get(canonicalPath);
     }
 
     private static String makeCanonicalFilePath(String[] path){
@@ -63,8 +89,13 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         LoadedFunctionArea functionArea = loadFunctions(reader);
 
         ModuleProxy moduleProxy = new ModuleProxy(pool);
+        // the functions need their module when types are loaded (constructors with default
+        // parameters load the default values from the pool)
+        for (LoadedFunctionArea.VirtualMetadataImpl metadata : functionArea.data) {
+            metadata.module = moduleProxy;
+        }
 
-        LoadedTypeArea typeArea = loadTypes(reader, functionArea, moduleProxy);
+        LoadedTypeArea typeArea = loadTypes(reader, functionArea, canonicalPath);
 
         moduleProxy.module = new LoadedModule(
                 file.getPath(),
@@ -143,7 +174,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
             int stackSize = Conversion.from2Bytes(reader.read(), reader.read());
             int locals = Conversion.from2Bytes(reader.read(), reader.read());
             byte[][] instructions = loadInstructions(reader);
-            area.data[id] = new LoadedFunctionArea.VirtualFunctionMetaData(name, params, stackSize, locals, instructions);
+            area.data[id] = new LoadedFunctionArea.VirtualMetadataImpl(name, stackSize, locals, instructions, params);
         }
 
         return area;
@@ -186,7 +217,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         return instructions;
     }
 
-    private LoadedTypeArea loadTypes(LazyReader reader, LoadedFunctionArea functionArea, Module module) throws ModuleLoadingException {
+    private LoadedTypeArea loadTypes(LazyReader reader, LoadedFunctionArea functionArea, String moduleCanonicalPath) throws ModuleLoadingException {
         int typeAmount = Conversion.from2Bytes(reader.read(), reader.read());
         LoadedTypeArea area = new LoadedTypeArea(typeAmount);
 
@@ -211,11 +242,11 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
             if (reader.read() != 0) {
                 int index = Conversion.from2Bytes(reader.read(), reader.read());
-                constructor = functionArea.loadFunction(index, module);
+                constructor = functionArea.loadFunction(index);
                 constructorVisibility = getVisibility(reader.read());
             }
 
-            Function staticBlock = loadSpecialTypeMethod(reader, functionArea, module);
+            Function staticBlock = loadSpecialTypeMethod(reader, functionArea);
 
             int staticMemberAmount = Conversion.from2Bytes(reader.read(), reader.read());
             Member[] staticMembers = readMembers(reader, staticMemberAmount);
@@ -223,7 +254,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
             int instanceMemberAmount = Conversion.from2Bytes(reader.read(), reader.read());
             Member[] instanceMembers = readMembers(reader, instanceMemberAmount);
 
-            area.virtualTypes[id] = new VirtualType(name, isAbstract, constructor, constructorVisibility, staticMembers, instanceMembers);
+            area.virtualTypes[id] = new VirtualType(name, isAbstract, constructor, constructorVisibility, staticMembers, instanceMembers, moduleCanonicalPath);
             area.unloadedStaticBlocks[id] = staticBlock;
         }
 
@@ -239,10 +270,10 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         return area;
     }
 
-    private VirtualFunction loadSpecialTypeMethod(LazyReader reader, LoadedFunctionArea functionArea, Module module) throws ModuleLoadingException {
+    private VirtualFunction loadSpecialTypeMethod(LazyReader reader, LoadedFunctionArea functionArea) throws ModuleLoadingException {
         if (reader.read() == 0) return null;
         int index = Conversion.from2Bytes(reader.read(), reader.read());
-        return functionArea.loadFunction(index, module);
+        return functionArea.loadFunction(index);
     }
 
     private Member[] readMembers(LazyReader reader, int amount) throws ModuleLoadingException {

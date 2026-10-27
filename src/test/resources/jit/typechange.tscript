@@ -1,0 +1,34 @@
+module typechange;
+
+function add(a, b) {
+    return a + b;
+}
+
+var x = 0;
+for var i in 0:600 do {
+    if i < 300 then x = add(x, i);
+    else if i < 450 then x = add(x, 0.5);
+    else x = add(x, 1);
+}
+print(x);
+
+var s = "";
+for var i in 0:400 do {
+    if i % 100 == 0 then s = s + i + ",";
+}
+print(s);
+
+var v = 1;
+for var i in 0:500 do {
+    if i == 250 then v = 2.5;
+    v = v * 1;
+}
+print(v);
+
+var mixed = 0;
+for var i in 0:500 do {
+    if i == 300 then mixed = "text";
+    if i == 400 then mixed = 7;
+    mixed = mixed + 1;
+}
+print(mixed);

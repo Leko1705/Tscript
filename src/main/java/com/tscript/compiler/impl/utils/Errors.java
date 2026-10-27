@@ -81,15 +81,15 @@ public class Errors {
     }
 
     public static CompileException canNotAccessFromStaticContext(Location location) {
-        return new CompileException("can not access non static member from static context", location, Phase.CHECKING);
+        return new CompileException("can not access non static member from static imageKey", location, Phase.CHECKING);
     }
 
     public static CompileException canNotUseThisFromStaticContext(Location location) {
-        return new CompileException("can not use keyword 'this' from static context", location, Phase.CHECKING);
+        return new CompileException("can not use keyword 'this' from static imageKey", location, Phase.CHECKING);
     }
 
     public static CompileException canNotUseSuperFromStaticContext(Location location) {
-        return new CompileException("can not use keyword 'super' from static context", location, Phase.CHECKING);
+        return new CompileException("can not use keyword 'super' from static imageKey", location, Phase.CHECKING);
     }
 
     public static CompileException missingDigitOnRadixSpecs(Location location){
@@ -149,7 +149,7 @@ public class Errors {
     }
 
     public static CompileException canNotAssignToCallResult(Location location) {
-        return new CompileException("can not assign to a call result", location, Phase.CHECKING);
+        return new CompileException("can not assign to a call value", location, Phase.CHECKING);
     }
 
     public static CompileException canNotReassignToConstant(Location location) {

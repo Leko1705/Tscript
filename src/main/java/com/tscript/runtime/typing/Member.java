@@ -12,7 +12,7 @@ public interface Member {
 
     TObject get();
 
-    void set(TObject value, Environment env);
+    boolean set(TObject value, Environment env);
 
 
     static Member of(Visibility visibility, boolean mutable, String name, TObject value) {
@@ -42,8 +42,9 @@ public interface Member {
             }
 
             @Override
-            public void set(TObject value, Environment env) {
+            public boolean set(TObject value, Environment env) {
                 this.content = value;
+                return true;
             }
         };
     }

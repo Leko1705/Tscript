@@ -51,7 +51,7 @@ public class InternalRuntimeErrorMessages {
             case OR -> (o1, o2) -> "can not apply 'or' operation on " + o1.getType().getName() + " and " + o2.getType().getName();
             case XOR -> (o1, o2) -> "can not apply xor operation on " + o1.getType().getName() + " and " + o2.getType().getName();
             case LT, GT, GEQ, LEQ -> (o1, o2) -> "can not numerically compare " + o1.getType().getName() + " with " + o2.getType().getName();
-            case SLA, SRA, SRL -> (o1, o2) -> "can shift " + o1.getType().getName() + " by " + o2.getType().getName();
+            case SHL, SHR, USHR -> (o1, o2) -> "can shift " + o1.getType().getName() + " by " + o2.getType().getName();
             default -> throw new UnsupportedOperationException(opcode.name());
         };
     }
@@ -110,6 +110,10 @@ public class InternalRuntimeErrorMessages {
         return "too many arguments for function '" + callable.getName() + "'";
     }
 
+    public static String tooFewParameters(Callable callable) {
+        return "too few arguments for function '" + callable.getName() + "'";
+    }
+
     public static String stackOverflowError(){
         return "stackOverflowError";
     }
@@ -123,7 +127,7 @@ public class InternalRuntimeErrorMessages {
     }
 
     public static String parameterAlreadyAssigned(String parameterName){
-        return "'" + parameterName + "' is already assigned";
+        return "parameter '" + parameterName + "' is already assigned";
     }
 
     public static String typeExpected(String expectedType, String actualType){

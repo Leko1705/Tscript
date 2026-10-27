@@ -1,0 +1,6 @@
+
+native com.tscript.runtime.tni.natfuncs.std.view.turtle.TurtleColor
+native com.tscript.runtime.tni.natfuncs.std.view.turtle.TurtleMove
+native com.tscript.runtime.tni.natfuncs.std.view.turtle.TurtlePen
+native com.tscript.runtime.tni.natfuncs.std.view.turtle.TurtleReset
+native com.tscript.runtime.tni.natfuncs.std.view.turtle.TurtleTurn
