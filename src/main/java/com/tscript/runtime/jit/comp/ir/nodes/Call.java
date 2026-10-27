@@ -12,11 +12,12 @@ import java.util.List;
  */
 public class Call extends IRValue {
 
-    public final int line;
+    /** ObjectCache id of the {@link com.tscript.runtime.jit.SourceSite} of this call */
+    public final int site;
 
-    public Call(IRValue called, List<IRValue> args, int line) {
+    public Call(IRValue called, List<IRValue> args, int site) {
         super(concat(called, args));
-        this.line = line;
+        this.site = site;
     }
 
     private static List<IRValue> concat(IRValue called, List<IRValue> args) {

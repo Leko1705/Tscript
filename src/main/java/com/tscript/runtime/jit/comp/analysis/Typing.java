@@ -286,7 +286,22 @@ public class Typing {
 
         @Override
         public IRType visitIterNext(IterNext node, Void unused) {
+            return type(node.getValue()) == RangeIteratorType.INSTANCE ? INT : UNKNOWN;
+        }
+
+        @Override
+        public IRType visitIsCallee(IsCallee node, Void unused) {
+            return BOOL;
+        }
+
+        @Override
+        public IRType visitFunctionOwner(FunctionOwner node, Void unused) {
             return UNKNOWN;
+        }
+
+        @Override
+        public IRType visitNewRangeIterator(NewRangeIterator node, Void unused) {
+            return RangeIteratorType.INSTANCE;
         }
 
         @Override

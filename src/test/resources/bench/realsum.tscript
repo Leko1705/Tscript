@@ -1,0 +1,3 @@
+module realsum;
+function f(n) { var s = 0.0; for var i in 1:n do { s = s + 1 / i; } return s; }
+print(f(5000000));

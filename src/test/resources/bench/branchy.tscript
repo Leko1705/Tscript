@@ -1,0 +1,12 @@
+module branchy;
+function f(n) {
+    var even = 0;
+    var odd = 0;
+    for var i in 0:n do {
+        if i % 2 == 0 then even = even + i;
+        else odd = odd + 1;
+        if i % 3 == 0 then even = even - 1;
+    }
+    return even + odd;
+}
+print(f(4000000));

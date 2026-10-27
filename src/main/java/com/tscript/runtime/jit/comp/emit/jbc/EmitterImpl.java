@@ -11,6 +11,7 @@ import com.tscript.runtime.jit.comp.ir.types.*;
 import com.tscript.runtime.jit.tracing.DeoptInfo;
 import com.tscript.runtime.jit.tracing.ImageRunner;
 import com.tscript.runtime.typing.Null;
+import com.tscript.runtime.typing.RangeIterator;
 import com.tscript.runtime.typing.TObject;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -99,7 +100,8 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
             mv.visitInsn(ARETURN);
         }
         else if (exit instanceof Exit x) {
-            emitDeopt(new DeoptInfo(x.getState(), false, true, false), x.getLocals(), x.getStack());
+            if (x.getDeoptInfo() == null) x.setDeoptInfo(new DeoptInfo(x.getState(), false, true, false));
+            emitLeave(x, (DeoptInfo) x.getDeoptInfo());
         }
         else {
             LoopEndNode end = (LoopEndNode) exit;
@@ -362,20 +364,37 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         mv.visitJumpInsn(IFNE, ok);
 
         Map<IRValue, Integer> saved = new HashMap<>(slots);
-        emitDeopt(new DeoptInfo(node.getState(), node.isLoopExit(), false, node.isSideTraceable()),
-                node.getLocals(), node.getStack());
+        if (node.getDeoptInfo() == null) {
+            node.setDeoptInfo(new DeoptInfo(node.getState(), node.isLoopExit(), false, node.isSideTraceable()));
+        }
+        emitLeave(node, (DeoptInfo) node.getDeoptInfo());
         slots = saved;
 
         mv.visitLabel(ok);
         return null;
     }
 
-    private void emitDeopt(DeoptInfo info, List<IRValue> locals, List<IRValue> stack) {
+    /**
+     * Leaves compiled code: writes back promoted globals and returns a deoptimization.
+     */
+    private void emitLeave(StateCarrier carrier, DeoptInfo info) {
+        emitGlobalWriteBacks(carrier);
         pushInt(ObjectCache.putId(info));
-        loadObjectArray(locals);
-        loadObjectArray(stack);
-        callUtils("deopt", "(I[" + TOBJECT_DESC + "[" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        loadObjectArray(carrier.getStateValues());
+        callUtils("deopt", "(I[" + TOBJECT_DESC + ")" + TOBJECT_DESC);
         mv.visitInsn(ARETURN);
+    }
+
+    private void emitGlobalWriteBacks(StateCarrier carrier) {
+        List<GlobalRef> writes = carrier.getGlobalWrites();
+        List<IRValue> values = carrier.getGlobalWriteValues();
+        for (int i = 0; i < writes.size(); i++) {
+            mv.visitVarInsn(ALOAD, THREAD_SLOT);
+            pushInt(writes.get(i).moduleId());
+            pushInt(writes.get(i).index());
+            load(values.get(i), Repr.OBJ);
+            callUtils("writeGlobal", "(" + THREAD_DESC + "II" + TOBJECT_DESC + ")V");
+        }
     }
 
     @Override
@@ -396,17 +415,18 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     @Override
     public Void visitStoreGlobal(StoreGlobal node, Void unused) {
         loadThreadAndFrame();
-        pushInt(node.line);
-        pushInt(node.index);
+        pushInt(node.site);
+        pushInt(node.global.moduleId());
+        pushInt(node.global.index());
         load(node.getValue(), Repr.OBJ);
-        callUtils("storeGlobal", "(" + THREAD_DESC + FRAME_DESC + "II" + TOBJECT_DESC + ")V");
+        callUtils("storeGlobal", "(" + THREAD_DESC + FRAME_DESC + "III" + TOBJECT_DESC + ")V");
         return null;
     }
 
     @Override
     public Void visitContainerWrite(ContainerWrite node, Void unused) {
         loadThreadAndFrame();
-        pushInt(node.line);
+        pushInt(node.site);
         load(node.getContainer(), Repr.OBJ);
         load(node.getKey(), Repr.OBJ);
         load(node.getValue(), Repr.OBJ);
@@ -723,7 +743,7 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     public Void visitIsType(IsType node, Void unused) {
         IRValue value = node.getValue();
         IRType actual = typeMap.getType(value);
-        if (IRType.isPrimitive(actual)) {
+        if (IRType.isExact(actual)) {
             mv.visitInsn(actual.equals(node.type) ? ICONST_1 : ICONST_0);
             return null;
         }
@@ -758,6 +778,7 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         if (type == RealType.INSTANCE) return com.tscript.runtime.typing.TReal.class;
         if (type == BoolType.INSTANCE) return com.tscript.runtime.typing.TBoolean.class;
         if (type == StrType.INSTANCE) return com.tscript.runtime.typing.TString.class;
+        if (type == RangeIteratorType.INSTANCE) return RangeIterator.class;
         return null;
     }
 
@@ -824,7 +845,7 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     @Override
     public Void visitCall(Call node, Void unused) {
         loadThreadAndFrame();
-        pushInt(node.line);
+        pushInt(node.site);
         load(node.getCalled(), Repr.OBJ);
         loadObjectArray(node.getArgs());
         mv.visitMethodInsn(INVOKESTATIC, org.objectweb.asm.Type.getInternalName(ImageRunner.class), "invoke",
@@ -834,48 +855,102 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
 
     @Override
     public Void visitGlobal(Global node, Void unused) {
-        mv.visitVarInsn(ALOAD, FRAME_SLOT);
-        pushInt(node.index);
-        callUtils("loadGlobal", "(" + FRAME_DESC + "I)" + TOBJECT_DESC);
+        pushInt(node.global.moduleId());
+        pushInt(node.global.index());
+        callUtils("loadGlobal", "(II)" + TOBJECT_DESC);
         return null;
     }
 
     @Override
     public Void visitGetIterator(GetIterator node, Void unused) {
         loadThreadAndFrame();
-        pushInt(lineOf(node));
+        pushInt(siteOf(node));
         load(node.getValue(), Repr.OBJ);
         callUtils("getIterator", "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC + ")" + TOBJECT_DESC);
         return null;
     }
 
+    private static final String RANGE_ITERATOR = org.objectweb.asm.Type.getInternalName(RangeIterator.class);
+
+    private boolean isRangeIterator(IRValue value) {
+        return typeMap.getType(value) == RangeIteratorType.INSTANCE;
+    }
+
     @Override
     public Void visitIterHasNext(IterHasNext node, Void unused) {
         load(node.getValue(), Repr.OBJ);
-        callUtils("hasNext", "(" + TOBJECT_DESC + ")Z");
+        if (isRangeIterator(node.getValue())) {
+            // iterator.current < iterator.end
+            mv.visitTypeInsn(CHECKCAST, RANGE_ITERATOR);
+            mv.visitInsn(DUP);
+            mv.visitFieldInsn(GETFIELD, RANGE_ITERATOR, "current", "I");
+            mv.visitInsn(SWAP);
+            mv.visitFieldInsn(GETFIELD, RANGE_ITERATOR, "end", "I");
+            materializeBoolean(IF_ICMPGE);
+        }
+        else {
+            callUtils("hasNext", "(" + TOBJECT_DESC + ")Z");
+        }
         return null;
     }
 
     @Override
     public Void visitIterNext(IterNext node, Void unused) {
         load(node.getValue(), Repr.OBJ);
-        callUtils("next", "(" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        if (isRangeIterator(node.getValue())) {
+            // iterator.current++ (yields the old value)
+            mv.visitTypeInsn(CHECKCAST, RANGE_ITERATOR);
+            mv.visitInsn(DUP);
+            mv.visitFieldInsn(GETFIELD, RANGE_ITERATOR, "current", "I");
+            mv.visitInsn(DUP_X1);
+            mv.visitInsn(ICONST_1);
+            mv.visitInsn(IADD);
+            mv.visitFieldInsn(PUTFIELD, RANGE_ITERATOR, "current", "I");
+        }
+        else {
+            callUtils("next", "(" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitIsCallee(IsCallee node, Void unused) {
+        load(node.getValue(), Repr.OBJ);
+        pushInt(node.metadataId);
+        callUtils("isCallee", "(" + TOBJECT_DESC + "I)Z");
+        return null;
+    }
+
+    @Override
+    public Void visitFunctionOwner(FunctionOwner node, Void unused) {
+        load(node.getValue(), Repr.OBJ);
+        callUtils("functionOwner", "(" + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitNewRangeIterator(NewRangeIterator node, Void unused) {
+        mv.visitTypeInsn(NEW, RANGE_ITERATOR);
+        mv.visitInsn(DUP);
+        load(node.getLeft(), Repr.INT);
+        load(node.getRight(), Repr.INT);
+        mv.visitMethodInsn(INVOKESPECIAL, RANGE_ITERATOR, "<init>", "(II)V", false);
         return null;
     }
 
     @Override
     public Void visitContainerRead(ContainerRead node, Void unused) {
         loadThreadAndFrame();
-        pushInt(lineOf(node));
+        pushInt(siteOf(node));
         load(node.getContainer(), Repr.OBJ);
         load(node.getKey(), Repr.OBJ);
         callUtils("containerRead", "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC + TOBJECT_DESC + ")" + TOBJECT_DESC);
         return null;
     }
 
-    private int lineOf(IRValue fixed) {
+    private int siteOf(IRValue fixed) {
         for (IRNode user : fixed.getUsers()) {
-            if (user instanceof Anchor anchor) return anchor.line;
+            if (user instanceof Anchor anchor) return anchor.site;
         }
         return -1;
     }

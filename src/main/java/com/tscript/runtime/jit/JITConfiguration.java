@@ -47,6 +47,20 @@ public interface JITConfiguration {
     }
 
     /**
+     * @return the maximum number of nested inlined calls (0 disables inlining)
+     */
+    default int maxInlineDepth() {
+        return 3;
+    }
+
+    /**
+     * @return the maximum number of instructions of an inlined function
+     */
+    default int maxInlineSize() {
+        return 120;
+    }
+
+    /**
      * @return true if the jit should print diagnostic output (graphs, generated code, failures)
      */
     default boolean debug() {

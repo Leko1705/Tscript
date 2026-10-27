@@ -9,8 +9,8 @@ import java.util.List;
  */
 public class GuardBool extends Guard {
 
-    public GuardBool(IRValue condition, FrameState state, List<IRValue> locals, List<IRValue> stack, IRControl control) {
-        super(control, List.of(condition), state, locals, stack);
+    public GuardBool(IRValue condition, FrameState state, List<IRValue> stateValues, IRControl control) {
+        super(control, List.of(condition), state, stateValues);
     }
 
     /**
@@ -40,10 +40,9 @@ public class GuardBool extends Guard {
     public String toString() {
         StringBuilder sb = new StringBuilder("GuardBool(#" + getCondition().id + ", " + getState());
         sb.append(", values=[");
-        for (IRValue v : getLocals()) sb.append(" #").append(v.id);
-        sb.append(" |");
-        for (IRValue v : getStack()) sb.append(" #").append(v.id);
+        for (IRValue v : getStateValues()) sb.append(" #").append(v.id);
         sb.append(" ]");
+        if (!getGlobalWrites().isEmpty()) sb.append(", writes=").append(getGlobalWrites());
         if (isLoopExit()) sb.append(", loop-exit");
         return sb.append(")").toString();
     }

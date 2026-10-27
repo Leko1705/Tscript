@@ -130,6 +130,19 @@ public class JITCompiler {
             return 5;
         }
 
+        private final int inlineDepth = Integer.getInteger("tscript.jit.inlineDepth", 3);
+        private final int inlineSize = Integer.getInteger("tscript.jit.inlineSize", 120);
+
+        @Override
+        public int maxInlineDepth() {
+            return inlineDepth;
+        }
+
+        @Override
+        public int maxInlineSize() {
+            return inlineSize;
+        }
+
         @Override
         public boolean debug() {
             return debug;

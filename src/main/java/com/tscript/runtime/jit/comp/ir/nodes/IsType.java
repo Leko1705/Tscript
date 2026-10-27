@@ -33,7 +33,7 @@ public class IsType extends UnaryOp {
     @Override
     public IRValue canonicalize(CanonicalizerTool tool) {
         IRType actual = tool.type(getValue());
-        if (tool.isPrimitive(actual)) {
+        if (IRType.isExact(actual)) {
             return tool.builder().bool(actual.equals(type));
         }
         return this;

@@ -1,0 +1,11 @@
+module arrays;
+function pair(a, b) { return [a, b]; }
+function f(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var p = pair(i, i + 1);
+        s = s + p[0] * 2 - p[1];
+    }
+    return s;
+}
+print(f(2000000));

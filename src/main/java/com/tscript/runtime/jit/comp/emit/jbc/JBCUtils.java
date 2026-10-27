@@ -7,6 +7,7 @@ import com.tscript.runtime.jit.caching.ObjectCache;
 import com.tscript.runtime.jit.tracing.DeoptInfo;
 import com.tscript.runtime.jit.tracing.Deoptimization;
 import com.tscript.runtime.jit.tracing.ImageAbortException;
+import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.tni.TNIUtils;
 import com.tscript.runtime.typing.*;
 
@@ -116,6 +117,16 @@ public final class JBCUtils {
     }
 
     @JITSensitive
+    public static boolean isCallee(TObject value, int metadataId) {
+        return value instanceof VirtualFunction f && f.getMetadata() == ObjectCache.getObject(metadataId);
+    }
+
+    @JITSensitive
+    public static TObject functionOwner(TObject function) {
+        return ((com.tscript.runtime.typing.Function) function).getOwner();
+    }
+
+    @JITSensitive
     public static TObject binary(TThread thread, TObject left, TObject right, int opcode) {
         Opcode op = Opcode.values()[opcode];
         TObject result = ALU.performBinaryOperation(left, right, op, thread);
@@ -159,16 +170,16 @@ public final class JBCUtils {
     /* ---------------- state access ---------------- */
 
     @JITSensitive
-    public static TObject loadGlobal(ImageFrame frame, int index) {
-        return frame.metadata.module().loadMember(index).get();
+    public static TObject loadGlobal(int moduleId, int index) {
+        return ((Module) ObjectCache.getObject(moduleId)).loadMember(index).get();
     }
 
     @JITSensitive
-    public static void storeGlobal(TThread thread, ImageFrame frame, int line, int index, TObject value) {
+    public static void storeGlobal(TThread thread, ImageFrame frame, int site, int moduleId, int index, TObject value) {
         int depth = thread.frameStack.size();
-        int mark = frame.enter(thread, line);
+        int mark = frame.enter(thread, site);
         try {
-            frame.metadata.module().loadMember(index).set(value, thread);
+            ((Module) ObjectCache.getObject(moduleId)).loadMember(index).set(value, thread);
         }
         finally {
             frame.leave(thread, mark);
@@ -176,10 +187,18 @@ public final class JBCUtils {
         checkNoError(thread, depth);
     }
 
+    /**
+     * Writes back a global that was kept in a register by compiled code (see global promotion).
+     */
     @JITSensitive
-    public static TObject getIterator(TThread thread, ImageFrame frame, int line, TObject candidate) {
+    public static void writeGlobal(TThread thread, int moduleId, int index, TObject value) {
+        ((Module) ObjectCache.getObject(moduleId)).loadMember(index).set(value, thread);
+    }
+
+    @JITSensitive
+    public static TObject getIterator(TThread thread, ImageFrame frame, int site, TObject candidate) {
         if (!(candidate instanceof IterableObject iterable)) {
-            int mark = frame.enter(thread, line);
+            int mark = frame.enter(thread, site);
             try {
                 thread.reportRuntimeError(InternalRuntimeErrorMessages.notIterable(candidate));
             }
@@ -202,9 +221,9 @@ public final class JBCUtils {
     }
 
     @JITSensitive
-    public static TObject containerRead(TThread thread, ImageFrame frame, int line, TObject container, TObject key) {
+    public static TObject containerRead(TThread thread, ImageFrame frame, int site, TObject container, TObject key) {
         int depth = thread.frameStack.size();
-        int mark = frame.enter(thread, line);
+        int mark = frame.enter(thread, site);
         TObject result;
         try {
             if (!(container instanceof ContainerAccessibleObject accessible)) {
@@ -222,9 +241,9 @@ public final class JBCUtils {
     }
 
     @JITSensitive
-    public static void containerWrite(TThread thread, ImageFrame frame, int line, TObject container, TObject key, TObject value) {
+    public static void containerWrite(TThread thread, ImageFrame frame, int site, TObject container, TObject key, TObject value) {
         int depth = thread.frameStack.size();
-        int mark = frame.enter(thread, line);
+        int mark = frame.enter(thread, site);
         try {
             if (!(container instanceof ContainerWriteableObject writeable)) {
                 thread.reportRuntimeError(InternalRuntimeErrorMessages.notWriteable(container));
@@ -247,8 +266,8 @@ public final class JBCUtils {
     /* ---------------- deoptimization ---------------- */
 
     @JITSensitive
-    public static TObject deopt(int infoId, TObject[] locals, TObject[] stack) {
-        return new Deoptimization((DeoptInfo) ObjectCache.getObject(infoId), locals, stack);
+    public static TObject deopt(int infoId, TObject[] values) {
+        return new Deoptimization((DeoptInfo) ObjectCache.getObject(infoId), values);
     }
 
 }

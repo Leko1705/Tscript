@@ -1,0 +1,5 @@
+module calls;
+function sq(x) { return x * x; }
+function add(a, b) { return a + b; }
+function f(n) { var s = 0; for var i in 0:n do s = add(s, sq(i % 100)); return s; }
+print(f(3000000));

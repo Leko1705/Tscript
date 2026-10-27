@@ -7,14 +7,15 @@ import com.tscript.runtime.jit.comp.ir.*;
  */
 public class StoreGlobal extends IREffect {
 
-    public final int index;
+    public final GlobalRef global;
 
-    public final int line;
+    /** ObjectCache id of the {@link com.tscript.runtime.jit.SourceSite} of this store */
+    public final int site;
 
-    public StoreGlobal(int index, IRValue value, IRControl control, int line) {
+    public StoreGlobal(GlobalRef global, IRValue value, IRControl control, int site) {
         super(control, value);
-        this.index = index;
-        this.line = line;
+        this.global = global;
+        this.site = site;
     }
 
     public IRValue getValue() {

@@ -1,17 +1,16 @@
 package com.tscript.runtime.jit.comp.ir.nodes;
 
 import com.tscript.runtime.jit.comp.ir.*;
-import com.tscript.runtime.jit.comp.optim.CanonicalizerTool;
 
 /**
- * Loads a global of the module of the traced function. Fixed, since globals are mutable state.
+ * Loads a global variable. Fixed, since globals are mutable state.
  */
 public class Global extends IRValue {
 
-    public final int index;
+    public final GlobalRef global;
 
-    public Global(int index) {
-        this.index = index;
+    public Global(GlobalRef global) {
+        this.global = global;
     }
 
     @Override
@@ -26,6 +25,6 @@ public class Global extends IRValue {
 
     @Override
     public String toString() {
-        return name() + "#" + id + "(" + index + ")";
+        return name() + "#" + id + "(" + global.moduleId() + ":" + global.index() + ")";
     }
 }

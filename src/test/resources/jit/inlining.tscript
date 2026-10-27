@@ -1,0 +1,55 @@
+module inlining;
+
+var counter = 0;
+
+function sq(x) {
+    return x * x;
+}
+
+function addSq(a, b) {
+    counter = counter + 1;
+    return sq(a) + sq(b);
+}
+
+function classify(x) {
+    if x % 3 == 0 then return "fizz";
+    if x % 5 == 0 then return 5;
+    return x / 2;
+}
+
+function fails(x) {
+    return x + 1;
+}
+
+function caller(x) {
+    return fails(x) * 2;
+}
+
+var total = 0;
+for var i in 0:2000 do total = total + addSq(i, i + 1);
+print(total);
+print(counter);
+
+var parts = [];
+for var i in 0:400 do parts = [classify(i), classify(i + 1), classify(i + 2)];
+print(parts);
+
+var t = 0.5;
+for var i in 0:500 do {
+    if i == 400 then t = t + 0.25;
+    t = sq(t) / (t + 1) + 1;
+}
+print(t);
+
+var op = sq;
+var acc = 0;
+for var i in 0:600 do {
+    if i == 300 then op = fails;
+    acc = acc + op(i % 10);
+}
+print(acc);
+
+var c = 0;
+for var i in 0:300 do c = c + caller(i);
+print(c);
+print(caller(null));

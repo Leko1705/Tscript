@@ -114,44 +114,12 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
 
     @Override
     public IteratorObject iterator() {
-        return new TRangeIterator();
+        return new RangeIterator(getFrom(), getTo());
     }
 
     @Override
     public String getDisplayName() {
         return getFrom() + ":" + getTo();
-    }
-
-    private class TRangeIterator implements IteratorObject {
-
-        private static final Type type = Type.newBuilder("RangeIterator")
-                .setConstructor((env, params) -> { throw new AssertionError(); })
-                .setAbstract(true)
-                .build();
-
-        private int curr = Range.this.getFrom();
-        private final int border = Range.this.getTo();
-
-        @Override
-        public boolean hasNext() {
-            return curr < border;
-        }
-
-        @Override
-        public TObject next() {
-            return new TInteger(curr++);
-        }
-
-        @Override
-        public Type getType() {
-            return type;
-        }
-
-        @Override
-        public Iterable<Member> getMembers() {
-            return List.of();
-        }
-
     }
 
     private class BeginMethod extends NativeFunction {

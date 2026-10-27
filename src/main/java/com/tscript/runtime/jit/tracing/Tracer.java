@@ -2,6 +2,8 @@ package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.*;
 import com.tscript.runtime.jit.ParseProcess;
+import com.tscript.runtime.jit.SourceSite;
+import com.tscript.runtime.jit.caching.ObjectCache;
 import com.tscript.runtime.jit.comp.ir.*;
 import com.tscript.runtime.jit.comp.ir.nodes.*;
 import com.tscript.runtime.jit.comp.ir.types.*;
@@ -43,9 +45,16 @@ public class Tracer extends InterpreterDecorator {
 
     private enum Kind { FUNCTION, LOOP, SIDE }
 
-    private record State(FrameState frameState, List<IRValue> locals, List<IRValue> stack) {}
+    private record State(FrameState frameState, List<IRValue> values) {}
 
     private record PendingCall(IRValue call, int expectedIp, int expectedSp) {}
+
+    /**
+     * The state of a calling frame while code of a called function is inlined.
+     */
+    private record CallerFrame(VirtualFrame frame, VirtualFunction.VirtualMetadata metadata,
+                               Set<Integer> loopHeaders, Map<Integer, IRValue> locals, List<IRValue> stack,
+                               int line, int resumeIp, IRValue owner) {}
 
     private static final class OpenLoop {
         final LoopHeadNode loop;
@@ -80,10 +89,14 @@ public class Tracer extends InterpreterDecorator {
     private VirtualFunction.VirtualMetadata metadata;
     private Set<Integer> loopHeaders;
 
-    /** current values of the local variables (only defined ones) */
-    private final Map<Integer, IRValue> locals = new HashMap<>();
-    /** current values of the operand stack (bottom first) */
-    private final List<IRValue> stack = new ArrayList<>();
+    /** current values of the local variables of the current frame (only defined ones) */
+    private Map<Integer, IRValue> locals = new HashMap<>();
+    /** current values of the operand stack of the current frame (bottom first) */
+    private List<IRValue> stack = new ArrayList<>();
+    /** the owner of the current frame if it is the frame of an inlined function, null otherwise */
+    private IRValue owner = null;
+    /** the frames calling the inlined function of the current frame (innermost first) */
+    private final Deque<CallerFrame> callers = new ArrayDeque<>();
     /** type narrowed versions of values established by type guards */
     private final Map<IRValue, Pi> narrowed = new HashMap<>();
 
@@ -144,12 +157,13 @@ public class Tracer extends InterpreterDecorator {
 
         TThread thread = getCurrentThread();
         int depth = thread.frameStack.size();
+        int expectedDepth = traceDepth + callers.size();
 
-        if (!thread.isRunning() || depth < traceDepth) {
+        if (!thread.isRunning() || depth < expectedDepth) {
             abort("the traced frame was left unexpectedly");
             return false;
         }
-        if (depth > traceDepth) {
+        if (depth > expectedDepth) {
             // inside a called function
             return false;
         }
@@ -161,6 +175,14 @@ public class Tracer extends InterpreterDecorator {
         if (!started) {
             start(top);
             if (finished) return false;
+        }
+        else if (frame == null) {
+            // the first instruction of an inlined function
+            if (top.getMetadata() != metadata || top.ip != 1) {
+                abort("unexpected frame of inlined function");
+                return false;
+            }
+            frame = top;
         }
         else if (top != frame) {
             abort("unexpected frame");
@@ -196,8 +218,7 @@ public class Tracer extends InterpreterDecorator {
         metadata = top.getMetadata();
         loopHeaders = LoopAnalysis.loopHeaders(metadata);
         ip = top.ip - 1;
-        line = top.line();
-        builder.setLine(line);
+        setLine(top.line());
 
         if (top.inUnsafeSpot()) {
             abort("can not trace inside a try block");
@@ -228,25 +249,28 @@ public class Tracer extends InterpreterDecorator {
                 stack.add(builder.stackValue(i));
             }
 
+            // speculate on the types of the entry values, so that they can be kept unboxed in the trace
             State entryState = state();
+            for (int i = 0; i < top.sp; i++) {
+                stack.set(i, speculateEntry(stack.get(i), top.stack[i], entryState));
+            }
             for (int i = 0; i < metadata.locals(); i++) {
                 TObject value = top.locals[i];
                 if (value == null) continue;
-                IRValue local = builder.local(i);
-                IRType type = IRType.from(value, false);
-                if (IRType.isPrimitive(type)) {
-                    // speculate on the type of the local, so that it can be kept unboxed in the loop
-                    GuardBool guard = builder.guard(builder.isType(local, type),
-                            entryState.frameState, entryState.locals, entryState.stack);
-                    Pi pi = (Pi) builder.pi(local, type);
-                    guard.setNarrowed(pi);
-                    guard.setSideTraceable(false);
-                    local = pi;
-                }
-                locals.put(i, local);
+                locals.put(i, speculateEntry(builder.local(i), value, entryState));
             }
             // the header itself is opened by record()
         }
+    }
+
+    private IRValue speculateEntry(IRValue value, TObject runtime, State entryState) {
+        IRType type = IRType.from(runtime, false);
+        if (!IRType.isExact(type)) return value;
+        GuardBool guard = builder.guard(builder.isType(value, type), entryState.frameState, entryState.values);
+        Pi pi = (Pi) builder.pi(value, type);
+        guard.setNarrowed(pi);
+        guard.setSideTraceable(false);
+        return pi;
     }
 
     private void complete() {
@@ -270,21 +294,71 @@ public class Tracer extends InterpreterDecorator {
         process.abort(reason + " (at ip " + ip + ")");
     }
 
+    /**
+     * @return the interpreter state before the current instruction (including the states of the
+     * callers of inlined functions)
+     */
     private State state() {
+        List<IRValue> values = new ArrayList<>();
+        FrameState frameState = null;
+        for (Iterator<CallerFrame> it = callers.descendingIterator(); it.hasNext(); ) {
+            CallerFrame caller = it.next();
+            frameState = frameState(frameState, caller.metadata, caller.owner, caller.resumeIp,
+                    caller.line, caller.locals, caller.stack, values);
+        }
+        frameState = frameState(frameState, metadata, owner, ip, line, locals, stack, values);
+        return new State(frameState, values);
+    }
+
+    private static FrameState frameState(FrameState caller, VirtualFunction.VirtualMetadata metadata, IRValue owner,
+                                         int ip, int line, Map<Integer, IRValue> locals, List<IRValue> stack,
+                                         List<IRValue> values) {
+        if (caller != null) values.add(owner);
         List<Integer> indices = new ArrayList<>(locals.keySet());
         Collections.sort(indices);
         int[] localIndices = new int[indices.size()];
-        List<IRValue> localValues = new ArrayList<>(indices.size());
         for (int i = 0; i < indices.size(); i++) {
             localIndices[i] = indices.get(i);
-            localValues.add(locals.get(indices.get(i)));
+            values.add(locals.get(indices.get(i)));
         }
-        FrameState frameState = new FrameState(ip, line, localIndices, stack.size());
-        return new State(frameState, localValues, new ArrayList<>(stack));
+        values.addAll(stack);
+        if (caller == null) return new FrameState(ip, line, localIndices, stack.size());
+        return new FrameState(caller, ObjectCache.putId(metadata), ip, line, localIndices, stack.size());
     }
 
     private GuardBool guard(IRValue condition, State state) {
-        return builder.guard(condition, state.frameState, state.locals, state.stack);
+        return builder.guard(condition, state.frameState, state.values);
+    }
+
+    private final Map<List<Object>, Integer> sites = new HashMap<>();
+
+    /**
+     * Sets the current line and the source site attached to subsequently recorded effects.
+     */
+    private void setLine(int line) {
+        this.line = line;
+        List<Object> key = new ArrayList<>();
+        for (Iterator<CallerFrame> it = callers.descendingIterator(); it.hasNext(); ) {
+            CallerFrame caller = it.next();
+            key.add(caller.metadata);
+            key.add(caller.line);
+        }
+        key.add(metadata);
+        key.add(line);
+        builder.setSite(sites.computeIfAbsent(key, k -> {
+            int frames = k.size() / 2;
+            VirtualFunction.VirtualMetadata[] inlined = new VirtualFunction.VirtualMetadata[frames - 1];
+            int[] lines = new int[frames - 1];
+            for (int i = 1; i < frames; i++) {
+                inlined[i - 1] = (VirtualFunction.VirtualMetadata) k.get(2 * i);
+                lines[i - 1] = (int) k.get(2 * i + 1);
+            }
+            return ObjectCache.putId(new SourceSite((int) k.get(1), inlined, lines));
+        }));
+    }
+
+    private GlobalRef global(int index) {
+        return new GlobalRef(ObjectCache.putId(frame.getModule()), index);
     }
 
     private void push(IRValue value) {
@@ -313,7 +387,7 @@ public class Tracer extends InterpreterDecorator {
      */
     private IRValue narrow(IRValue value, TObject runtime, State state) {
         IRType type = IRType.from(runtime, false);
-        if (!IRType.isPrimitive(type)) return value;
+        if (!IRType.isExact(type)) return value;
 
         IRType known = typeOf(value);
         if (known.equals(type)) return value;
@@ -399,7 +473,7 @@ public class Tracer extends InterpreterDecorator {
             // continue in the interpreter at the loop header (where e.g. the image of the loop can take over)
             State state = state();
             FrameState atTarget = new FrameState(target, line, state.frameState.localIndices(), state.frameState.stackSize());
-            builder.exit(atTarget, state.locals, state.stack);
+            builder.exit(atTarget, state.values);
             complete();
         }
         else {
@@ -472,7 +546,7 @@ public class Tracer extends InterpreterDecorator {
 
     @Override
     public void pushThis() {
-        rec(() -> push(builder.thisValue()));
+        rec(() -> push(owner != null ? owner : builder.thisValue()));
         super.pushThis();
     }
 
@@ -500,22 +574,19 @@ public class Tracer extends InterpreterDecorator {
 
     @Override
     public void newLine(int line) {
-        rec(() -> {
-            this.line = line;
-            builder.setLine(line);
-        });
+        rec(() -> setLine(line));
         super.newLine(line);
     }
 
     @Override
     public void loadGlobal(byte address) {
-        rec(() -> push(builder.loadGlobal(address)));
+        rec(() -> push(builder.loadGlobal(global(address))));
         super.loadGlobal(address);
     }
 
     @Override
     public void storeGlobal(byte address) {
-        rec(() -> builder.storeGlobal(address, popValue()));
+        rec(() -> builder.storeGlobal(global(address), popValue()));
         super.storeGlobal(address);
     }
 
@@ -746,13 +817,23 @@ public class Tracer extends InterpreterDecorator {
     }
 
     private void recordBranchGuard(GuardBool guard, int alternative) {
+        if (!callers.isEmpty()) return; // branches of inlined functions never leave a loop of the trace
         branchGuards.add(guard);
         branchAlternatives.add(alternative);
     }
 
     @Override
     public void getIterator() {
-        rec(() -> push(builder.getIterator(popValue())));
+        rec(() -> {
+            IRValue iterable = popValue();
+            if (iterable instanceof com.tscript.runtime.jit.comp.ir.nodes.Range range) {
+                // iterate the range without allocating it
+                push(builder.newRangeIterator(range.getFrom(), range.getTo()));
+            }
+            else {
+                push(builder.getIterator(iterable));
+            }
+        });
         super.getIterator();
     }
 
@@ -767,7 +848,7 @@ public class Tracer extends InterpreterDecorator {
             else {
                 State state = state();
                 boolean hasNext = itr.hasNext();
-                IRValue iterator = popValue();
+                IRValue iterator = narrow(popValue(), itr, state);
                 IRValue condition = builder.iterHasNext(iterator);
                 if (!hasNext) condition = builder.not(condition);
                 recordBranchGuard(guard(condition, state), hasNext ? target : ip + 1);
@@ -781,7 +862,8 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void iteratorNext() {
         rec(() -> {
-            IRValue iterator = popValue();
+            State state = state();
+            IRValue iterator = narrow(popValue(), runtimeTop(0), state);
             IRValue next = builder.iterNext(iterator);
             push(iterator);
             push(next);
@@ -817,12 +899,66 @@ public class Tracer extends InterpreterDecorator {
             return;
         }
 
-        IRValue call = builder.call(called, args, line);
+        if (shouldInline(callee, argCount)) {
+            enterInlined((VirtualFunction) callee, called, args, state);
+            return;
+        }
+
+        IRValue call = builder.call(called, args);
         pendingCall = new PendingCall(call, ip + 1, frame.sp - argCount);
+    }
+
+    private boolean shouldInline(TObject callee, int argCount) {
+        if (!(callee instanceof VirtualFunction function)) return false;
+        var config = process.getCompiler().getConfiguration();
+        if (callers.size() >= config.maxInlineDepth()) return false;
+        if (function.getParameters(getCurrentThread()).count() != argCount) return false;
+
+        VirtualFunction.VirtualMetadata target = function.getMetadata();
+        if (target == metadata) return false;
+        for (CallerFrame caller : callers) {
+            if (caller.metadata == target) return false;
+        }
+
+        int size = LoopAnalysis.inlineSize(target);
+        return size >= 0 && size <= config.maxInlineSize() && recorded + size < lengthLimit;
+    }
+
+    /**
+     * Continues recording inside of the called function (inlining).
+     */
+    private void enterInlined(VirtualFunction function, IRValue called, List<IRValue> args, State state) {
+        int metadataId = ObjectCache.putId(function.getMetadata());
+        guard(builder.isCallee(called, metadataId), state);
+        IRValue calleeOwner = builder.functionOwner(called);
+
+        callers.push(new CallerFrame(frame, metadata, loopHeaders, locals, stack, line, ip + 1, owner));
+
+        frame = null; // adopted when the interpreter executes the first instruction of the function
+        metadata = function.getMetadata();
+        loopHeaders = LoopAnalysis.loopHeaders(metadata);
+        locals = new HashMap<>();
+        stack = new ArrayList<>();
+        // the arguments are passed on the stack, the first argument on top
+        for (int i = args.size() - 1; i >= 0; i--) stack.add(args.get(i));
+        owner = calleeOwner;
+        setLine(-1);
+    }
+
+    private void leaveInlined() {
+        CallerFrame caller = callers.pop();
+        frame = caller.frame;
+        metadata = caller.metadata;
+        loopHeaders = caller.loopHeaders;
+        locals = caller.locals;
+        stack = caller.stack;
+        owner = caller.owner;
+        setLine(caller.line);
     }
 
     private boolean isSelfTailCall(TObject callee, int argCount) {
         return kind == Kind.FUNCTION
+                && callers.isEmpty()
                 && entryLoop != null
                 && stack.isEmpty()
                 && callee instanceof VirtualFunction function
@@ -836,7 +972,13 @@ public class Tracer extends InterpreterDecorator {
     @Override
     public void returnFunction() {
         rec(() -> {
-            if (allowReturn) {
+            if (!callers.isEmpty()) {
+                // return from an inlined function
+                IRValue result = popValue();
+                leaveInlined();
+                push(result);
+            }
+            else if (allowReturn) {
                 builder.returnValue(popValue());
                 complete();
             }

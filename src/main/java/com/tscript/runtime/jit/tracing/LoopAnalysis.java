@@ -32,6 +32,32 @@ public class LoopAnalysis {
         return Collections.unmodifiableSet(headers);
     }
 
+    private static final Map<VirtualFunction.VirtualMetadata, Integer> inlineSizes = new ConcurrentHashMap<>();
+
+    private static final Set<Opcode> INLINABLE = EnumSet.of(
+            Opcode.PUSH_NULL, Opcode.PUSH_INT, Opcode.PUSH_BOOL, Opcode.LOAD_CONST, Opcode.PUSH_THIS,
+            Opcode.LOAD_BUILTIN, Opcode.POP, Opcode.NEW_LINE, Opcode.LOAD_GLOBAL, Opcode.STORE_GLOBAL,
+            Opcode.LOAD_LOCAL, Opcode.STORE_LOCAL, Opcode.CONTAINER_READ, Opcode.CONTAINER_WRITE,
+            Opcode.ADD, Opcode.SUB, Opcode.MUL, Opcode.DIV, Opcode.IDIV, Opcode.MOD, Opcode.POW,
+            Opcode.AND, Opcode.OR, Opcode.XOR, Opcode.NOT, Opcode.LT, Opcode.GT, Opcode.LEQ, Opcode.GEQ,
+            Opcode.SHL, Opcode.SHR, Opcode.USHR, Opcode.EQUALS, Opcode.NOT_EQUALS, Opcode.NEG, Opcode.POS,
+            Opcode.GET_TYPE, Opcode.MAKE_ARRAY, Opcode.MAKE_DICT, Opcode.MAKE_RANGE, Opcode.GOTO,
+            Opcode.BRANCH_IF_TRUE, Opcode.BRANCH_IF_FALSE, Opcode.CALL_INPLACE, Opcode.RETURN, Opcode.DUP);
+
+    /**
+     * @return the number of instructions of the function if it may be inlined (it has no loops and
+     * only instructions supported by the tracer), -1 otherwise
+     */
+    public static int inlineSize(VirtualFunction.VirtualMetadata metadata) {
+        return inlineSizes.computeIfAbsent(metadata, m -> {
+            if (!loopHeaders(m).isEmpty()) return -1;
+            for (byte[] ins : m.instructions()) {
+                if (!INLINABLE.contains(Opcode.of(ins[0]))) return -1;
+            }
+            return m.instructions().length;
+        });
+    }
+
     /**
      * @return true if the instruction at the given address (skipping line markers) returns from the function
      */

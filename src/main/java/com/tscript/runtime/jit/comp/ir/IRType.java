@@ -32,7 +32,16 @@ public interface IRType {
     /**
      * @return the IR type describing objects of the given runtime type
      */
+    /**
+     * @return true if the representation of values of this type is exactly known, i.e. a check
+     * whether a value has this type can be decided statically if the value has an exact type.
+     */
+    static boolean isExact(IRType type) {
+        return isPrimitive(type) || type == RangeIteratorType.INSTANCE;
+    }
+
     static IRType forRuntimeType(Type type) {
+        if (type == RangeIterator.TYPE) return RangeIteratorType.INSTANCE;
         if (type == Null.TYPE) return NullType.INSTANCE;
         if (type == TInteger.TYPE) return IntType.INSTANCE;
         if (type == TReal.TYPE) return RealType.INSTANCE;
@@ -55,6 +64,7 @@ public interface IRType {
         if (type == BoolType.INSTANCE) return TBoolean.TYPE;
         if (type == StrType.INSTANCE) return TString.TYPE;
         if (type == RangeType.INSTANCE) return Range.TYPE;
+        if (type == RangeIteratorType.INSTANCE) return RangeIterator.TYPE;
         if (type instanceof ArrayType) return TArray.TYPE;
         if (type instanceof DictType) return TDictionary.TYPE;
         if (type instanceof ComplexType c) return c.getType();

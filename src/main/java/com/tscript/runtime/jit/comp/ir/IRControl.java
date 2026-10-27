@@ -24,6 +24,11 @@ public abstract class IRControl implements IRNode {
         return inputs.get(index);
     }
 
+    protected void addInput(IRValue value) {
+        inputs.add(value);
+        value.getUsers().add(this);
+    }
+
     public abstract List<IRControl> getPredecessors();
 
     public abstract List<IRControl> getSuccessors();

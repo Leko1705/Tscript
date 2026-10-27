@@ -9,36 +9,54 @@ import java.util.List;
  * Leaves compiled code unconditionally and continues in the interpreter at the given state.
  * Used by side traces that end by jumping back to a loop header that is not part of the trace.
  * <p>
- * Inputs: [locals..., stack...]
+ * Inputs: [frame state values..., global write back values...]
  */
-public class Exit extends IRControl {
+public class Exit extends IRControl implements StateCarrier {
 
     private final IRControl previous;
     private final FrameState state;
+    private final List<GlobalRef> globalWrites = new ArrayList<>();
+    private Object deoptInfo;
 
-    public Exit(FrameState state, List<IRValue> locals, List<IRValue> stack, IRControl control, Graph graph) {
-        super(graph, concat(locals, stack).toArray(new IRValue[0]));
+    public Exit(FrameState state, List<IRValue> stateValues, IRControl control, Graph graph) {
+        super(graph, stateValues.toArray(new IRValue[0]));
         this.previous = control;
         this.state = state;
         control.getSuccessors().add(this);
     }
 
-    private static List<IRValue> concat(List<IRValue> locals, List<IRValue> stack) {
-        List<IRValue> all = new ArrayList<>(locals);
-        all.addAll(stack);
-        return all;
-    }
-
+    @Override
     public FrameState getState() {
         return state;
     }
 
-    public List<IRValue> getLocals() {
-        return getInputs().subList(0, state.localIndices().length);
+    @Override
+    public List<IRValue> getStateValues() {
+        return getInputs().subList(0, state.valueCount());
     }
 
-    public List<IRValue> getStack() {
-        return getInputs().subList(state.localIndices().length, getInputs().size());
+    @Override
+    public List<GlobalRef> getGlobalWrites() {
+        return globalWrites;
+    }
+
+    @Override
+    public List<IRValue> getGlobalWriteValues() {
+        return getInputs().subList(state.valueCount(), state.valueCount() + globalWrites.size());
+    }
+
+    @Override
+    public void addGlobalWrite(GlobalRef global, IRValue value) {
+        globalWrites.add(global);
+        addInput(value);
+    }
+
+    public Object getDeoptInfo() {
+        return deoptInfo;
+    }
+
+    public void setDeoptInfo(Object deoptInfo) {
+        this.deoptInfo = deoptInfo;
     }
 
     @Override

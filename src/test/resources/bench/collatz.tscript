@@ -1,0 +1,14 @@
+module collatz;
+function steps(start) {
+    var k = start;
+    var n = 0;
+    while k != 1 do {
+        if k % 2 == 0 then k = k // 2;
+        else k = 3 * k + 1;
+        n = n + 1;
+    }
+    return n;
+}
+var total = 0;
+for var i in 1:60000 do total = total + steps(i);
+print(total);

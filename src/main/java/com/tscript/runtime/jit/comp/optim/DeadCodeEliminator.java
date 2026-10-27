@@ -50,6 +50,7 @@ public class DeadCodeEliminator implements IROptimizer {
         return value instanceof Pi
                 || value instanceof Global
                 || value instanceof Array
-                || value instanceof Dict;
+                || value instanceof Dict
+                || value instanceof NewRangeIterator;
     }
 }

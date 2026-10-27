@@ -8,11 +8,12 @@ import com.tscript.runtime.jit.comp.ir.*;
  */
 public class Anchor extends IREffect {
 
-    public final int line;
+    /** ObjectCache id of the {@link com.tscript.runtime.jit.SourceSite} of this position */
+    public final int site;
 
-    public Anchor(IRValue value, IRControl control, int line) {
+    public Anchor(IRValue value, IRControl control, int site) {
         super(control, value);
-        this.line = line;
+        this.site = site;
     }
 
     public IRValue getValue() {

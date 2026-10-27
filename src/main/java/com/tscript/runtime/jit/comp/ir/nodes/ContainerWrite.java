@@ -7,11 +7,12 @@ import com.tscript.runtime.jit.comp.ir.*;
  */
 public class ContainerWrite extends IREffect {
 
-    public final int line;
+    /** ObjectCache id of the {@link com.tscript.runtime.jit.SourceSite} of this write */
+    public final int site;
 
-    public ContainerWrite(IRValue container, IRValue key, IRValue value, IRControl control, int line) {
+    public ContainerWrite(IRValue container, IRValue key, IRValue value, IRControl control, int site) {
         super(control, container, key, value);
-        this.line = line;
+        this.site = site;
     }
 
     public IRValue getContainer() {

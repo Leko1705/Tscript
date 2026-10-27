@@ -121,9 +121,18 @@ public class TThread extends Thread implements Environment, TObject {
      * @return the return value of the frame. Only valid if the frame stack has its original size afterwards
      */
     public TObject runFrame(VirtualFrame frame) {
+        return runFrames(frame);
+    }
+
+    /**
+     * Pushes the given frames (callers first) and runs them to completion.
+     * @return the return value of the first (outermost) frame. Only valid if the frame stack has
+     * its original size afterwards
+     */
+    public TObject runFrames(VirtualFrame... frames) {
         int prev = frameStackExitThreshold;
         frameStackExitThreshold = frameStack.size();
-        frameStack.push(frame);
+        for (VirtualFrame frame : frames) frameStack.push(frame);
         startExecutionCycle();
         frameStackExitThreshold = prev;
         return returnValue;

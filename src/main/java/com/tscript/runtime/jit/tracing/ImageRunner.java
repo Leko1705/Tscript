@@ -10,7 +10,9 @@ import com.tscript.runtime.jit.caching.images.ImageCache;
 import com.tscript.runtime.typing.Callable;
 import com.tscript.runtime.typing.TObject;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Runs native images and transfers control back to the interpreter if they are left.
@@ -49,8 +51,8 @@ public final class ImageRunner {
             TObject result = image.run(thread, ImageFrame.forFunction(function, args));
             if (result instanceof Deoptimization deopt) {
                 Object continuation = continueFunction(thread, entry, function, deopt);
-                if (continuation instanceof VirtualFrame frame) {
-                    thread.frameStack.push(frame);
+                if (continuation instanceof VirtualFrame[] frames) {
+                    for (VirtualFrame frame : frames) thread.frameStack.push(frame);
                     return;
                 }
                 result = (TObject) continuation;
@@ -71,8 +73,8 @@ public final class ImageRunner {
             TObject result = image.run(thread, ImageFrame.forFunction(function, args));
             if (result instanceof Deoptimization deopt) {
                 Object continuation = continueFunction(thread, entry, function, deopt);
-                if (continuation instanceof VirtualFrame frame) {
-                    return thread.runFrame(frame);
+                if (continuation instanceof VirtualFrame[] frames) {
+                    return thread.runFrames(frames);
                 }
                 result = (TObject) continuation;
             }
@@ -86,21 +88,25 @@ public final class ImageRunner {
     /**
      * Continues the execution of a function (whose frame is not on the frame stack) after compiled
      * code was left, using side traces as long as possible.
-     * @return the return value of the function, or the materialized interpreter frame
-     * ({@link VirtualFrame}) if the function has to be finished by the interpreter
+     * @return the return value of the function, or the materialized interpreter frames
+     * ({@code VirtualFrame[]}, callers first) if the function has to be finished by the interpreter
      */
     private static Object continueFunction(TThread thread, ImageCache.Entry owner, VirtualFunction function, Deoptimization deopt) {
         TObject[] locals = new TObject[function.getLocals()];
         while (true) {
             deopt.applyTo(locals);
-            NativeImage side = sideImage(thread, owner, deopt.info, true);
+            NativeImage side = deopt.hasInlinedFrames() ? null : sideImage(thread, owner, deopt.info, true);
             if (side == null) {
                 VirtualFrame frame = new VirtualFrame(function);
                 System.arraycopy(locals, 0, frame.locals, 0, locals.length);
                 deopt.applyTo(frame);
-                return frame;
+                if (!deopt.hasInlinedFrames()) return new VirtualFrame[]{frame};
+                List<VirtualFrame> frames = new ArrayList<>();
+                frames.add(frame);
+                frames.addAll(deopt.inlinedFrames());
+                return frames.toArray(new VirtualFrame[0]);
             }
-            TObject result = side.run(thread, ImageFrame.forState(function, locals, deopt.stack));
+            TObject result = side.run(thread, ImageFrame.forState(function, locals, deopt.rootStack()));
             if (!(result instanceof Deoptimization next)) return result;
             owner = sideEntry(thread, deopt.info);
             deopt = next;
@@ -150,6 +156,10 @@ public final class ImageRunner {
     private static boolean continueLoop(TThread thread, ImageCache.Entry owner, VirtualFrame frame, Deoptimization deopt, int header) {
         while (true) {
             deopt.applyTo(frame);
+            if (deopt.hasInlinedFrames()) {
+                for (VirtualFrame inlined : deopt.inlinedFrames()) thread.frameStack.push(inlined);
+                return false;
+            }
             if (deopt.info.loopExit()) return false;
             if (deopt.info.jumpExit()) return deopt.info.state().ip() == header;
 
@@ -212,9 +222,9 @@ public final class ImageRunner {
      * @throws ImageAbortException if a runtime error was reported during the call
      */
     @JITSensitive
-    public static TObject invoke(TThread thread, ImageFrame caller, int line, TObject callee, TObject[] args) {
+    public static TObject invoke(TThread thread, ImageFrame caller, int site, TObject callee, TObject[] args) {
         int depth = thread.frameStack.size();
-        int mark = caller.enter(thread, line);
+        int mark = caller.enter(thread, site);
         TObject result;
         try {
             if (callee instanceof VirtualFunction function) {

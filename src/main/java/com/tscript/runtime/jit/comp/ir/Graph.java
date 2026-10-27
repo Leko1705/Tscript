@@ -149,7 +149,7 @@ public class Graph {
         }
 
         if (value.isFixed()) {
-            builder.append(new Anchor(value, builder.currentControl, builder.line));
+            builder.append(new Anchor(value, builder.currentControl, builder.site));
             return value;
         }
 
@@ -201,7 +201,7 @@ public class Graph {
 
         private IRControl currentControl;
         private IREffect currentEffect;
-        private int line = -1;
+        private int site = -1;
 
         private Builder() {
             this.currentControl = startControl;
@@ -214,10 +214,15 @@ public class Graph {
         }
 
         /**
-         * Sets the source line that is attached to subsequently created effects.
+         * Sets the source site (ObjectCache id of a {@link com.tscript.runtime.jit.SourceSite})
+         * that is attached to subsequently created effects.
          */
-        public void setLine(int line) {
-            this.line = line;
+        public void setSite(int site) {
+            this.site = site;
+        }
+
+        public int site() {
+            return site;
         }
 
         public IRControl currentControl() {
@@ -400,12 +405,24 @@ public class Graph {
             return unique(new Dict(keys, values));
         }
 
-        public IRValue call(IRValue called, List<IRValue> args, int line) {
-            return unique(new Call(called, args, line));
+        public IRValue call(IRValue called, List<IRValue> args) {
+            return unique(new Call(called, args, site));
         }
 
-        public IRValue loadGlobal(int index) {
-            return unique(new Global(index));
+        public IRValue loadGlobal(GlobalRef global) {
+            return unique(new Global(global));
+        }
+
+        public IRValue isCallee(IRValue value, int metadataId) {
+            return unique(new IsCallee(value, metadataId));
+        }
+
+        public IRValue functionOwner(IRValue function) {
+            return unique(new FunctionOwner(function));
+        }
+
+        public IRValue newRangeIterator(IRValue from, IRValue to) {
+            return unique(new NewRangeIterator(from, to));
         }
 
         public IRValue getIterator(IRValue iterable) {
@@ -426,18 +443,18 @@ public class Graph {
 
         /* ---------------- effects ---------------- */
 
-        public GuardBool guard(IRValue condition, FrameState state, List<IRValue> locals, List<IRValue> stack) {
-            GuardBool guard = new GuardBool(condition, state, locals, stack, currentControl);
+        public GuardBool guard(IRValue condition, FrameState state, List<IRValue> stateValues) {
+            GuardBool guard = new GuardBool(condition, state, stateValues, currentControl);
             append(guard);
             return guard;
         }
 
-        public void storeGlobal(int index, IRValue value) {
-            append(new StoreGlobal(index, value, currentControl, line));
+        public void storeGlobal(GlobalRef global, IRValue value) {
+            append(new StoreGlobal(global, value, currentControl, site));
         }
 
         public void containerWrite(IRValue container, IRValue key, IRValue value) {
-            append(new ContainerWrite(container, key, value, currentControl, line));
+            append(new ContainerWrite(container, key, value, currentControl, site));
         }
 
         /* ---------------- control ---------------- */
@@ -460,8 +477,8 @@ public class Graph {
             return end;
         }
 
-        public Exit exit(FrameState state, List<IRValue> locals, List<IRValue> stack) {
-            Exit exit = new Exit(state, locals, stack, currentControl, Graph.this);
+        public Exit exit(FrameState state, List<IRValue> stateValues) {
+            Exit exit = new Exit(state, stateValues, currentControl, Graph.this);
             exitControl = exit;
             return exit;
         }

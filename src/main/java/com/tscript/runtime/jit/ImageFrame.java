@@ -3,6 +3,7 @@ package com.tscript.runtime.jit;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.core.VirtualFrame;
 import com.tscript.runtime.core.VirtualFunction;
+import com.tscript.runtime.jit.caching.ObjectCache;
 import com.tscript.runtime.jit.tracing.ImageAbortException;
 import com.tscript.runtime.typing.TObject;
 
@@ -59,15 +60,28 @@ public class ImageFrame {
      * Must be called before compiled code performs an operation that may report a runtime error
      * (e.g. calling a function): updates the line of the underlying interpreter frame, or, if
      * there is none, registers a shadow frame so that error messages list this function.
+     * Inlined functions are registered as shadow frames as well.
+     * @param siteId ObjectCache id of the {@link SourceSite} of the operation
      * @return a mark to pass to {@link #leave(TThread, int)}
      */
     @JITSensitive
-    public int enter(TThread thread, int line) {
+    public int enter(TThread thread, int siteId) {
+        SourceSite site = siteId < 0 ? SourceSite.UNKNOWN : (SourceSite) ObjectCache.getObject(siteId);
+        int mark = thread.shadowFrameCount();
+        boolean shadows = false;
         if (frame != null) {
-            frame.setLine(line);
-            return -1;
+            frame.setLine(site.rootLine());
         }
-        return thread.pushShadowFrame(metadata, line);
+        else {
+            thread.pushShadowFrame(metadata, site.rootLine());
+            shadows = true;
+        }
+        VirtualFunction.VirtualMetadata[] inlined = site.inlined();
+        for (int i = 0; i < inlined.length; i++) {
+            thread.pushShadowFrame(inlined[i], site.inlinedLines()[i]);
+            shadows = true;
+        }
+        return shadows ? mark : -1;
     }
 
     /**

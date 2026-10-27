@@ -29,6 +29,11 @@ public abstract class IREffect implements IRNode {
         return inputs.get(index);
     }
 
+    protected void addInput(IRValue value) {
+        inputs.add(value);
+        value.getUsers().add(this);
+    }
+
     @Override
     public List<IRValue> getInputs() {
         return Collections.unmodifiableList(inputs);

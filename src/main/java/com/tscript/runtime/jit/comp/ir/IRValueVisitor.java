@@ -96,4 +96,10 @@ public interface IRValueVisitor<P, R> {
 
     R visitContainerRead(ContainerRead node, P p);
 
+    R visitNewRangeIterator(NewRangeIterator node, P p);
+
+    R visitIsCallee(IsCallee node, P p);
+
+    R visitFunctionOwner(FunctionOwner node, P p);
+
 }
