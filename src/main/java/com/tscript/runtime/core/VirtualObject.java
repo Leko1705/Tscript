@@ -1,5 +1,7 @@
 package com.tscript.runtime.core;
 
+import com.tscript.runtime.jit.JITSensitive;
+
 import com.tscript.runtime.typing.Member;
 import com.tscript.runtime.typing.TObject;
 import com.tscript.runtime.typing.Type;
@@ -32,6 +34,14 @@ public class VirtualObject implements TObject {
     public Member loadMember(String name) {
         int index = type.getInstanceFields().getOrDefault(name, -1);
         if (index == -1) return null;
+        return members[index];
+    }
+
+    /**
+     * @return the instance member at the given index (see {@link VirtualType#getInstanceFields()})
+     */
+    @JITSensitive
+    public Member member(int index) {
         return members[index];
     }
 

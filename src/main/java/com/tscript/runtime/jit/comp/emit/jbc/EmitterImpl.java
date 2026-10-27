@@ -776,6 +776,31 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     }
 
     @Override
+    public Void visitStoreMember(StoreMember node, Void unused) {
+        switch (node.access) {
+            case FIELD, INTERNAL -> {
+                mv.visitVarInsn(ALOAD, THREAD_SLOT);
+                load(node.getObject(), Repr.OBJ);
+                pushInt(node.index);
+                load(node.getValue(), Repr.OBJ);
+                callUtils(node.access == MemberAccess.FIELD ? "storeField" : "storeInternal",
+                        "(" + THREAD_DESC + TOBJECT_DESC + "I" + TOBJECT_DESC + ")V");
+            }
+            case EXTERNAL, SUPER -> {
+                loadThreadAndFrame();
+                pushInt(node.site);
+                load(node.getObject(), Repr.OBJ);
+                mv.visitLdcInsn(node.name);
+                mv.visitInsn(node.access == MemberAccess.SUPER ? ICONST_1 : ICONST_0);
+                load(node.getValue(), Repr.OBJ);
+                callUtils("storeExternal", "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC
+                        + "Ljava/lang/String;Z" + TOBJECT_DESC + ")V");
+            }
+        }
+        return null;
+    }
+
+    @Override
     public Void visitContainerWrite(ContainerWrite node, Void unused) {
         loadThreadAndFrame();
         pushInt(node.site);
@@ -1297,6 +1322,38 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         load(node.getContainer(), Repr.OBJ);
         load(node.getKey(), Repr.OBJ);
         callUtils("containerRead", "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC + TOBJECT_DESC + ")" + TOBJECT_DESC);
+        return null;
+    }
+
+    @Override
+    public Void visitLoadMember(LoadMember node, Void unused) {
+        switch (node.access) {
+            case FIELD -> {
+                load(node.getObject(), Repr.OBJ);
+                pushInt(node.index);
+                callUtils("loadField", "(" + TOBJECT_DESC + "I)" + TOBJECT_DESC);
+            }
+            case INTERNAL -> {
+                load(node.getObject(), Repr.OBJ);
+                pushInt(node.index);
+                callUtils("loadInternal", "(" + TOBJECT_DESC + "I)" + TOBJECT_DESC);
+            }
+            case EXTERNAL, SUPER -> {
+                loadThreadAndFrame();
+                pushInt(siteOf(node));
+                load(node.getObject(), Repr.OBJ);
+                mv.visitLdcInsn(node.name);
+                mv.visitInsn(node.access == MemberAccess.SUPER ? ICONST_1 : ICONST_0);
+                callUtils("loadExternal", "(" + THREAD_DESC + FRAME_DESC + "I" + TOBJECT_DESC + "Ljava/lang/String;Z)" + TOBJECT_DESC);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitGetSuper(GetSuper node, Void unused) {
+        load(node.getValue(), Repr.OBJ);
+        mv.visitMethodInsn(INVOKEINTERFACE, TOBJECT, "getSuper", "()" + TOBJECT_DESC, true);
         return null;
     }
 

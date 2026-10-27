@@ -308,6 +308,16 @@ public class Typing {
         public IRType visitContainerRead(ContainerRead node, Void unused) {
             return UNKNOWN;
         }
+
+        @Override
+        public IRType visitLoadMember(LoadMember node, Void unused) {
+            return UNKNOWN;
+        }
+
+        @Override
+        public IRType visitGetSuper(GetSuper node, Void unused) {
+            return UNKNOWN;
+        }
     }
 
 }

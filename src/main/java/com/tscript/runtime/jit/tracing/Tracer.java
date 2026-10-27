@@ -432,7 +432,13 @@ public class Tracer extends InterpreterDecorator {
     private IRValue narrow(IRValue value, TObject runtime, State state) {
         IRType type = IRType.from(runtime, false);
         if (!IRType.isExact(type)) return value;
+        return narrowTo(value, type, state);
+    }
 
+    /**
+     * Guards that the value has the given type and returns the narrowed value.
+     */
+    private IRValue narrowTo(IRValue value, IRType type, State state) {
         IRType known = typeOf(value);
         if (known.equals(type)) return value;
 
@@ -598,7 +604,7 @@ public class Tracer extends InterpreterDecorator {
 
     @Override
     public void pushThis() {
-        rec(() -> push(owner != null ? owner : builder.thisValue()));
+        rec(() -> push(ownerValue()));
         super.pushThis();
     }
 
@@ -1043,6 +1049,134 @@ public class Tracer extends InterpreterDecorator {
 
 
     /* ------------------------------------------------------------------ */
+    /*  members                                                           */
+    /* ------------------------------------------------------------------ */
+
+    @Override
+    public void loadInternal(byte b1, byte b2) {
+        rec(() -> push(builder.loadMember(ownerValue(), MemberAccess.INTERNAL, Conversion.from2Bytes(b1, b2), null)));
+        super.loadInternal(b1, b2);
+    }
+
+    @Override
+    public void storeInternal(byte b1, byte b2) {
+        rec(() -> builder.storeMember(ownerValue(), popValue(), MemberAccess.INTERNAL, Conversion.from2Bytes(b1, b2), null));
+        super.storeInternal(b1, b2);
+    }
+
+    @Override
+    public void loadExternal(byte b1, byte b2) {
+        rec(() -> {
+            String name = frame.getModule().getPool().loadName(b1, b2);
+            TObject runtime = runtimeTop(0);
+            State state = state();
+            push(loadMember(popValue(), runtime, name, MemberAccess.EXTERNAL, state));
+        });
+        super.loadExternal(b1, b2);
+    }
+
+    @Override
+    public void storeExternal(byte b1, byte b2) {
+        rec(() -> {
+            String name = frame.getModule().getPool().loadName(b1, b2);
+            TObject runtime = runtimeTop(0);
+            State state = state();
+            IRValue object = popValue();
+            storeMember(object, runtime, popValue(), name, MemberAccess.EXTERNAL, state);
+        });
+        super.storeExternal(b1, b2);
+    }
+
+    @Override
+    public void loadSuper(byte b1, byte b2) {
+        rec(() -> {
+            String name = frame.getModule().getPool().loadName(b1, b2);
+            TObject superObject = getCurrentThread().getFrame().getOwner().getSuper();
+            IRValue object = builder.getSuper(ownerValue());
+            push(loadMember(object, superObject, name, MemberAccess.SUPER, state()));
+        });
+        super.loadSuper(b1, b2);
+    }
+
+    @Override
+    public void storeSuper(byte b1, byte b2) {
+        rec(() -> {
+            String name = frame.getModule().getPool().loadName(b1, b2);
+            TObject superObject = getCurrentThread().getFrame().getOwner().getSuper();
+            State state = state();
+            IRValue object = builder.getSuper(ownerValue());
+            storeMember(object, superObject, popValue(), name, MemberAccess.SUPER, state);
+        });
+        super.storeSuper(b1, b2);
+    }
+
+    /**
+     * Records a read of a member by name (with the given access, {@link MemberAccess#EXTERNAL} or
+     * {@link MemberAccess#SUPER}). If the object is a class instance, the lookup is done while
+     * tracing and guarded by the exact types of the objects of the class hierarchy that were
+     * walked, so that the member is read at a fixed index.
+     */
+    private IRValue loadMember(IRValue object, TObject runtime, String name, MemberAccess access, State state) {
+        int[] path = memberPath(runtime, name, access, false);
+        if (path == null) return builder.loadMember(object, access, -1, name);
+        IRValue holder = holderOf(object, runtime, path.length - 1, state);
+        return builder.loadMember(holder, MemberAccess.FIELD, path[path.length - 1], name);
+    }
+
+    private void storeMember(IRValue object, TObject runtime, IRValue value, String name, MemberAccess access, State state) {
+        int[] path = memberPath(runtime, name, access, true);
+        if (path == null) {
+            builder.storeMember(object, value, access, -1, name);
+            return;
+        }
+        IRValue holder = holderOf(object, runtime, path.length - 1, state);
+        builder.storeMember(holder, value, MemberAccess.FIELD, path[path.length - 1], name);
+    }
+
+    /**
+     * Guards the types of the object and its first super objects and returns the super object
+     * at the given depth.
+     */
+    private IRValue holderOf(IRValue object, TObject runtime, int depth, State state) {
+        IRValue current = narrowTo(object, IRType.from(runtime, false), state);
+        for (int i = 0; i < depth; i++) {
+            runtime = runtime.getSuper();
+            current = narrowTo(builder.getSuper(current), IRType.from(runtime, false), state);
+        }
+        return current;
+    }
+
+    /**
+     * Resolves an access by name the way the interpreter does (searching the object and then its
+     * super objects).
+     * @return null if the access cannot be specialized, otherwise an array whose length - 1 is
+     * the number of super objects walked and whose last element is the index of the member
+     */
+    private static int[] memberPath(TObject object, String name, MemberAccess access, boolean write) {
+        int depth = 0;
+        while (object instanceof VirtualObject instance) {
+            Integer index = instance.getType().getInstanceFields().get(name);
+            if (index != null) {
+                Member member = instance.member(index);
+                Visibility minimum = access == MemberAccess.SUPER ? Visibility.PROTECTED : Visibility.PUBLIC;
+                if (member.getVisibility().ordinal() > minimum.ordinal()) return null;
+                if (write && !member.isMutable()) return null;
+                int[] path = new int[depth + 1];
+                path[depth] = index;
+                return path;
+            }
+            object = object.getSuper();
+            depth++;
+        }
+        return null;
+    }
+
+    private IRValue ownerValue() {
+        return owner != null ? owner : builder.thisValue();
+    }
+
+
+    /* ------------------------------------------------------------------ */
     /*  instructions that are not supported in traces                     */
     /* ------------------------------------------------------------------ */
 
@@ -1070,41 +1204,7 @@ public class Tracer extends InterpreterDecorator {
         super.buildType(b1, b2);
     }
 
-    @Override
-    public void loadExternal(byte b1, byte b2) {
-        unsupported("LOAD_EXTERNAL");
-        super.loadExternal(b1, b2);
-    }
 
-    @Override
-    public void storeExternal(byte b1, byte b2) {
-        unsupported("STORE_EXTERNAL");
-        super.storeExternal(b1, b2);
-    }
-
-    @Override
-    public void loadInternal(byte b1, byte b2) {
-        unsupported("LOAD_INTERNAL");
-        super.loadInternal(b1, b2);
-    }
-
-    @Override
-    public void storeInternal(byte b1, byte b2) {
-        unsupported("STORE_INTERNAL");
-        super.storeInternal(b1, b2);
-    }
-
-    @Override
-    public void loadSuper(byte b1, byte b2) {
-        unsupported("LOAD_SUPER");
-        super.loadSuper(b1, b2);
-    }
-
-    @Override
-    public void storeSuper(byte b1, byte b2) {
-        unsupported("STORE_SUPER");
-        super.storeSuper(b1, b2);
-    }
 
     @Override
     public void loadStatic(byte b1, byte b2) {

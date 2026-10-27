@@ -220,6 +220,84 @@ public final class JBCUtils {
         return ((IteratorObject) iterator).next();
     }
 
+    /* ---------------- members ---------------- */
+
+    /**
+     * Reads a member of a class instance whose type was guarded before.
+     */
+    @JITSensitive
+    public static TObject loadField(TObject object, int index) {
+        return ((VirtualObject) object).member(index).get();
+    }
+
+    @JITSensitive
+    public static void storeField(TThread thread, TObject object, int index, TObject value) {
+        ((VirtualObject) object).member(index).set(value, thread);
+    }
+
+    /**
+     * Reads a member of the owner of the running function by index (like LOAD_INTERNAL).
+     */
+    @JITSensitive
+    public static TObject loadInternal(TObject owner, int index) {
+        if (owner instanceof VirtualObject object) return object.member(index).get();
+        return owner.loadMember(index).get();
+    }
+
+    @JITSensitive
+    public static void storeInternal(TThread thread, TObject owner, int index, TObject value) {
+        Member member = owner instanceof VirtualObject object ? object.member(index) : owner.loadMember(index);
+        member.set(value, thread);
+    }
+
+    /**
+     * Reads a member by name like LOAD_EXTERNAL (public members) or LOAD_SUPER (protected members,
+     * the object is the super object), reporting the same errors as the interpreter.
+     */
+    @JITSensitive
+    public static TObject loadExternal(TThread thread, ImageFrame frame, int site, TObject object, String name, boolean protectedAccess) {
+        Member member = accessibleMember(thread, frame, site, object, name, protectedAccess);
+        return member.get();
+    }
+
+    /**
+     * Writes a member by name like STORE_EXTERNAL or STORE_SUPER, reporting the same errors as the interpreter.
+     */
+    @JITSensitive
+    public static void storeExternal(TThread thread, ImageFrame frame, int site, TObject object, String name, boolean protectedAccess, TObject value) {
+        Member member = accessibleMember(thread, frame, site, object, name, protectedAccess);
+        if (!member.isMutable()) {
+            reportError(thread, frame, site, InternalRuntimeErrorMessages.invalidMutability(member.getName()));
+        }
+        member.set(value, thread);
+    }
+
+    private static Member accessibleMember(TThread thread, ImageFrame frame, int site, TObject object, String name, boolean protectedAccess) {
+        Member member = TNIUtils.searchMember(object, name);
+        if (member == null) {
+            reportError(thread, frame, site, InternalRuntimeErrorMessages.noSuchMember(object, name));
+        }
+        Visibility minimum = protectedAccess ? Visibility.PROTECTED : Visibility.PUBLIC;
+        if (member.getVisibility().ordinal() > minimum.ordinal()) {
+            reportError(thread, frame, site, InternalRuntimeErrorMessages.invalidAccessVisibility(name, member.getVisibility()));
+        }
+        return member;
+    }
+
+    /**
+     * Reports a runtime error at the given site and leaves compiled code.
+     */
+    private static void reportError(TThread thread, ImageFrame frame, int site, String message) {
+        int mark = frame.enter(thread, site);
+        try {
+            thread.reportRuntimeError(message);
+        }
+        finally {
+            frame.leave(thread, mark);
+        }
+        throw ImageAbortException.INSTANCE;
+    }
+
     @JITSensitive
     public static TObject containerRead(TThread thread, ImageFrame frame, int site, TObject container, TObject key) {
         int depth = thread.frameStack.size();

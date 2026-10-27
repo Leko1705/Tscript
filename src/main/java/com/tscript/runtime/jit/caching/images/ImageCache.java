@@ -2,6 +2,7 @@ package com.tscript.runtime.jit.caching.images;
 
 import com.tscript.runtime.jit.*;
 import com.tscript.runtime.jit.comp.ir.Graph;
+import com.tscript.runtime.jit.comp.levels.OptimizingLevel;
 import com.tscript.runtime.typing.TObject;
 import com.tscript.runtime.typing.Type;
 
@@ -21,6 +22,9 @@ public class ImageCache {
     public static final JITCompiler.Key<ImageCache> KEY = ImageCache::new;
 
 
+    /** graphs with at most this many effects are recompiled by every level, even without changes */
+    private static final int SMALL_GRAPH = 50;
+
     public class Entry {
 
         private final Object key;
@@ -30,6 +34,8 @@ public class ImageCache {
         private boolean busy = false;
         /** true if the image was invalidated while a compilation was running (its result is discarded) */
         private boolean stale = false;
+        /** the number of side traces stitched into the current image */
+        private int stitched = 0;
         private boolean disabled = false;
         private int failures = 0;
         /** true once no further compilation will happen for this entry (allows a lock free fast path) */
@@ -89,12 +95,37 @@ public class ImageCache {
             if (++hotness < lvl.threshold()) return null;
 
             hotness = 0;
-            busy = true;
             if (graph != null && !lvl.retrace()) {
+                int sideTraces = countSideTraces(lvl, graph);
+                if (sideTraces == stitched && graph.effects().size() > SMALL_GRAPH) {
+                    // recompiling would produce the same code (no new side traces to stitch). For
+                    // small graphs it still pays off (the JVM compiles the fresh class with the
+                    // profile of the warmed up program), for large ones the JVM compilation costs
+                    // more than it gains.
+                    compiler.debug(() -> "skipped level " + (level + 1) + " of " + this + " (nothing new to stitch)");
+                    level++;
+                    saturated = level >= levels.size();
+                    return null;
+                }
+                stitched = sideTraces;
+                busy = true;
                 new ParseProcess(compiler, lvl, this, graph).compile();
                 return null;
             }
+            busy = true;
+            stitched = 0;
             return new ParseProcess(compiler, lvl, this, new Graph());
+        }
+
+        private int countSideTraces(CompilationLevel level, Graph graph) {
+            if (!(level instanceof OptimizingLevel optimizing)) return 0;
+            try {
+                return optimizing.countSideTraces(graph, ImageCache.this::sideTraceGraph);
+            }
+            catch (RuntimeException e) {
+                // the graph of a side trace is being optimized concurrently (background compilation)
+                return -1;
+            }
         }
 
         public synchronized void onCompiled(NativeImage image, Graph graph) {

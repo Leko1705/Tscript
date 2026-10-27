@@ -464,6 +464,14 @@ public class Graph {
             return unique(new ContainerRead(container, key));
         }
 
+        public IRValue getSuper(IRValue object) {
+            return unique(new GetSuper(object));
+        }
+
+        public IRValue loadMember(IRValue object, MemberAccess access, int index, String name) {
+            return unique(new LoadMember(object, access, index, name));
+        }
+
         /* ---------------- effects ---------------- */
 
         public GuardBool guard(IRValue condition, FrameState state, List<IRValue> stateValues) {
@@ -474,6 +482,10 @@ public class Graph {
 
         public void storeGlobal(GlobalRef global, IRValue value) {
             append(new StoreGlobal(global, value, currentControl, site));
+        }
+
+        public void storeMember(IRValue object, IRValue value, MemberAccess access, int index, String name) {
+            append(new StoreMember(object, value, access, index, name, currentControl, site));
         }
 
         public void containerWrite(IRValue container, IRValue key, IRValue value) {

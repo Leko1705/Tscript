@@ -1,0 +1,23 @@
+module objects_private;
+
+class Counter {
+    private:
+    var count = 0;
+    public:
+    function inc() {
+        count = count + 1;
+        return count;
+    }
+}
+
+function privateAccess(n) {
+    var c = Counter();
+    var s = 0;
+    for var i in 0:n do {
+        s = s + c.inc();
+        if i == n - 1 then s = s + c.count;
+    }
+    return s;
+}
+
+print(privateAccess(3000));

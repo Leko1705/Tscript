@@ -16,4 +16,6 @@ public interface IREffectVisitor<P, R> {
 
     R visitContainerWrite(ContainerWrite node, P p);
 
+    R visitStoreMember(StoreMember node, P p);
+
 }

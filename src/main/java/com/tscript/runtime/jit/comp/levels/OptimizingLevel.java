@@ -57,6 +57,29 @@ public interface OptimizingLevel extends CompilationLevel {
         };
     }
 
+    /**
+     * @return the number of compiled side traces that would be stitched into the code of the graph
+     * (if this number did not change since the last compilation, recompiling is pointless)
+     */
+    default int countSideTraces(Graph graph, Function<Object, Graph> sideTraces) {
+        if (!stitchSideTraces()) return 0;
+        return countSideTraces(graph, sideTraces, 0, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    private int countSideTraces(Graph graph, Function<Object, Graph> sideTraces, int depth, Set<Graph> visited) {
+        if (depth >= maxStitchDepth() || !visited.add(graph)) return 0;
+        int count = 0;
+        for (IREffect effect : graph.effects()) {
+            if (effect instanceof Guard guard && guard.getDeoptInfo() != null) {
+                Graph side = sideTraces.apply(guard.getDeoptInfo());
+                if (side != null && !visited.contains(side)) {
+                    count += 1 + countSideTraces(side, sideTraces, depth + 1, visited);
+                }
+            }
+        }
+        return count;
+    }
+
     private void prepareSideTraces(Graph graph, Function<Object, Graph> sideTraces, int depth, Set<Graph> visited) {
         graph.setSideTraces(sideTraces);
         if (depth >= maxStitchDepth() || !visited.add(graph)) return;

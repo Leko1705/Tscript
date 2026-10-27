@@ -19,7 +19,8 @@
  *     (including dead phis). L1 compiles the recorded trace; L2 and L3 recompile the same graph
  *     without recording a new trace and stitch the compiled side traces of its guards into the code
  *     (trace trees). L3 only differs in that it picks up side traces compiled after L2 and stitches
- *     deeper. Running the passes already at L1 matters, since long running loops are often entered
+ *     deeper. Large graphs are not recompiled if no new side trace can be stitched, since the
+ *     JVM would spend a lot of time compiling the same code again. Running the passes already at L1 matters, since long running loops are often entered
  *     only once and never reach L2.</li>
  *     <li><b>Emission</b> ({@link com.tscript.runtime.jit.comp.emit.Emitter}): the JVM bytecode emitter turns
  *     a graph into a {@link com.tscript.runtime.jit.NativeImage}.</li>
@@ -55,6 +56,14 @@
  * so values of type Integer, Real, Boolean and String can be kept unboxed. Branch directions are
  * guarded as well. Every guard captures a {@link com.tscript.runtime.jit.comp.ir.FrameState}: the
  * interpreter re-executes the instruction that was speculated on.
+ *
+ * <h2>Objects</h2>
+ * Member accesses ({@code obj.x}, {@code this.x}, {@code super.x} and inherited members) are traced.
+ * If the object is a class instance, the lookup by name is done while tracing: guards on the exact
+ * types of the object (and of the super objects that were walked) make the member a read or write
+ * at a fixed index. Other accesses (e.g. methods of builtin objects) look the member up at runtime
+ * and report errors exactly like the interpreter. Method calls on objects are inlined like
+ * function calls.
  *
  * <h2>Configuration</h2>
  * System properties: {@code tscript.jit.threshold} (L1, default 100), {@code tscript.jit.threshold2}
