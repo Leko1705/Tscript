@@ -39,19 +39,19 @@ public class JitDifferentialTest {
     @ParameterizedTest
     @MethodSource("programs")
     public void defaultThresholds(String program) throws Exception {
-        compareWithInterpreter(program, null, null);
+        compareWithInterpreter(program, null, null, null);
     }
 
     @ParameterizedTest
     @MethodSource("programs")
     public void lowThresholds(String program) throws Exception {
-        compareWithInterpreter(program, "2", "5");
+        compareWithInterpreter(program, "2", "5", "10");
     }
 
-    private void compareWithInterpreter(String program, String threshold, String threshold2) throws Exception {
+    private void compareWithInterpreter(String program, String threshold, String threshold2, String threshold3) throws Exception {
         File root = compile(program);
-        String expected = run(root, program, false, null, null);
-        String actual = run(root, program, true, threshold, threshold2);
+        String expected = run(root, program, false, null, null, null);
+        String actual = run(root, program, true, threshold, threshold2, threshold3);
         Assertions.assertEquals(expected, actual, "output of " + program + " differs with the JIT enabled");
     }
 
@@ -67,13 +67,14 @@ public class JitDifferentialTest {
         return root;
     }
 
-    private String run(File root, String program, boolean jit, String threshold, String threshold2) {
+    private String run(File root, String program, boolean jit, String threshold, String threshold2, String threshold3) {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         PrintStream stream = new PrintStream(buffer, true, StandardCharsets.UTF_8);
         PrintStream oldErr = System.err;
         PrintStream oldOut = System.out;
         setProperty("tscript.jit.threshold", threshold);
         setProperty("tscript.jit.threshold2", threshold2);
+        setProperty("tscript.jit.threshold3", threshold3);
         try {
             System.setErr(stream);
             System.setOut(stream);
@@ -87,6 +88,7 @@ public class JitDifferentialTest {
             System.setOut(oldOut);
             setProperty("tscript.jit.threshold", null);
             setProperty("tscript.jit.threshold2", null);
+            setProperty("tscript.jit.threshold3", null);
         }
         String output = buffer.toString(StandardCharsets.UTF_8);
         Assertions.assertFalse(output.contains("An Internal Error occurred"), "internal error in " + program + ":\n" + output);

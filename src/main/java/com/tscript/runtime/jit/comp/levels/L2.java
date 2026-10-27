@@ -19,4 +19,8 @@ public record L2(int threshold) implements OptimizingLevel {
     public List<IROptimizer> getOptimizers() {
         return optimizers;
     }
+
+    static List<IROptimizer> optimizers() {
+        return optimizers;
+    }
 }

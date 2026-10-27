@@ -28,6 +28,8 @@ public class ImageCache {
         private int hotness = 0;
         private int level = 0;
         private boolean busy = false;
+        /** true if the image was invalidated while a compilation was running (its result is discarded) */
+        private boolean stale = false;
         private boolean disabled = false;
         private int failures = 0;
         /** true once no further compilation will happen for this entry (allows a lock free fast path) */
@@ -96,6 +98,11 @@ public class ImageCache {
         }
 
         public synchronized void onCompiled(NativeImage image, Graph graph) {
+            if (stale) {
+                stale = false;
+                busy = false;
+                return;
+            }
             this.graph = graph;
             compiler.debug(() -> "compiled " + this + " at level " + (level + 1));
             this.image = image;
@@ -110,6 +117,7 @@ public class ImageCache {
          */
         public synchronized void onFailed() {
             busy = false;
+            stale = false;
             if (++failures > compiler.getConfiguration().failureLimit()) {
                 compiler.debug(() -> "disabled " + this);
                 disabled = true;
@@ -128,6 +136,7 @@ public class ImageCache {
                 image = null;
                 graph = null;
                 level = 0;
+                stale = busy;
                 saturated = false;
                 hotness = 0;
                 deopts = 0;

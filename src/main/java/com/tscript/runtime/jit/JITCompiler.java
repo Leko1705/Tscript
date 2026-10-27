@@ -5,6 +5,8 @@ import com.tscript.runtime.jit.comp.emit.Emitter;
 import com.tscript.runtime.jit.comp.emit.JBCEmitter;
 import com.tscript.runtime.jit.comp.levels.L1;
 import com.tscript.runtime.jit.comp.levels.L2;
+import com.tscript.runtime.jit.comp.levels.L3;
+import com.tscript.runtime.jit.schedule.BackgroundScheduler;
 import com.tscript.runtime.jit.schedule.FirstComeFirstServeScheduler;
 import com.tscript.runtime.jit.schedule.Scheduler;
 
@@ -108,7 +110,11 @@ public class JITCompiler {
         private final int l1Threshold = Integer.getInteger("tscript.jit.threshold", 100);
         private final int l2Threshold = Integer.getInteger("tscript.jit.threshold2", 1000);
         private final boolean debug = Boolean.getBoolean("tscript.jit.debug");
-        private final List<CompilationLevel> levels = List.of(new L1(l1Threshold, !Boolean.getBoolean("tscript.jit.l1plain")), new L2(l2Threshold));
+        private final int l3Threshold = Integer.getInteger("tscript.jit.threshold3", 3000);
+        private final List<CompilationLevel> levels = l3Threshold > 0
+                ? List.of(new L1(l1Threshold, !Boolean.getBoolean("tscript.jit.l1plain")), new L2(l2Threshold), new L3(l3Threshold))
+                : List.of(new L1(l1Threshold, !Boolean.getBoolean("tscript.jit.l1plain")), new L2(l2Threshold));
+        private final boolean background = Boolean.getBoolean("tscript.jit.background");
 
         @Override
         public List<CompilationLevel> optimizationLevels() {
@@ -117,7 +123,7 @@ public class JITCompiler {
 
         @Override
         public Scheduler createScheduler() {
-            return new FirstComeFirstServeScheduler();
+            return background ? new BackgroundScheduler() : new FirstComeFirstServeScheduler();
         }
 
         @Override
