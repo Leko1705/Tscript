@@ -131,6 +131,17 @@ public class JITCompiler {
         }
 
         private final int inlineDepth = Integer.getInteger("tscript.jit.inlineDepth", 3);
+        private final Peeling peel = switch (System.getProperty("tscript.jit.peel", "loops")) {
+            case "all", "true" -> Peeling.ALL;
+            case "none", "false" -> Peeling.NONE;
+            default -> Peeling.LOOP_TRACES;
+        };
+
+        @Override
+        public Peeling peelLoops() {
+            return peel;
+        }
+
         private final int inlineSize = Integer.getInteger("tscript.jit.inlineSize", 120);
 
         @Override

@@ -8,6 +8,7 @@ public record L2(int threshold) implements OptimizingLevel {
 
     private static final List<IROptimizer> optimizers = List.of(
             new Canonicalizer(),
+            new GuardHoisting(),
             new GuardEliminator(),
             new DeadCodeEliminator()
     );

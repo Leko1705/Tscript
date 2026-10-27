@@ -49,6 +49,27 @@ public class LoopHeadNode extends IRControl {
         return phis;
     }
 
+    private FrameState entryState = null;
+    private int entryValueCount = 0;
+
+    /**
+     * Sets the interpreter state on loop entry (at the header, before the first iteration).
+     * Guards that are hoisted in front of the loop leave compiled code with this state.
+     */
+    public void setEntryState(FrameState state, List<IRValue> values) {
+        this.entryState = state;
+        this.entryValueCount = values.size();
+        for (IRValue value : values) addInput(value);
+    }
+
+    public FrameState getEntryState() {
+        return entryState;
+    }
+
+    public List<IRValue> getEntryValues() {
+        return getInputs().subList(0, entryValueCount);
+    }
+
     @Override
     public List<IRControl> getPredecessors() {
         return loopEnd == null ? List.of(entry) : List.of(entry, loopEnd);

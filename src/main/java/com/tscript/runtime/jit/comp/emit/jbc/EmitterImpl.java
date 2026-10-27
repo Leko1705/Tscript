@@ -95,6 +95,8 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     private final int depth;
 
     private Map<IRValue, Integer> slots = new HashMap<>();
+    /** local variables holding boxed versions of unboxed values */
+    private Map<IRValue, Integer> boxedSlots = new HashMap<>();
     private Label loopLabel = null;
     private LoopHeadNode closedLoop = null;
 
@@ -418,8 +420,24 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
     }
 
     private void load(IRValue value, Repr target) {
+        Repr repr = repr(value);
+        if (target == Repr.OBJ && repr != Repr.OBJ) {
+            // boxed values are cached as well (they are immutable)
+            Integer boxed = boxedSlots.get(value);
+            if (boxed != null) {
+                mv.visitVarInsn(ALOAD, boxed);
+                return;
+            }
+            load(value);
+            convert(repr, Repr.OBJ, typeMap.getType(value));
+            mv.visitInsn(DUP);
+            int slot = newSlot(Repr.OBJ);
+            mv.visitVarInsn(ASTORE, slot);
+            boxedSlots.put(value, slot);
+            return;
+        }
         load(value);
-        convert(repr(value), target, typeMap.getType(value));
+        convert(repr, target, typeMap.getType(value));
     }
 
     private void convert(Repr from, Repr to, IRType fromType) {
@@ -589,6 +607,7 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         mv.visitJumpInsn(IFNE, ok);
 
         Map<IRValue, Integer> saved = new HashMap<>(slots);
+        Map<IRValue, Integer> savedBoxed = new HashMap<>(boxedSlots);
         Label savedLoopLabel = loopLabel;
         if (node.getDeoptInfo() == null) {
             List<IRValue> values = node.getStateValues();
@@ -601,6 +620,7 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
             emitLeave(node, (DeoptInfo) node.getDeoptInfo(), false);
         }
         slots = saved;
+        boxedSlots = savedBoxed;
         loopLabel = savedLoopLabel;
 
         mv.visitLabel(ok);
@@ -640,6 +660,8 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         if (!loop.isClosed()) return null;
         if (loopLabel != null) throw new IllegalStateException("only one closed loop per trace is supported");
 
+        hoistLoopInvariants(node);
+
         for (Phi phi : loop.getPhis()) {
             load(phi.getEntry(), repr(phi));
             store(phi);
@@ -648,6 +670,85 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         closedLoop = loop;
         mv.visitLabel(loopLabel);
         return null;
+    }
+
+    /**
+     * Loop invariant code motion: evaluates floating values that are used in the loop body but do
+     * not depend on the loop before the loop header, so that they are computed only once. Boxed
+     * versions of invariant values passed to the runtime (e.g. call arguments) are created
+     * before the loop as well.
+     */
+    private void hoistLoopInvariants(LoopBegin begin) {
+        LoopHeadNode loop = begin.getLoop();
+
+        Set<IRValue> variant = Collections.newSetFromMap(new IdentityHashMap<>());
+        variant.addAll(loop.getPhis());
+        List<IRNode> bodyUsers = new ArrayList<>();
+        for (IREffect e = begin.next; e != null; e = e.next) {
+            if (e instanceof Anchor anchor) variant.add(anchor.getValue());
+            if (!(e instanceof Guard)) bodyUsers.add(e);
+            else bodyUsers.add(((GuardBool) e).getCondition());
+        }
+        for (Phi phi : loop.getPhis()) bodyUsers.add(phi.getBackedge());
+
+        Map<IRValue, Boolean> invariant = new IdentityHashMap<>();
+        Set<IRValue> used = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<IRValue> boxedUses = Collections.newSetFromMap(new IdentityHashMap<>());
+        Deque<IRValue> work = new ArrayDeque<>();
+        for (IRNode user : bodyUsers) {
+            List<IRValue> inputs = user instanceof IRValue v ? List.of(v) : user.getInputs();
+            boolean needsBoxes = user instanceof IREffect && !(user instanceof Anchor);
+            if (user instanceof Anchor anchor) {
+                inputs = anchor.getValue().getInputs();
+                needsBoxes = !(anchor.getValue() instanceof Pi);
+            }
+            for (IRValue input : inputs) {
+                work.push(input);
+                if (needsBoxes) boxedUses.add(input);
+            }
+        }
+        while (!work.isEmpty()) {
+            IRValue value = work.pop();
+            if (!used.add(value) || variant.contains(value) || value.isFixed()) continue;
+            for (IRValue input : value.getInputs()) work.push(input);
+        }
+
+        for (IRValue value : graph.values()) {
+            if (!used.contains(value) || !isInvariant(value, variant, invariant)) continue;
+            if (value.isFixed() || value instanceof Phi || value.canTrap() || dependsOnTrap(value)) continue;
+            if (!(value instanceof Literal<?>) && !slots.containsKey(value)) {
+                load(value);
+                mv.visitInsn(repr(value).size == 2 ? POP2 : POP);
+            }
+            if (boxedUses.contains(value) && repr(value) != Repr.OBJ && !boxedSlots.containsKey(value)) {
+                load(value, Repr.OBJ);
+                mv.visitInsn(POP);
+            }
+        }
+    }
+
+    private boolean isInvariant(IRValue value, Set<IRValue> variant, Map<IRValue, Boolean> memo) {
+        if (variant.contains(value)) return false;
+        Boolean known = memo.get(value);
+        if (known != null) return known;
+        boolean result = true;
+        if (!value.isFixed()) {
+            for (IRValue input : value.getInputs()) {
+                if (!isInvariant(input, variant, memo)) {
+                    result = false;
+                    break;
+                }
+            }
+        }
+        memo.put(value, result);
+        return result;
+    }
+
+    private static boolean dependsOnTrap(IRValue value) {
+        for (IRValue input : value.getInputs()) {
+            if (!input.isFixed() && (input.canTrap() || dependsOnTrap(input))) return true;
+        }
+        return false;
     }
 
     @Override

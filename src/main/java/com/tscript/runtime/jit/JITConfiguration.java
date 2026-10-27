@@ -60,6 +60,22 @@ public interface JITConfiguration {
         return 120;
     }
 
+    enum Peeling {
+        /** never peel loops */
+        NONE,
+        /** peel the loop of loop traces only */
+        LOOP_TRACES,
+        /** peel all loops */
+        ALL
+    }
+
+    /**
+     * @return which loops the tracer peels: the first iteration is recorded in front of the loop
+     */
+    default Peeling peelLoops() {
+        return Peeling.LOOP_TRACES;
+    }
+
     /**
      * @return true if the jit should print diagnostic output (graphs, generated code, failures)
      */

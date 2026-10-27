@@ -80,6 +80,7 @@ public class Tracer extends InterpreterDecorator {
     private final int anchorIp;
     private final int traceDepth;
     private final int lengthLimit;
+    private final boolean peelLoops;
     private final boolean allowReturn;
     /** the exit a side trace starts at, null for other traces */
     private final DeoptInfo sideExit;
@@ -103,6 +104,8 @@ public class Tracer extends InterpreterDecorator {
     private final Map<IRValue, Pi> narrowed = new HashMap<>();
 
     private final Map<Integer, OpenLoop> openLoops = new HashMap<>();
+    /** loop headers whose first iteration is recorded before the loop (peeling), with the number of branch guards at that point */
+    private final Map<Integer, Integer> peeledHeaders = new HashMap<>();
     private OpenLoop entryLoop = null;
 
     /** recorded branch guards and the address execution would continue at if they fail */
@@ -128,6 +131,11 @@ public class Tracer extends InterpreterDecorator {
         this.lengthLimit = process.getCompiler().getConfiguration().traceLengthLimit();
         this.allowReturn = allowReturn;
         this.sideExit = sideExit;
+        this.peelLoops = switch (process.getCompiler().getConfiguration().peelLoops()) {
+            case ALL -> true;
+            case LOOP_TRACES -> kind == Kind.LOOP;
+            case NONE -> false;
+        };
     }
 
     static Tracer forFunction(Interpreter interpreter, Interpreter restore, ParseProcess process, int traceDepth) {
@@ -211,7 +219,15 @@ public class Tracer extends InterpreterDecorator {
         }
 
         if (loopHeaders.contains(ip) && !openLoops.containsKey(ip)) {
-            openLoop(ip);
+            if (peelLoops && callers.isEmpty() && !peeledHeaders.containsKey(ip)) {
+                // record the first iteration before the loop: the loop then starts with the values of
+                // the second iteration (more precise types) and guards of loop invariant values are
+                // only checked in the first iteration
+                peeledHeaders.put(ip, branchGuards.size());
+            }
+            else {
+                openLoop(ip);
+            }
         }
 
         return true;
@@ -436,8 +452,11 @@ public class Tracer extends InterpreterDecorator {
     }
 
     private OpenLoop openLoop(int headerIp) {
+        State entryState = state();
         LoopHeadNode loop = builder.beginLoop(headerIp);
-        OpenLoop open = new OpenLoop(loop, headerIp, stack.size(), branchGuards.size());
+        loop.setEntryState(entryState.frameState, entryState.values);
+        int firstGuard = peeledHeaders.getOrDefault(headerIp, branchGuards.size());
+        OpenLoop open = new OpenLoop(loop, headerIp, stack.size(), firstGuard);
 
         for (Map.Entry<Integer, IRValue> local : locals.entrySet()) {
             Phi phi = builder.phi(loop, local.getValue());
@@ -494,6 +513,9 @@ public class Tracer extends InterpreterDecorator {
         OpenLoop open = openLoops.get(target);
         if (open != null) {
             closeLoop(open, ip);
+        }
+        else if (peeledHeaders.containsKey(target) && callers.isEmpty()) {
+            // end of the peeled iteration: the loop is opened when the header is executed again
         }
         else if (kind == Kind.SIDE) {
             // continue in the interpreter at the loop header (where e.g. the image of the loop can take over)
