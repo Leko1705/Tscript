@@ -2,6 +2,7 @@ package com.tscript.runtime.jit.comp.optim;
 
 import com.tscript.runtime.jit.comp.ir.*;
 import com.tscript.runtime.jit.comp.ir.nodes.*;
+import com.tscript.runtime.jit.comp.ir.types.*;
 
 import java.util.*;
 
@@ -24,7 +25,7 @@ public class GlobalPromotion implements IROptimizer {
         boolean changed = false;
         for (IREffect effect : graph.effects()) {
             if (effect instanceof LoopBegin begin && begin.getLoop().isClosed() && begin.getLoop().getEntryState() != null) {
-                changed |= promote(begin);
+                changed |= promote(graph, begin);
             }
         }
         if (changed) {
@@ -34,7 +35,7 @@ public class GlobalPromotion implements IROptimizer {
         return changed;
     }
 
-    private boolean promote(LoopBegin begin) {
+    private boolean promote(Graph graph, LoopBegin begin) {
         LoopHeadNode loop = begin.getLoop();
 
         Set<GlobalRef> globals = new LinkedHashSet<>();
@@ -51,11 +52,11 @@ public class GlobalPromotion implements IROptimizer {
                 else if (value instanceof Pi pi && pi.getValue() instanceof Global load) {
                     narrowedTypes.putIfAbsent(load.global, pi.type);
                 }
-                else if (isBarrier(value)) {
+                else if (isBarrier(graph, value)) {
                     return false;
                 }
             }
-            else if (e instanceof ContainerWrite) {
+            else if (e instanceof ContainerWrite write && !isBuiltinContainer(graph, write.getContainer())) {
                 return false;
             }
         }
@@ -122,9 +123,17 @@ public class GlobalPromotion implements IROptimizer {
     /**
      * @return true if evaluating the value may call user code or report a runtime error
      */
-    private static boolean isBarrier(IRValue value) {
+    /**
+     * @return true if evaluating the value may run arbitrary code (which might access globals)
+     */
+    private static boolean isBarrier(Graph graph, IRValue value) {
         return value instanceof Call
-                || value instanceof ContainerRead
+                || value instanceof ContainerRead read && !isBuiltinContainer(graph, read.getContainer())
                 || value instanceof GetIterator;
+    }
+
+    private static boolean isBuiltinContainer(Graph graph, IRValue container) {
+        IRType type = graph.typeMap().getType(container);
+        return type instanceof ArrayType || type instanceof DictType;
     }
 }

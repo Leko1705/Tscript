@@ -66,4 +66,60 @@ public class LoopAnalysis {
         while (ip < instructions.length && Opcode.of(instructions[ip][0]) == Opcode.NEW_LINE) ip++;
         return ip < instructions.length && Opcode.of(instructions[ip][0]) == Opcode.RETURN;
     }
+
+    private static final Map<VirtualFunction.VirtualMetadata, Optional<BitSet[]>> liveness = new ConcurrentHashMap<>();
+
+    /**
+     * @return the local variables that are live before the instruction at the given address (read
+     * before they are written on some path from there), or null if the analysis is not applicable to
+     * the function (all locals have to be considered live)
+     */
+    public static BitSet liveLocals(VirtualFunction.VirtualMetadata metadata, int ip) {
+        BitSet[] live = liveness.computeIfAbsent(metadata, m -> Optional.ofNullable(analyzeLiveness(m))).orElse(null);
+        if (live == null || ip < 0 || ip >= live.length) return null;
+        return live[ip];
+    }
+
+    private static BitSet[] analyzeLiveness(VirtualFunction.VirtualMetadata metadata) {
+        byte[][] instructions = metadata.instructions();
+        int n = instructions.length;
+        for (byte[] ins : instructions) {
+            Opcode opcode = Opcode.of(ins[0]);
+            // exception handlers and name lookups may observe locals in ways not visible here
+            if (opcode == Opcode.ENTER_TRY || opcode == Opcode.LOAD_NAME) return null;
+        }
+
+        BitSet[] live = new BitSet[n];
+        for (int i = 0; i < n; i++) live[i] = new BitSet();
+
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int ip = n - 1; ip >= 0; ip--) {
+                byte[] ins = instructions[ip];
+                Opcode opcode = Opcode.of(ins[0]);
+                BitSet out = new BitSet();
+                switch (opcode) {
+                    case RETURN, THROW -> { }
+                    case GOTO -> out.or(liveAt(live, Conversion.from2Bytes(ins[1], ins[2])));
+                    case BRANCH_IF_TRUE, BRANCH_IF_FALSE, BRANCH_ITR -> {
+                        out.or(liveAt(live, Conversion.from2Bytes(ins[1], ins[2])));
+                        out.or(liveAt(live, ip + 1));
+                    }
+                    default -> out.or(liveAt(live, ip + 1));
+                }
+                if (opcode == Opcode.STORE_LOCAL) out.clear(ins[1] & 0xFF);
+                else if (opcode == Opcode.LOAD_LOCAL) out.set(ins[1] & 0xFF);
+                if (!out.equals(live[ip])) {
+                    live[ip] = out;
+                    changed = true;
+                }
+            }
+        }
+        return live;
+    }
+
+    private static BitSet liveAt(BitSet[] live, int ip) {
+        return ip >= 0 && ip < live.length ? live[ip] : new BitSet();
+    }
 }

@@ -350,16 +350,20 @@ public class Tracer extends InterpreterDecorator {
         return new State(frameState, values);
     }
 
-    private static FrameState frameState(FrameState caller, VirtualFunction.VirtualMetadata metadata, IRValue owner,
+    private FrameState frameState(FrameState caller, VirtualFunction.VirtualMetadata metadata, IRValue owner,
                                          int ip, int line, Map<Integer, IRValue> locals, List<IRValue> stack,
                                          List<IRValue> values) {
         if (caller != null) values.add(owner);
         List<Integer> indices = new ArrayList<>(locals.keySet());
         Collections.sort(indices);
         int[] localIndices = new int[indices.size()];
+        // dead locals are not needed by the interpreter, keeping them out of the state allows
+        // removing the computations of their values (e.g. allocations)
+        BitSet live = LoopAnalysis.liveLocals(metadata, ip);
         for (int i = 0; i < indices.size(); i++) {
-            localIndices[i] = indices.get(i);
-            values.add(locals.get(indices.get(i)));
+            int index = indices.get(i);
+            localIndices[i] = index;
+            values.add(live == null || live.get(index) ? locals.get(index) : builder.nullValue());
         }
         values.addAll(stack);
         if (caller == null) return new FrameState(ip, line, localIndices, stack.size());

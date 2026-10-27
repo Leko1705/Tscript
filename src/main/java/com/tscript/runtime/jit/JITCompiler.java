@@ -108,7 +108,7 @@ public class JITCompiler {
         private final int l1Threshold = Integer.getInteger("tscript.jit.threshold", 100);
         private final int l2Threshold = Integer.getInteger("tscript.jit.threshold2", 1000);
         private final boolean debug = Boolean.getBoolean("tscript.jit.debug");
-        private final List<CompilationLevel> levels = List.of(new L1(l1Threshold), new L2(l2Threshold));
+        private final List<CompilationLevel> levels = List.of(new L1(l1Threshold, !Boolean.getBoolean("tscript.jit.l1plain")), new L2(l2Threshold));
 
         @Override
         public List<CompilationLevel> optimizationLevels() {

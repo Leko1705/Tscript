@@ -3,6 +3,8 @@ package com.tscript.runtime.jit.comp.optim;
 import com.tscript.runtime.jit.comp.ir.*;
 import com.tscript.runtime.jit.comp.ir.nodes.*;
 
+import java.util.*;
+
 /**
  * Removes fixed nodes whose result is unused and whose evaluation has no observable effect
  * (type narrowing, global loads and allocations), as well as speculative type guards that only
@@ -39,10 +41,48 @@ public class DeadCodeEliminator implements IROptimizer {
                     }
                 }
             }
+            progress |= removeDeadPhis(graph);
             changed |= progress;
         }
 
         if (changed) graph.rehash();
+        return changed;
+    }
+
+    /**
+     * Removes loop phis that are only used by (dead) phis, e.g. the phis of locals that are dead
+     * at the loop header.
+     */
+    private boolean removeDeadPhis(Graph graph) {
+        Set<Phi> live = new HashSet<>();
+        Deque<Phi> worklist = new ArrayDeque<>();
+        List<Phi> all = new ArrayList<>();
+        for (LoopHeadNode loop : graph.loops()) {
+            for (Phi phi : loop.getPhis()) {
+                all.add(phi);
+                for (IRNode user : phi.getUsers()) {
+                    if (!(user instanceof Phi)) {
+                        live.add(phi);
+                        worklist.add(phi);
+                        break;
+                    }
+                }
+            }
+        }
+        while (!worklist.isEmpty()) {
+            Phi phi = worklist.poll();
+            for (IRValue input : phi.getInputs()) {
+                if (input instanceof Phi p && live.add(p)) worklist.add(p);
+            }
+        }
+        boolean changed = false;
+        for (Phi phi : all) {
+            if (!live.contains(phi)) {
+                phi.getLoop().getPhis().remove(phi);
+                phi.kill();
+                changed = true;
+            }
+        }
         return changed;
     }
 

@@ -1,0 +1,105 @@
+module scalar;
+
+function pair(a, b) { return [a, b]; }
+
+function mutate(arr) {
+    arr[0] = arr[0] + 100;
+    return arr[1];
+}
+
+# arrays that do not escape: reads are replaced by the stored values
+function sumPairs(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var p = pair(i, i + 1);
+        s = s + p[0] * 2 - p[1];
+    }
+    return s;
+}
+
+# the array escapes into a call that mutates it
+function escaping(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var p = [i, 2 * i];
+        s = s + mutate(p) + p[0];
+    }
+    return s;
+}
+
+# the array is mutated directly and through an alias
+function aliased(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var p = [i, i];
+        var q = p;
+        q[1] = 7;
+        p[0] = p[0] + 1;
+        s = s + p[0] + p[1] + q[0];
+    }
+    return s;
+}
+
+# the array is carried into the next iteration and mutated there
+function carried(n) {
+    var prev = [0, 0];
+    var s = 0;
+    for var i in 0:n do {
+        prev[0] = prev[0] + i;
+        s = s + prev[0] + prev[1];
+        prev = [i, prev[0]];
+    }
+    return [s, prev];
+}
+
+# a variable that is dead in the loop but read after it
+function deadInLoop(n) {
+    var tmp = [1, 2, 3];
+    var s = 0;
+    for var i in 0:n do {
+        tmp = [i, i];
+        s = s + tmp[1];
+        if i == n - 3 then s = s + 0.5;
+    }
+    return [s, tmp];
+}
+
+# out of range and negative constant indices still fail
+function outOfRange(n) {
+    var s = 0;
+    for var i in 0:n do {
+        var p = [i, i];
+        if i == n - 1 then s = s + p[2];
+        s = s + p[0];
+    }
+    return s;
+}
+
+# guards implied by value ranges
+function ranges(n) {
+    var a = 0;
+    var b = 0;
+    for var i in 0:n do {
+        if i < 1000 then {
+            a = a + 1;
+            if i < 2000 then b = b + 1;
+            if i <= 999 then b = b + 2;
+            if i == 1500 then b = b + 1000;
+        }
+        if i > 10 then {
+            if i >= 11 then a = a + 3;
+            if i > 5 then a = a + 5;
+            if not (i < 11) then b = b + 7;
+        }
+    }
+    return [a, b];
+}
+
+print(sumPairs(3000));
+print(escaping(3000));
+print(aliased(3000));
+print(carried(3000));
+print(deadInLoop(3000));
+print(ranges(3000));
+print(ranges(500));
+print(outOfRange(3000));

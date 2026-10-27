@@ -323,7 +323,10 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         }
         for (int i = 0; i < indices.length; i++) {
             if (phiLocals.contains(indices[i])) continue;
-            if (!(values.get(i) instanceof Local local && local.index == indices[i])) return false;
+            if (values.get(i) instanceof Local local && local.index == indices[i]) continue;
+            // dead locals are null in the states at the header of the parent loop as well
+            if (values.get(i) instanceof NullValue && isNullOnEntry(loop, indices[i])) continue;
+            return false;
         }
         for (int i = 0; i < state.stackSize(); i++) {
             if (phiStack.contains(i)) continue;
@@ -349,6 +352,16 @@ public class EmitterImpl implements IRValueVisitor<Void, Void>, IREffectVisitor<
         }
         mv.visitJumpInsn(GOTO, parent.loopLabel);
         return true;
+    }
+
+    private static boolean isNullOnEntry(LoopHeadNode loop, int local) {
+        FrameState entry = loop.getEntryState();
+        if (entry == null || !entry.isRoot()) return false;
+        int[] indices = entry.localIndices();
+        for (int i = 0; i < indices.length; i++) {
+            if (indices[i] == local) return loop.getEntryValues().get(i) instanceof NullValue;
+        }
+        return false;
     }
 
     /**

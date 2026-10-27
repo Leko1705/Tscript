@@ -1,22 +1,35 @@
 package com.tscript.runtime.jit.comp.levels;
 
-import com.tscript.runtime.jit.*;
-import com.tscript.runtime.jit.comp.ir.Graph;
+import com.tscript.runtime.jit.comp.optim.*;
 
-public record L1(int threshold) implements CompilationLevel {
+import java.util.List;
+
+/**
+ * The first compilation level. It runs the cheap optimizations that do not depend on
+ * side traces; with {@code optimize == false} the graph is emitted as built.
+ */
+public record L1(int threshold, boolean optimize) implements OptimizingLevel {
+
+    private static final List<IROptimizer> optimizers = List.of(
+            new GlobalPromotion(),
+            new ScalarReplacement(),
+            new Canonicalizer(),
+            new GuardHoisting(),
+            new GuardEliminator(),
+            new DeadCodeEliminator()
+    );
+
+    public L1(int threshold) {
+        this(threshold, true);
+    }
 
     @Override
-    public CompileTask prepare(Graph graph) {
-        return new L1Task(graph);
+    public List<IROptimizer> getOptimizers() {
+        return optimize ? optimizers : List.of();
     }
 
-    private record L1Task(Graph graph) implements CompileTask {
-        @Override
-        public NativeImage run(JITCompiler compiler) {
-            JITConfiguration config = compiler.getConfiguration();
-            return config.emitter().emit(compiler, graph);
-        }
+    @Override
+    public boolean stitchSideTraces() {
+        return false;
     }
-
-
 }
