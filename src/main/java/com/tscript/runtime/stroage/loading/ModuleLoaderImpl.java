@@ -89,6 +89,11 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         LoadedFunctionArea functionArea = loadFunctions(reader);
 
         ModuleProxy moduleProxy = new ModuleProxy(pool);
+        // the functions need their module when types are loaded (constructors with default
+        // parameters load the default values from the pool)
+        for (LoadedFunctionArea.VirtualMetadataImpl metadata : functionArea.data) {
+            metadata.module = moduleProxy;
+        }
 
         LoadedTypeArea typeArea = loadTypes(reader, functionArea, canonicalPath);
 
@@ -102,10 +107,6 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
                 entryPoint,
                 functionArea,
                 typeArea);
-
-        for (LoadedFunctionArea.VirtualMetadataImpl metadata : functionArea.data) {
-            metadata.module = moduleProxy;
-        }
 
         return moduleProxy;
     }
