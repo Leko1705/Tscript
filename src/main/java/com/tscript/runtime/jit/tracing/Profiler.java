@@ -1,16 +1,13 @@
 package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.*;
-import com.tscript.runtime.jit.JitFunctionRunner;
-import com.tscript.runtime.jit.ir.IRBuilder;
-import com.tscript.runtime.typing.Callable;
+import com.tscript.runtime.jit.ParseProcess;
+import com.tscript.runtime.jit.ImageFrame;
+import com.tscript.runtime.jit.NativeImage;
+import com.tscript.runtime.jit.caching.images.ImageCache;
 import com.tscript.runtime.typing.TObject;
-import com.tscript.runtime.typing.Type;
-
-import java.util.*;
 
 public class Profiler extends InterpreterDecorator {
-
 
     public Profiler(Interpreter interpreter) {
         super(interpreter);
@@ -19,10 +16,10 @@ public class Profiler extends InterpreterDecorator {
     @Override
     public void callInplace(byte argCount) {
         TThread thread = getCurrentThread();
-        Frame frame = thread.frameStack.element();
+        VirtualFrame frame = thread.topVirtualFrame();
         TObject top = frame.pop();
 
-        if (!(top instanceof VirtualFunction vfunc)) {
+        if (!(top instanceof VirtualFunction vfunc) || (argCount > vfunc.getLocals())) {
             frame.push(top);
             super.callInplace(argCount);
             return;
@@ -33,18 +30,21 @@ public class Profiler extends InterpreterDecorator {
             args[i] = frame.pop();
         }
 
-        JitFunctionRunner.CallResult result =
-                JitFunctionRunner.call(
-                        thread,
-                        vfunc,
-                        args,
-                        this::onFallback,
-                        jitCacheKey -> startFunctionTracing(thread, jitCacheKey, vfunc, args));
+        ImageCache cache = thread.getVM().getJitCompiler().get(ImageCache.KEY);
+        VirtualFunction.VirtualMetadata metadata = vfunc.getMetadata();
 
-        if (result.executed()) {
-            if (result.value() != null)
-                frame.push(result.value());
-            return;
+        if (!cache.isBlacklisted(metadata)) {
+            ImageCache.Entry entry = cache.get(metadata, args);
+
+            var imgFuture = entry.getImage();
+            var compObservable = entry.use();
+
+            compObservable.thenAccept(compPc -> startFunctionTracing(vfunc, compPc));
+
+            if (imgFuture.isDone() && !compObservable.isDone()) {
+                callFunctionalNativeImage(imgFuture.resultNow(), thread, vfunc, args);
+                return;
+            }
         }
 
         for (int i = argCount-1; i >= 0; i--) frame.push(args[i]);
@@ -53,124 +53,52 @@ public class Profiler extends InterpreterDecorator {
         super.callInplace(argCount);
     }
 
-    @Override
-    public TObject call(Callable called, List<TObject> arguments) {
 
-        if (!(called instanceof VirtualFunction vfunc))
-            return super.call(called, arguments);
+    private void callFunctionalNativeImage(NativeImage image,
+                                           TThread thread,
+                                           VirtualFunction vfunc,
+                                           TObject[] args) {
+        int localsCount = vfunc.getLocals();
+        TObject[] locals = new TObject[localsCount];
+        System.arraycopy(args, 0, locals, 0, args.length);
 
-        TThread thread = getCurrentThread();
-        TObject[] args = arguments.toArray(new TObject[0]);
-
-        JitFunctionRunner.CallResult result =
-                JitFunctionRunner.call(
-                        thread,
-                        vfunc,
-                        args,
-                        this::onFallback,
-                        jitCacheKey -> startFunctionTracing(thread, jitCacheKey, vfunc, args));
-
-        if (result.executed()) {
-            return result.value();
+        ImageFrame imgFrame = new ImageFrame(vfunc, locals);
+        try {
+            TObject result = image.run(thread, imgFrame);
+            if (result != null) {
+                VirtualFrame frame = thread.topVirtualFrame();
+                frame.push(result);
+            }
         }
-
-        return super.call(called, arguments);
-    }
-
-    @Override
-    public void jumpTo(byte b1, byte b2) {
-        TThread thread = getCurrentThread();
-        Frame frame = thread.frameStack.element();
-        int prevIp = frame.ip;
-        super.jumpTo(b1, b2);
-        int curIp = frame.ip;
-
-        if (curIp == prevIp) {
-            thread.setInterpreter(getUnderlying());
-        }
-        else if (curIp < prevIp) {
-            handleJumpBack(prevIp);
+        catch (FallbackException signal){
+            onFallback(signal.guardId);
         }
     }
-
-    @Override
-    public void branch(byte b1, byte b2, boolean ifTrue) {
-        TThread thread = getCurrentThread();
-        Frame frame = thread.frameStack.element();
-        int prevIp = frame.ip;
-        super.branch(b1, b2, ifTrue);
-        int curIp = frame.ip;
-
-        if (curIp < prevIp) {
-            handleJumpBack(prevIp);
-        }
-    }
-
-    private void handleJumpBack(int jumpInstructionAddress){
-        TThread thread = getCurrentThread();
-
-        JitFunctionRunner.loop(
-                thread,
-                jumpInstructionAddress,
-                this::onFallback,
-                jitCacheKey -> startLoopTracing(thread, jitCacheKey, jumpInstructionAddress));
-    }
-
 
     private void onFallback(int guardId) {
-        if (true) return;
+    }
 
+    private void startFunctionTracing(VirtualFunction func, ParseProcess compPc) {
         TThread thread = getCurrentThread();
-        JitFunctionRunner.runSideTrace(
-                thread,
-                guardId,
-                this::onFallback,
-                jitCacheKey -> startLoopTracing(thread, jitCacheKey, -1));
-    }
 
+        Tracer tracer = createTracer(func.getMetadata(), 0,
+                thread.frameStack.size()+1,
+                func.getParameters(thread).count(), compPc);
 
-    private void startFunctionTracing(TThread thread, String context, VirtualFunction func, TObject[] args) {
-
-        Type[] types = new Type[args.length];
-        for (int i = 0; i < args.length; i++) {
-            types[i] = args[i].getType();
-        }
-
-        TracerConfiguration config =
-                TracerConfiguration.createFunctionConfig(
-                        context,
-                        thread.frameStack.size()+1,
-                        types,
-                        func.getParameters(thread).count());
-
-        Tracer tracer = createTracer(thread, config);
         thread.setInterpreter(tracer);
     }
 
-    private void startLoopTracing(TThread thread, String context, int jumpInstructionAddress) {
-        TracerConfiguration config =
-                TracerConfiguration.createLoopConfig(
-                        context, thread.frameStack.size(), jumpInstructionAddress);
+    private void startLoopTracing(Object imageKey, ParseProcess compPc) {
+        TThread thread = getCurrentThread();
 
-        Tracer tracer = createTracer(thread, config);
+        Tracer tracer = createTracer(imageKey, thread.topVirtualFrame().ip,
+                thread.frameStack.size(), 0, compPc);
+
         thread.setInterpreter(tracer);
     }
 
-    private Tracer createTracer(TThread thread, TracerConfiguration configuration) {
-        IRBuilder.LimitExceededListener l = createLimitExceededListener(thread);
-        IRBuilder irBuilder = new IRBuilder(thread.frameStack.element().ip, l);
-        return new Tracer(getUnderlying(), this, irBuilder, configuration);
+    private Tracer createTracer(Object imageKey, int ip, int frameStackSize, int parametersLeft, ParseProcess compPc) {
+        return new Tracer(getUnderlying(), this, imageKey, ip, frameStackSize, parametersLeft, compPc);
     }
-
-
-    private IRBuilder.LimitExceededListener createLimitExceededListener(TThread thread) {
-        return new IRBuilder.LimitExceededListener(1000) {
-            @Override
-            public void onLimitExceeded() {
-                thread.setInterpreter(Profiler.this);
-            }
-        };
-    }
-
 
 }

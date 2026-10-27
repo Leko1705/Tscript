@@ -1,6 +1,5 @@
 package com.tscript.runtime.typing;
 
-import com.tscript.runtime.core.Argument;
 import com.tscript.runtime.core.ExecutionException;
 import com.tscript.runtime.core.InternalRuntimeErrorMessages;
 import com.tscript.runtime.core.TThread;
@@ -12,13 +11,20 @@ import java.util.*;
 public interface Callable extends TObject {
 
     
-    String getName();
+    default String getName() {
+        return getMetadata().name();
+    }
 
     
     Parameters getParameters(TThread thread);
 
 
-    boolean isVirtual();
+    default boolean isVirtual() {
+        return getMetadata().isVirtual();
+    }
+
+
+    Metadata getMetadata();
 
     
     default TObject call(TThread thread, List<TObject> arguments) {
@@ -103,5 +109,13 @@ public interface Callable extends TObject {
 
     
     TObject eval(TThread thread, List<TObject> params);
+
+
+    interface Metadata {
+
+        String name();
+
+        boolean isVirtual();
+    }
 
 }

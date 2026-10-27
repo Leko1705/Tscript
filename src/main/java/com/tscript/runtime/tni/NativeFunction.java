@@ -1,17 +1,22 @@
 package com.tscript.runtime.tni;
 
 import com.tscript.runtime.core.ExecutionException;
-import com.tscript.runtime.core.Frame;
+import com.tscript.runtime.core.NativeFrame;
+import com.tscript.runtime.core.VirtualFrame;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.typing.Function;
 import com.tscript.runtime.typing.Member;
 import com.tscript.runtime.typing.Parameters;
 import com.tscript.runtime.typing.TObject;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public abstract class NativeFunction extends Function implements Cloneable {
+
+    private static final Map<Class<?>, Metadata> metadata = new HashMap<>();
 
 
     public abstract String getName();
@@ -31,8 +36,14 @@ public abstract class NativeFunction extends Function implements Cloneable {
     }
 
     @Override
+    public Metadata getMetadata() {
+        return metadata.computeIfAbsent(getClass(), k -> new NativeMetadata(getName()));
+    }
+
+    @Override
     public final TObject eval0(TThread thread, List<TObject> params) {
-        thread.frameStack.push(Frame.createNativeFrame(this));
+        NativeFrame frame = new NativeFrame(this);
+        thread.frameStack.push(frame);
         TObject result = evaluate(thread, params);
         if (result == null) return null;
         thread.frameStack.pop();
@@ -55,6 +66,20 @@ public abstract class NativeFunction extends Function implements Cloneable {
             return (NativeFunction) super.clone();
         } catch (CloneNotSupportedException e) {
             throw new ExecutionException("clone error in " + getClass().getName());
+        }
+    }
+
+
+    private record NativeMetadata(String name) implements Metadata {
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public boolean isVirtual() {
+            return false;
         }
     }
 }

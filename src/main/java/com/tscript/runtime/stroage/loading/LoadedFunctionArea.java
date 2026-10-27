@@ -3,42 +3,68 @@ package com.tscript.runtime.stroage.loading;
 import com.tscript.runtime.core.VirtualFunction;
 import com.tscript.runtime.stroage.FunctionArea;
 import com.tscript.runtime.stroage.Module;
-import com.tscript.runtime.typing.Parameters;
-import com.tscript.runtime.typing.TObject;
-import com.tscript.runtime.utils.Conversion;
 import com.tscript.runtime.utils.Tuple;
 
 class LoadedFunctionArea implements FunctionArea {
 
-    protected final VirtualFunctionMetaData[] data;
+    protected final VirtualMetadataImpl[] data;
 
     protected LoadedFunctionArea(int size) {
-        this.data = new VirtualFunctionMetaData[size];
+        this.data = new VirtualMetadataImpl[size];
     }
 
     @Override
-    public synchronized VirtualFunction loadFunction(int index, Module module) {
-        VirtualFunctionMetaData d = data[index];
-
-        Parameters parameters = Parameters.newInstance();
-        for (Tuple<String, Integer> parameter : d.parameters) {
-            int poolAddr = parameter.getSecond();
-            TObject value = null;
-            if (poolAddr != -1) {
-                byte[] addrArr = Conversion.to2Bytes(poolAddr);
-                value = module.getPool().loadConstant(addrArr[0], addrArr[1]);
-            }
-            parameters.add(parameter.getFirst(), value);
-        }
-
-        return new VirtualFunction(d.name, parameters, d.instructions, d.stackSize, d.locals, module);
+    public synchronized VirtualFunction loadFunction(int index) {
+        return data[index].create();
     }
 
-    protected record VirtualFunctionMetaData(String name,
-                                             Tuple<String, Integer>[] parameters,
-                                             int stackSize,
-                                             int locals,
-                                             byte[][] instructions){
+
+    protected static class VirtualMetadataImpl extends VirtualFunction.VirtualMetadata {
+
+        protected Module module;
+        private final String name;
+        private final int stackSize;
+        private final int locals;
+        private final byte[][] instructions;
+        private final Tuple<String, Integer>[] parameters;
+
+        protected VirtualMetadataImpl(String name, int stackSize, int locals, byte[][] instructions, Tuple<String, Integer>[] parameters) {
+            this.name = name;
+            this.stackSize = stackSize;
+            this.locals = locals;
+            this.instructions = instructions;
+            this.parameters = parameters;
+        }
+
+        @Override
+        public Module module() {
+            return module;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public int stackSize() {
+            return stackSize;
+        }
+
+        @Override
+        public int locals() {
+            return locals;
+        }
+
+        @Override
+        public byte[][] instructions() {
+            return instructions;
+        }
+
+        @Override
+        public Tuple<String, Integer>[] parameters() {
+            return parameters;
+        }
 
     }
 

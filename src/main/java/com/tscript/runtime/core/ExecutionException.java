@@ -6,7 +6,7 @@ public class ExecutionException extends RuntimeException {
         super(message);
     }
 
-    public ExecutionException(Throwable cause, Frame frame) {
+    public ExecutionException(Throwable cause, VirtualFrame frame) {
         super("message", cause);
     }
 

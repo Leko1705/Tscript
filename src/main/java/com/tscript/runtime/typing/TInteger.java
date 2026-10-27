@@ -6,33 +6,28 @@ import com.tscript.runtime.jit.JITSensitive;
 public class TInteger extends PrimitiveObject<Integer> {
 
     public static final Type TYPE =
-            new Type.Builder("Integer")
+            Type.newBuilder("Integer")
                     .setParameters(Parameters.newInstance().add("value", null))
-                    .setInstanceMaker(() -> new TInteger(0))
-                    .setConstructor(((func, thread, params) -> {
+                    .setConstructor(((env, params) -> {
                         TObject value = params.get(0);
-                        TInteger owner = (TInteger) func.getOwner();
 
                         if (value instanceof TInteger i) {
-                            owner.value = i.value;
-                            return owner;
+                            return i;
                         }
                         if (value instanceof TReal real){
-                            owner.value = real.value.intValue();
-                            return owner;
+                            return new TInteger(real.value.intValue());
                         }
                         if (value instanceof TString string){
                             try {
-                                owner.value = Integer.parseInt(string.getValue());
-                                return owner;
+                                return new TInteger(Integer.parseInt(string.getValue()));
                             }
                             catch (NumberFormatException e){
-                                thread.reportRuntimeError("can not convert string '" + string.getValue() + "' to Integer");
+                                env.reportRuntimeError("can not convert string '" + string.getValue() + "' to Integer");
                                 return null;
                             }
                         }
 
-                        thread.reportRuntimeError("can not convert " + value.getDisplayName() + " to Integer");
+                        env.reportRuntimeError("can not convert " + value.getDisplayName() + " to Integer");
                         return null;
                     })).build();
 

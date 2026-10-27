@@ -47,7 +47,7 @@ public enum Opcode {
 
     ADD(0), SUB(0), MUL(0), DIV(0), IDIV(0), MOD(0), POW(0),
     AND(0), OR(0), XOR(0), NOT(0),
-    LT(0), GT(0), LEQ(0), GEQ(0), SLA(0), SRA(0), SRL(0),
+    LT(0), GT(0), LEQ(0), GEQ(0), SHL(0), SHR(0), USHR(0),
     EQUALS(0), NOT_EQUALS(0),
     NEG(0), POS(0),
     GET_TYPE(0),

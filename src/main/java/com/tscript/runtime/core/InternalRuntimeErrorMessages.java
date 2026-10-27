@@ -51,7 +51,7 @@ public class InternalRuntimeErrorMessages {
             case OR -> (o1, o2) -> "can not apply 'or' operation on " + o1.getType().getName() + " and " + o2.getType().getName();
             case XOR -> (o1, o2) -> "can not apply xor operation on " + o1.getType().getName() + " and " + o2.getType().getName();
             case LT, GT, GEQ, LEQ -> (o1, o2) -> "can not numerically compare " + o1.getType().getName() + " with " + o2.getType().getName();
-            case SLA, SRA, SRL -> (o1, o2) -> "can shift " + o1.getType().getName() + " by " + o2.getType().getName();
+            case SHL, SHR, USHR -> (o1, o2) -> "can shift " + o1.getType().getName() + " by " + o2.getType().getName();
             default -> throw new UnsupportedOperationException(opcode.name());
         };
     }

@@ -12,36 +12,32 @@ import java.util.Map;
 public class TReal extends PrimitiveObject<Double> {
 
     public static final Type TYPE =
-            new Type.Builder("Real")
+            Type.newBuilder("Real")
                     .addMember(Member.of(Visibility.PUBLIC, false, "nan", new GetNanStaticMethod()))
                     .addMember(Member.of(Visibility.PUBLIC, false, "inf", new GetInfiniteStaticMethod()))
                     .setParameters(Parameters.newInstance().add("value", null))
-                    .setInstanceMaker(() -> new TReal(0))
-                    .setConstructor((func, thread, params) -> {
+                    .setConstructor((env, params) -> {
                         TObject value = params.get(0);
 
-                        if (value instanceof TReal) {
-                            ((TReal)func.getOwner()).value = ((TReal)value).value;
-                            return func.getOwner();
+                        if (value instanceof TReal r) {
+                            return new TReal(r.getValue());
                         }
 
                         if (value instanceof TInteger integer){
-                            ((TReal)func.getOwner()).value = integer.getValue().doubleValue();
-                            return func.getOwner();
+                            return new TReal(integer.getValue().doubleValue());
                         }
 
                         if (value instanceof TString string){
                             try {
-                                ((TReal)func.getOwner()).value = Double.parseDouble(string.getValue());
-                                return func.getOwner();
+                                return new TReal(Double.parseDouble(string.getValue()));
                             }
                             catch (NumberFormatException e){
-                                thread.reportRuntimeError("can not convert string '" + string.getValue() + "' to Real");
+                                env.reportRuntimeError("can not convert string '" + string.getValue() + "' to Real");
                                 return null;
                             }
                         }
 
-                        thread.reportRuntimeError("can not convert " + value.getDisplayName() + " to Real");
+                        env.reportRuntimeError("can not convert " + value.getDisplayName() + " to Real");
                         return null;
                     }).build();
 

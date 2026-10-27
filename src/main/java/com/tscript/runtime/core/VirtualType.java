@@ -75,13 +75,17 @@ public class VirtualType implements Type {
 
     @Override
     public Parameters getParameters(TThread thread) {
-        if (constructor == null) return Parameters.newInstance();
-        return constructor.getParameters(thread);
+        return getConstructor().getParameters(thread);
     }
 
     @Override
     public boolean isVirtual() {
-        return constructor.isVirtual();
+        return getConstructor().isVirtual();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+        return getConstructor().getMetadata();
     }
 
     @Override
@@ -116,24 +120,16 @@ public class VirtualType implements Type {
             }
         }
 
-        Type.super.eval(thread, params);
-        return null;
-    }
+        TObject object = new VirtualObject(this, prepareInstanceMembers());
+        Function constructor = getConstructor();
 
-    public VirtualObject newInstance(Environment env) {
-        VirtualObject obj = new VirtualObject(this, prepareInstanceMembers());
-
-        if (superType != null){
-            TObject superObj = superType.newInstance(env);
-            obj.superObject = superObj;
-
-            if (superObj instanceof VirtualObject vobj){
-                vobj.subObject = obj;
-            }
-            //else if super object is not virtual: we don't care
+        if (constructor != null) {
+            constructor = constructor.dup();
+            constructor.setOwner(object);
+            constructor.eval(thread, params);
         }
 
-        return obj;
+        return object;
     }
 
     private Member[] prepareInstanceMembers(){
@@ -141,11 +137,6 @@ public class VirtualType implements Type {
         for (int i = 0; i < instanceMembers.length; i++)
             members[i] = Member.copy(instanceMembers[i]);
         return members;
-    }
-
-    @Override
-    public Type getType() {
-        return Type.TYPE;
     }
 
     @Override

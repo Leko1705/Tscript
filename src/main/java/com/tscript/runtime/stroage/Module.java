@@ -2,8 +2,17 @@ package com.tscript.runtime.stroage;
 
 import com.tscript.runtime.typing.Function;
 import com.tscript.runtime.typing.TObject;
+import com.tscript.runtime.typing.Type;
 
 public interface Module extends TObject {
+
+    Type TYPE =
+            Type.newBuilder("Module")
+                    .setConstructor((env, params) -> {
+                        throw new AssertionError("Module is abstract");
+                    })
+                    .setAbstract(true)
+                    .build();
 
     String getPath();
 

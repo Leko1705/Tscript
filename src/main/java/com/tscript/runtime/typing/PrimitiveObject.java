@@ -10,7 +10,7 @@ import java.util.Objects;
 public abstract class PrimitiveObject<V> implements TObject {
 
     @JITSensitive
-    protected V value;
+    protected final V value;
 
     protected PrimitiveObject(V value) {
         this.value = value;

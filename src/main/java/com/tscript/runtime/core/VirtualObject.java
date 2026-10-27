@@ -10,16 +10,16 @@ public class VirtualObject implements TObject {
 
     protected TObject superObject = null;
     public VirtualObject subObject = null;
-    private final Type type;
+    private final VirtualType type;
     private final Member[] members;
 
-    public VirtualObject(Type type, Member[] members) {
+    public VirtualObject(VirtualType type, Member[] members) {
         this.type = type;
         this.members = members;
     }
 
     @Override
-    public Type getType() {
+    public VirtualType getType() {
         return type;
     }
 

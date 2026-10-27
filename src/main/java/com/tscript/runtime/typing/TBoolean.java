@@ -7,13 +7,10 @@ import com.tscript.runtime.tni.TNIUtils;
 public class TBoolean extends PrimitiveObject<Boolean> {
 
     public static final Type TYPE =
-            new Type.Builder("Boolean")
+            Type.newBuilder("Boolean")
                     .setParameters(Parameters.newInstance().add("value", null))
-                    .setInstanceMaker(() -> TBoolean.FALSE)
-                    .setConstructor((func, thread, params) -> {
-                        ((TBoolean) func.getOwner()).value = TNIUtils.isTrue(params.get(0));
-                        return func.getOwner();
-                    }).build();
+                    .setConstructor((env, params) -> TBoolean.of(TNIUtils.isTrue(params.get(0))))
+                    .build();
 
     @JITSensitive public static final TBoolean TRUE = new TBoolean(true);
     @JITSensitive public static final TBoolean FALSE = new TBoolean(false);

@@ -14,12 +14,9 @@ import java.util.function.Function;
 
 public class TThread extends Thread implements Environment, TObject {
 
-    public static final Type TYPE = new Type.Builder("Thread")
+    public static final Type TYPE = Type.newBuilder("Thread")
             .setAbstract(true)
-            .setInstanceMaker(() -> {
-                throw new AssertionError();
-            })
-            .setConstructor(((func, thread, params) -> {
+            .setConstructor(((env, params) -> {
                 throw new AbstractMethodError();
             }))
             .build();
@@ -76,15 +73,18 @@ public class TThread extends Thread implements Environment, TObject {
         catch (Exception e){
             String s = "An Internal Error occurred";
             if (!frameStack.isEmpty()){
-                if (frameStack.element().line() != -1){
-                    s += " near line " + frameStack.element().line();
-                }
-                if (frameStack.element().getModule() == null){
-                    s += "in native context";
+
+                Frame frame = getFrame();
+
+                if (frame.getMetadata().isVirtual()) {
+                    VirtualFrame vframe = (VirtualFrame) frame;
+                    s += " near line " + vframe.line();
+                    s += " in module: " + vframe.getModule().getCanonicalPath();
                 }
                 else {
-                    s += " in module: " + frameStack.element().getModule().getCanonicalPath();
+                    s += "in native imageKey";
                 }
+
             }
             else {
                 System.out.println(" (frame is empty)");
@@ -106,9 +106,7 @@ public class TThread extends Thread implements Environment, TObject {
             result = returnValue;
         }
         else {
-            frameStack.push(Frame.createNativeFrame(callable));
             result = callable.call(this, args);
-            if (!frameStack.isEmpty()) frameStack.pop();
         }
 
         frameStackExitThreshold = prev;
@@ -119,7 +117,7 @@ public class TThread extends Thread implements Environment, TObject {
     private void startExecutionCycle(){
         while (running && frameStack.size() > frameStackExitThreshold){
             if (halt) performHalt();
-            byte[] instruction = frameStack.element().fetch();
+            byte[] instruction = topVirtualFrame().fetch();
             decodeAndExecute(instruction);
         }
     }
@@ -181,7 +179,7 @@ public class TThread extends Thread implements Environment, TObject {
             case ADD, SUB, MUL, DIV, IDIV, MOD, POW,
                  AND, OR, XOR,
                  LT, GT, LEQ, GEQ,
-                 SLA, SRA, SRL -> interpreter.binaryOperation(opcode);
+                 SHL, SHR, USHR -> interpreter.binaryOperation(opcode);
             case EQUALS -> interpreter.equals(true);
             case NOT_EQUALS -> interpreter.equals(false);
             case NOT -> interpreter.not();
@@ -225,22 +223,22 @@ public class TThread extends Thread implements Environment, TObject {
     }
 
     protected void push(TObject object){
-        frameStack.element().push(object);
+        topVirtualFrame().push(object);
     }
 
     protected TObject pop(){
-        return frameStack.element().pop();
+        return topVirtualFrame().pop();
     }
 
-    protected Frame getFrame(){
+    public Frame getFrame(){
         return frameStack.element();
     }
 
     public void reportRuntimeError(TObject object) {
-        Frame frame = getFrame();
-        if (frame.inUnsafeSpot()){
-            frame.escapeError();
-            frame.push(object);
+        VirtualFrame vframe = topVirtualFrame();
+        if (vframe.inUnsafeSpot()){
+            vframe.escapeError();
+            vframe.push(object);
             return;
         }
 
@@ -253,19 +251,20 @@ public class TThread extends Thread implements Environment, TObject {
         StringBuilder errorLog = new StringBuilder("error in ").append(threadName).append(": ");
         errorLog.append(msg).append('\n');
         do {
-            frame = frameStack.pop();
-            errorLog.append("in ").append(frame.getName());
-            int line = frame.line();
-            if (line != -1) {
+            Frame frame = frameStack.remove();
+            errorLog.append("in ").append(frame.getMetadata().name());
+
+            if (frame.getMetadata().isVirtual()) {
+                vframe = (VirtualFrame) frame;
                 errorLog.append(" (");
-                errorLog.append("line: ").append(frame.line()).append("; ");
-                errorLog.append("module: ").append(frame.getModule().getCanonicalPath()).append(")");
+                errorLog.append("line: ").append(vframe.line()).append("; ");
+                errorLog.append("module: ").append(vframe.getModule().getCanonicalPath()).append(")");
             }
             else {
                 errorLog.append(" (native)");
             }
             errorLog.append('\n');
-        }while (!frameStack.isEmpty() && !frameStack.element().inUnsafeSpot());
+        }while (!frameStack.isEmpty() && !topVirtualFrame().inUnsafeSpot());
 
         if (frameStack.isEmpty()){
             System.err.println(errorLog);
@@ -273,9 +272,9 @@ public class TThread extends Thread implements Environment, TObject {
             return;
         }
 
-        frame = getFrame();
-        frame.escapeError();
-        frame.push(object);
+        vframe = topVirtualFrame();
+        vframe.escapeError();
+        vframe.push(object);
     }
 
     @Override
@@ -314,6 +313,10 @@ public class TThread extends Thread implements Environment, TObject {
     @Override
     public Member loadMember(String name) {
         return members.get(name);
+    }
+
+    public VirtualFrame topVirtualFrame() {
+        return (VirtualFrame) getFrame();
     }
 
 

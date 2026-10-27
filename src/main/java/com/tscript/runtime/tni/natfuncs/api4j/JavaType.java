@@ -1,8 +1,8 @@
 package com.tscript.runtime.tni.natfuncs.api4j;
 
-import com.tscript.runtime.core.Frame;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.core.TscriptVM;
+import com.tscript.runtime.tni.Environment;
 import com.tscript.runtime.tni.TNIUtils;
 import com.tscript.runtime.typing.*;
 
@@ -128,11 +128,6 @@ class JavaType implements Type {
         }
 
         return new JavaInstanceObject(this, result, vm);
-    }
-
-    @Override
-    public Type getType() {
-        return Type.TYPE;
     }
 
     @Override

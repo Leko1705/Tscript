@@ -1,10 +1,6 @@
 import com.tscript.projectfile.ProjectFile;
 import com.tscript.projectfile.ProjectFileRunner;
-import com.tscript.runtime.debugger.BreakPoint;
-import com.tscript.runtime.debugger.ConsoleDebugger;
 import org.junit.jupiter.api.Test;
-
-import java.util.Set;
 
 public class CompileAndExecutionTest {
 

@@ -6,9 +6,8 @@ import com.tscript.runtime.jit.JITSensitive;
 public class Null extends PrimitiveObject<Void> {
 
     public static final Type TYPE =
-            new Type.Builder("Null")
-                    .setInstanceMaker(() -> Null.INSTANCE)
-                    .setConstructor((fun, thread, params) -> Null.INSTANCE)
+            Type.newBuilder("Null")
+                    .setConstructor((env, params) -> Null.INSTANCE)
                     .build();
 
     @JITSensitive

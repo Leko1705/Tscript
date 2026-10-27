@@ -1,15 +1,12 @@
 package com.tscript.runtime.tni;
 
-import com.tscript.runtime.core.Frame;
+import com.tscript.runtime.core.NativeFrame;
+import com.tscript.runtime.core.VirtualFrame;
 import com.tscript.runtime.core.TThread;
-import com.tscript.runtime.core.VirtualFunction;
-import com.tscript.runtime.core.VirtualObject;
 import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.typing.*;
 
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 public class TNIUtils {
@@ -76,8 +73,8 @@ public class TNIUtils {
             Callable callable,
             Supplier<TObject> callback
     ) {
-
-        thread.frameStack.push(Frame.createNativeFrame(callable));
+        NativeFrame frame = new NativeFrame(callable);
+        thread.frameStack.push(frame);
         TObject result = callback.get();
         if (result == null) return null;
         thread.frameStack.pop();

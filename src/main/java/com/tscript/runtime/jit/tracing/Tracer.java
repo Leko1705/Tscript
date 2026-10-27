@@ -1,54 +1,114 @@
 package com.tscript.runtime.jit.tracing;
 
 import com.tscript.runtime.core.*;
-import com.tscript.runtime.jit.JITCompiler;
-import com.tscript.runtime.jit.JITTask;
-import com.tscript.runtime.jit.ir.IRBlock;
-import com.tscript.runtime.jit.ir.IRBuilder;
-import com.tscript.runtime.jit.ir.nodes.*;
-import com.tscript.runtime.jit.ir.nodes.Range;
+import com.tscript.runtime.jit.ParseProcess;
+import com.tscript.runtime.jit.JitFunctionRunner;
+import com.tscript.runtime.jit.comp.ir.*;
+import com.tscript.runtime.jit.comp.ir.nodes.*;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.Pool;
-import com.tscript.runtime.tni.NativeFunction;
 import com.tscript.runtime.tni.TNIUtils;
 import com.tscript.runtime.typing.*;
-import com.tscript.runtime.typing.Type;
 import com.tscript.runtime.utils.Conversion;
 
 import java.util.*;
 
 public class Tracer extends InterpreterDecorator {
 
-    private final Profiler profiler;
-    private final TracerConfiguration configuration;
-    private final IRBuilder irBuilder;
+    private final Interpreter profiler;
+    private final int anchorIp;
+    private final Object imageKey;
+    private final int frameStackSize;
+
+
+    private final ParseProcess compProcess;
+    private final Graph graph;
+    private final Graph.Builder builder;
+    
+    private IRControl currentControl;
+
+    private IREffect currentEffect;
+
+    private int parametersLeft;
+
+    private final Map<Integer, IRValue> initialLocals;
+
 
     public Tracer(Interpreter interpreter,
-                  Profiler profiler,
-                  IRBuilder irBuilder,
-                  TracerConfiguration configuration) {
+                  Interpreter profiler,
+                  Object imageKey,
+                  int ip,
+                  int frameStackSize,
+                  int parameterCount,
+                  ParseProcess compPc) {
         super(interpreter);
         this.profiler = profiler;
-        this.irBuilder = irBuilder;
-        this.configuration = configuration;
+
+        compProcess = compPc;
+        graph = compPc.getGraph();
+        builder = graph.builder();
+
+        this.currentControl = graph.startControl();
+        this.currentEffect = graph.startEffect();
+
+        this.anchorIp = ip;
+        this.imageKey = imageKey;
+        this.frameStackSize = frameStackSize;
+
+        this.parametersLeft = parameterCount;
+
+        this.initialLocals = new HashMap<>();
     }
+
 
     @Override
     public void pushNull() {
-        irBuilder.nullValue();
+        builder.push(builder.nullValue());
         super.pushNull();
     }
 
     @Override
     public void pushInt(byte value) {
-        irBuilder.integer(value);
+        builder.push(builder.integer(value));
         super.pushInt(value);
     }
 
     @Override
     public void pushBool(byte value) {
-        irBuilder.bool(value == 1);
+        builder.push(builder.bool(value == 1));
         super.pushBool(value);
+    }
+
+    @Override
+    public void makeArray(byte size) {
+        List<IRValue> exps = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            exps.add(builder.pop());
+        }
+        builder.push(builder.array(exps));
+        super.makeArray(size);
+    }
+
+    @Override
+    public void makeDict(byte size) {
+        List<IRValue> keys = new ArrayList<>();
+        List<IRValue> values = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            IRValue value = builder.pop();
+            IRValue key = builder.pop();
+            keys.add(key);
+            values.add(value);
+        }
+        this.builder.push(builder.dict(keys, values));
+        super.makeDict(size);
+    }
+
+    @Override
+    public void makeRange() {
+        IRValue to = builder.pop();
+        IRValue from = builder.pop();
+        builder.push(builder.range(from, to));
+        super.makeRange();
     }
 
     @Override
@@ -57,93 +117,201 @@ public class Tracer extends InterpreterDecorator {
         TObject top = top();
         if (top == null) return;
         IRValue value = fromObject(top);
-        irBuilder.push(value);
+        builder.push(value);
     }
 
     @Override
     public void pushThis() {
-        irBuilder.makeThis();
+        builder.push(builder.thisValue());
         super.pushThis();
     }
 
     @Override
-    public void makeRange() {
-        irBuilder.range();
-        super.makeRange();
+    public void binaryOperation(Opcode opcode) {
+
+        IRValue rhs = builder.pop();
+        typeGuard(rhs, Objects.requireNonNull(top(0)));
+
+        IRValue lhs = builder.pop();
+        typeGuard(lhs, Objects.requireNonNull(top(1)));
+
+        IRValue op = switch (opcode) {
+            case ADD -> builder.add(lhs, rhs);
+            case SUB -> builder.sub(lhs, rhs);
+            case MUL -> builder.mul(lhs, rhs);
+            case DIV -> builder.div(lhs, rhs);
+            case MOD -> builder.mod(lhs, rhs);
+            case POW -> builder.pow(lhs, rhs);
+            case AND -> builder.and(lhs, rhs);
+            case OR -> builder.or(lhs, rhs);
+            case XOR -> builder.xor(lhs, rhs);
+            case IDIV -> builder.idiv(lhs, rhs);
+            case SHL -> builder.shl(lhs, rhs);
+            case SHR -> builder.shr(lhs, rhs);
+            case USHR -> builder.ushr(lhs, rhs);
+            case GT -> builder.gt(lhs, rhs);
+            case LT -> builder.lt(lhs, rhs);
+            default -> throw new AssertionError("Unknown opcode: " + opcode);
+        };
+
+        builder.push(op);
+
+        super.binaryOperation(opcode);
     }
 
     @Override
-    public void loadType(byte b1, byte b2) {
-        super.loadType(b1, b2);
-        irBuilder.loadType(Conversion.from2Bytes(b1, b2));
+    public void equals(boolean shouldBeEqual) {
+
+        IRValue lhs = builder.pop();
+        typeGuard(lhs, Objects.requireNonNull(top(0)));
+
+        IRValue rhs = builder.pop();
+        typeGuard(rhs, Objects.requireNonNull(top(1)));
+
+        if (shouldBeEqual) {
+            builder.push(builder.equals(lhs, rhs));
+        }
+        else {
+            builder.push(builder.not(builder.equals(lhs, rhs)));
+        }
+
+        super.equals(shouldBeEqual);
     }
 
     @Override
-    public void buildType(byte b1, byte b2) {
-        super.buildType(b1, b2);
-        irBuilder.loadType(Conversion.from2Bytes(b1, b2));
+    public void not() {
+        IRValue value = builder.pop();
+        typeGuard(value, top());
+        builder.push(builder.not(value));
+        super.not();
     }
 
     @Override
-    public void makeArray(byte size) {
-        irBuilder.array(size);
-        super.makeArray(size);
+    public void negate() {
+        IRValue value = builder.pop();
+        typeGuard(value, top());
+        builder.push(builder.neg(value));
+        super.negate();
     }
 
     @Override
-    public void makeDict(byte size) {
-        irBuilder.dict(size);
-        super.makeDict(size);
-    }
-
-    @Override
-    public void loadVirtual(byte b1, byte b2) {
-        super.loadVirtual(b1, b2);
-        int address = Conversion.from2Bytes(b1, b2);
-        irBuilder.virtual(address);
-    }
-
-    @Override
-    public void loadNative(byte b1, byte b2) {
-        super.loadNative(b1, b2);
-        NativeFunction function = (NativeFunction) top();
-        if (function == null) return;
-        irBuilder.makeNative(function.getName());
+    public void posivate() {
+        IRValue value = builder.pop();
+        typeGuard(value, top());
+        builder.push(builder.pos(value));
+        super.posivate();
     }
 
     @Override
     public void loadBuiltin(byte b1, byte b2) {
         int index = Conversion.from2Bytes(b1, b2);
-        irBuilder.builtin(index);
+        builder.push(builder.builtin(index));
         super.loadBuiltin(b1, b2);
+    }
+
+    @Override
+    public void loadLocal(byte address) {
+        builder.push(builder.loadLocal(address));
+        super.loadLocal(address);
+    }
+
+    @Override
+    public void storeLocal(byte address) {
+        IRValue value;
+
+        if (parametersLeft > 0) {
+            parametersLeft--;
+            value = builder.parameter(address);
+            graph.typeMap().putPersistent(value, IRType.from(top(), true));
+            if (!builder.isDefinedLocal(address)) {
+                initialLocals.put((int)address, value);
+            }
+        }
+        else {
+            value = builder.pop();
+            if (!builder.isDefinedLocal(address)) {
+                initialLocals.put((int)address, builder.loadLocal(address));
+            }
+        }
+
+        builder.storeLocal(address, value);
+        super.storeLocal(address);
+    }
+
+    @Override
+    public void loadGlobal(byte address) {
+        TThread thread = getCurrentThread();
+        VirtualFrame frame = thread.topVirtualFrame();
+        Module module = frame.getModule();
+        Member member = module.loadMember(address);
+        frame.push(member.get());
+        builder.push(builder.loadGlobal(address, member.isMutable()));
+    }
+
+    @Override
+    public void pop() {
+        IRValue value = builder.pop();
+        currentEffect = builder.valueEffect(value);
+        super.pop();
     }
 
     @Override
     public void callInplace(byte argCount) {
         TObject top = top();
 
-        if (top instanceof Callable called) {
-            IRValue calledIRNode = irBuilder.pop();
+        TObject[] args = new TObject[argCount];
+        for (int i = 0; i < argCount; i++) { args[i] = top(i+1); }
 
-            List<TObject> missing = getMissingInplaceArgs(called, argCount);
-            if (missing == null) return;
-            for (TObject o : missing) {
-                irBuilder.push(fromObject(o));
+        if (top instanceof VirtualFunction func) {
+            Object localContext = func.getMetadata();
+
+            IRValue function = builder.peek();
+            currentEffect = builder.guardFunctionIdentity(function, func, ip(), sp());
+            builder.pop();
+
+            if (localContext.equals(imageKey)) {
+                // recursion detected
+
+                int argIdx = 0;
+                for (TObject arg : args) {
+                    IRValue argVal = builder.pop();
+                    typeGuard(argVal, arg.getType());
+                    builder.storeLocal(argIdx++, argVal);
+                }
+
+                currentEffect = builder.pushFrame(function);
+                closeLoop();
+                complete();
+            }
+            else {
+                currentEffect = builder.pushFrame(function);
+            }
+        }
+        else if (top instanceof Callable called) {
+            IRValue calledIRNode = builder.pop();
+            currentEffect = builder.guardFunctionIdentity(calledIRNode, called, ip(), sp());
+            List<TObject> argList = Arrays.asList(args);
+            List<TObject> missing = getMissingInplaceArgs(called, args.length);
+            if (missing != null) {
+                argList.addAll(missing);
+                List<IRValue> argValues = argList.stream().map(this::fromObject).toList();
+                builder.push(builder.call(calledIRNode, argValues));
             }
 
-            irBuilder.push(calledIRNode);
-
-            irBuilder.callInp(argCount + missing.size(), top instanceof VirtualFunction);
         }
-
+        
         super.callInplace(argCount);
     }
 
-    private List<TObject> getMissingInplaceArgs(Callable callable, int argCount) {
+    private List<TObject> getMissingInplaceArgs(Callable callable, int givenArgCount) {
         Parameters parameters = callable.getParameters(getCurrentThread());
-        int lastNonDefined = parameters.getLastNonDefinedParameterIndex();
-        if (argCount <= lastNonDefined) return null;
-        return parameters.getTail(argCount);
+        int lastUnspecifiedParamIdx = parameters.getLastNonDefinedParameterIndex();
+        if (givenArgCount <= lastUnspecifiedParamIdx) {
+            // a missing argument was not passed
+            return null;
+        }
+        int missingCount = parameters.count() - givenArgCount;
+        return parameters.getTail(parameters.count() - missingCount);
     }
 
     @Override
@@ -151,35 +319,30 @@ public class Tracer extends InterpreterDecorator {
         TObject top = top();
 
         if (top instanceof Callable called) {
-            IRValue calledIRNode = irBuilder.pop();
+            IRValue calledIRNode = builder.pop();
+            List<IRValue> args = flatMappedCallArgs(called, argCount);
 
-            IRValue[] flattenArgs = flatMappedCallArgs(called, argCount);
-            if (flattenArgs != null) {
-                for (IRValue flattenArg : flattenArgs) {
-                    irBuilder.push(flattenArg);
-                }
-                irBuilder.push(calledIRNode);
-                irBuilder.callInp(flattenArgs.length, top instanceof VirtualFunction);
+            if (args != null) {
+                builder.push(builder.call(calledIRNode, args));
             }
-            // else invalid parameter passing
         }
 
         super.callMapped(argCount);
     }
 
-    private IRValue[] flatMappedCallArgs(Callable called, int argCount) {
+    private List<IRValue> flatMappedCallArgs(Callable called, int argCount) {
         List<String> names = new ArrayList<>(argCount);
         List<IRValue> values = new ArrayList<>(argCount);
 
         for (int i = 0; i < argCount; i++) {
-            IRValue exp = irBuilder.pop();
+            IRValue exp = builder.pop();
             if (exp instanceof ToInpArg t) {
                 names.add(null);
-                values.add(t.value);
+                values.add(t.getValue());
             } else {
                 ToMapArg m = (ToMapArg) exp;
-                names.add(m.name);
-                values.add(m.value);
+                names.add(m.getName());
+                values.add(m.getValue());
             }
         }
 
@@ -212,63 +375,21 @@ public class Tracer extends InterpreterDecorator {
 
         if (finals.size() < parameters.count()) return null;
 
-        return finals.values().toArray(new IRValue[0]);
-    }
-
-    @Override
-    public void toInplaceArgument() {
-        irBuilder.toInpArg();
-        super.toInplaceArgument();
-    }
-
-    @Override
-    public void toMappedArgument(byte b1, byte b2) {
-        String name = getUtf8Constant(b1, b2);
-        irBuilder.toMapArg(name);
-        super.toMappedArgument(b1, b2);
-    }
-
-    @Override
-    public void pop() {
-        irBuilder.makeExprStmt();
-        super.pop();
-    }
-
-    @Override
-    public void dup() {
-        irBuilder.dup();
-        super.dup();
-    }
-
-    @Override
-    public void jumpTo(byte b1, byte b2) {
-
-        if (inInitialFunction() && loopClosureReached()) {
-            // If in function-tracing then loopClosureReached(),
-            // will always be false, since then
-            // configuration.getJumpBackInstructionAddress() == -1
-            int address = Conversion.from2Bytes(b1, b2);
-            irBuilder.createGoto(address);
-            complete();
-        }
-
-        super.jumpTo(b1, b2);
+        return finals.values().stream().toList();
     }
 
     @Override
     public void returnFunction() {
+        TThread thread = getCurrentThread();
 
-        if (inInitialFunction()) {
-            // also working for loop-tracing, since
-            // if loop-tracing encounters this in initial function,
-            // the loops' trace is considered to be completed.
-            irBuilder.makeReturn();
+        if (thread.frameStack.size() == frameStackSize){
+            currentControl = builder.returnControl(builder.pop());
             complete();
         }
         else {
-            irBuilder.storeTemp(0);
-            irBuilder.makePopFrameReturn();
-            irBuilder.loadTemp(0);
+            IRValue retVal = builder.pop();
+            currentEffect = builder.popFrame();
+            builder.push(retVal);
         }
 
         super.returnFunction();
@@ -278,269 +399,33 @@ public class Tracer extends InterpreterDecorator {
     public void branch(byte b1, byte b2, boolean ifTrue) {
 
         boolean jumped = (TNIUtils.isTrue(top()) == ifTrue);
-        irBuilder.createGuard(ip(), sp(), ifTrue == jumped);
 
-        if (inInitialFunction() && loopClosureReached()) {
-            // If in function-tracing then loopClosureReached(),
-            // will always be false, since then
-            // configuration.getJumpBackInstructionAddress() == -1
-            int address = Conversion.from2Bytes(b1, b2);
-            irBuilder.createGoto(address);
+        IRValue condition = builder.pop();
+        if (ifTrue != jumped) {
+            condition = builder.not(condition);
+        }
+
+        currentEffect = builder.guardBool(condition, ip(), sp());
+
+
+        String localContext = JitFunctionRunner.getLoopKey(getCurrentThread(), ip());
+
+        if (traceClosed(localContext)){
+            closeLoop();
             complete();
         }
 
         super.branch(b1, b2, ifTrue);
     }
 
+    private boolean traceClosed(Object key) {
+        return ip() == anchorIp && key.equals(imageKey);
+    }
+
     @Override
     public void newLine(int line) {
-        irBuilder.newLine(line);
+        currentEffect = builder.newLine(line);
         super.newLine(line);
-    }
-
-    @Override
-    public void loadLocal(byte address) {
-        irBuilder.loadLocal(address);
-        super.loadLocal(address);
-    }
-
-    @Override
-    public void storeLocal(byte address) {
-        super.storeLocal(address);
-        if (configuration.isParameterStorage()) {
-            return;
-        }
-        irBuilder.storeLocal(address);
-    }
-
-    @Override
-    public void loadGlobal(byte address) {
-        irBuilder.loadGlobal(address);
-        super.loadGlobal(address);
-    }
-
-    @Override
-    public void storeGlobal(byte address) {
-        irBuilder.storeGlobal(address);
-        super.storeGlobal(address);
-    }
-
-    @Override
-    public void loadInternal(byte b1, byte b2) {
-        irBuilder.loadInternal(Conversion.from2Bytes(b1, b2));
-        super.loadInternal(b1, b2);
-    }
-
-    @Override
-    public void storeInternal(byte b1, byte b2) {
-        irBuilder.storeInternal(Conversion.from2Bytes(b1, b2));
-        super.storeInternal(b1, b2);
-    }
-
-    @Override
-    public void loadExternal(byte b1, byte b2) {
-        irBuilder.loadExternal(getUtf8Constant(b1, b2));
-        super.loadExternal(b1, b2);
-    }
-
-    @Override
-    public void storeExternal(byte b1, byte b2) {
-        irBuilder.storeExternal(getUtf8Constant(b1, b2));
-        super.storeExternal(b1, b2);
-    }
-
-    @Override
-    public void loadStatic(byte b1, byte b2) {
-        irBuilder.loadStatic(getUtf8Constant(b1, b2));
-        super.loadStatic(b1, b2);
-    }
-
-    @Override
-    public void storeStatic(byte b1, byte b2) {
-        irBuilder.storeStatic(getUtf8Constant(b1, b2));
-        super.storeStatic(b1, b2);
-    }
-
-    @Override
-    public void loadSuper(byte b1, byte b2) {
-        irBuilder.loadSuper(getUtf8Constant(b1, b2));
-        super.loadSuper(b1, b2);
-    }
-
-    @Override
-    public void storeSuper(byte b1, byte b2) {
-        irBuilder.storeSuper(getUtf8Constant(b1, b2));
-        super.storeSuper(b1, b2);
-    }
-
-    @Override
-    public void loadName(byte b1, byte b2) {
-        irBuilder.loadName(getUtf8Constant(b1, b2));
-        super.loadName(b1, b2);
-    }
-
-    @Override
-    public void loadAbstract(byte b1, byte b2) {
-        irBuilder.loadAbstract(getUtf8Constant(b1, b2));
-        super.loadAbstract(b1, b2);
-    }
-
-    @Override
-    public void containerRead() {
-        irBuilder.containerRead();
-        super.containerRead();
-    }
-
-    @Override
-    public void containerWrite() {
-        irBuilder.containerWrite();
-        super.containerWrite();
-    }
-
-    @Override
-    public void getIterator() {
-        irBuilder.getItr();
-        super.getIterator();
-    }
-
-    @Override
-    public void iteratorNext() {
-        irBuilder.itrNext();
-        super.iteratorNext();
-    }
-
-    @Override
-    public void branchIterator(byte b1, byte b2) {
-        int prevIp = ip();
-        super.branchIterator(b1, b2);
-        int curIp = ip();
-
-        boolean hasNext = (prevIp == curIp);
-
-        irBuilder.itrHasNext(hasNext);
-        irBuilder.createGuard(ip(), sp(), hasNext);
-    }
-
-    @Override
-    public void getType() {
-        irBuilder.typeof();
-        super.getType();
-    }
-
-    @Override
-    public void equals(boolean shouldBeEqual) {
-        irBuilder.equals(shouldBeEqual);
-        super.equals(shouldBeEqual);
-    }
-
-    @Override
-    public void negate() {
-        TObject topObj = top();
-
-        if (topObj != null) {
-            typeGuard(irBuilder.top(), topObj);
-        }
-        irBuilder.negate();
-        super.negate();
-    }
-
-    @Override
-    public void not() {
-        TObject topObj = top();
-
-        if (topObj != null) {
-            typeGuard(irBuilder.top(), topObj);
-        }
-        irBuilder.not();
-        super.not();
-    }
-
-    @Override
-    public void posivate() {
-        TObject topObj = top();
-        if (topObj != null) {
-            typeGuard(irBuilder.pop(), topObj);
-        }
-        super.posivate();
-    }
-
-    @Override
-    public void binaryOperation(Opcode opcode) {
-        IRValue rhs = irBuilder.pop();
-        IRValue lhs = irBuilder.pop();
-        irBuilder.push(lhs);
-        irBuilder.push(rhs);
-
-        TObject rhsObj = top(0);
-        TObject lhsObj = top(1);
-
-        if (rhsObj != null) {
-            typeGuard(rhs, rhsObj);
-        }
-        if (lhsObj != null) {
-            typeGuard(lhs, lhsObj);
-        }
-
-        irBuilder.binaryOp(opcode);
-        super.binaryOperation(opcode);
-    }
-
-    @Override
-    public void importModule(byte b1, byte b2) {
-        super.importModule(b1, b2);
-
-        String[] modulePath = getUtf8Constant(b1, b2).split("[.]");
-        int index = getCurrentThread().getVM().getSharedModuleLoader().indexOf(modulePath);
-        if (index != -1) {
-            irBuilder.importModule(index);
-        }
-    }
-
-    @Override
-    public void callSuper(byte argCount) {
-        super.callSuper(argCount);
-    }
-
-    @Override
-    public void setOwner() {
-        irBuilder.setOwner();
-        super.setOwner();
-    }
-
-    @Override
-    public void use(byte b1, byte b2) {
-        irBuilder.use(getUtf8Constant(b1, b2));
-        super.use(b1, b2);
-    }
-
-    @Override
-    public void useMembers() {
-        irBuilder.useMembers();
-        super.useMembers();
-    }
-
-    @Override
-    public void extend(byte b1, byte b2) {
-        irBuilder.extend(getUtf8Constant(b1, b2));
-        super.extend(b1, b2);
-    }
-
-    @Override
-    public void enterTry(byte b1, byte b2) {
-        // no tracing required
-        super.enterTry(b1, b2);
-    }
-
-    @Override
-    public void leaveTry() {
-        // no tracing required
-        super.leaveTry();
-    }
-
-    @Override
-    public void throwError() {
-        // no tracing required
-        super.throwError();
     }
 
     private TObject top(){
@@ -550,81 +435,106 @@ public class Tracer extends InterpreterDecorator {
     private TObject top(int offset){
         TThread thread = getCurrentThread();
         if (thread.frameStack.isEmpty()) return null;
-        Frame frame = thread.frameStack.element();
+        VirtualFrame frame = thread.topVirtualFrame();
         return frame.stack[frame.sp-1-offset];
     }
 
     private String getUtf8Constant(byte b1, byte b2){
-        Module module = getCurrentThread().frameStack.element().getModule();
+        Module module = getCurrentThread().topVirtualFrame().getModule();
         Pool pool = module.getPool();
         return pool.loadName(b1, b2);
     }
 
     private IRValue fromObject(TObject obj) {
-        if (obj instanceof TString s) return new Str(s.getValue());
-        else if (obj instanceof TReal r) return new Real(r.getValue());
-        else if (obj instanceof TBoolean b) return new Bool(b.getValue());
-        else if (obj instanceof TInteger i) return new Int(i.getValue());
-        else if (obj == com.tscript.runtime.typing.Null.INSTANCE) return new NullValue();
-        else if (obj instanceof com.tscript.runtime.typing.Range r) return new Range(new Int(r.getFrom()), new Int(r.getTo()));
+        if (obj instanceof TString s) return builder.string(s.getValue());
+        else if (obj instanceof TReal r) return builder.real(r.getValue());
+        else if (obj instanceof TBoolean b) return builder.bool(b.getValue());
+        else if (obj instanceof TInteger i) return builder.integer(i.getValue());
+        else if (obj == com.tscript.runtime.typing.Null.INSTANCE) return builder.nullValue();
+        else if (obj instanceof com.tscript.runtime.typing.Range r) 
+            return builder.range(
+                    builder.integer(r.getFrom()),
+                    builder.integer(r.getTo())
+            );
         else if (obj instanceof TArray a) {
             List<IRValue> exps = new ArrayList<>();
             for (TObject entry : a.getValue()){
-                exps.add(new WrapTObj(fromObject(entry)));
+                exps.add(fromObject(entry));
             }
-            return new Array(exps);
+            return builder.array(exps);
         }
         else if (obj instanceof TDictionary d){
-            Dict dict = new Dict();
+            List<IRValue> keys = new ArrayList<>();
+            List<IRValue> values = new ArrayList<>();
             for (Map.Entry<TObject, TObject> entry : d.getValue().entrySet()){
-                dict.keys.add(new WrapTObj(fromObject(entry.getKey())));
-                dict.values.add(new WrapTObj(fromObject(entry.getValue())));
+                keys.add(fromObject(entry.getKey()));
+                values.add(fromObject(entry.getValue()));
             }
-            return dict;
+            return builder.dict(keys, values);
         }
         else throw new AssertionError();
     }
 
     private int sp(){
-        return getCurrentThread().frameStack.element().sp;
+        return getCurrentThread().topVirtualFrame().sp;
     }
 
     private int ip(){
-        return getCurrentThread().frameStack.element().ip - 1;
-    }
-
-    private boolean inInitialFunction() {
-        final TThread thread = getCurrentThread();
-        return configuration.getInitialFunctionStackSize() == thread.frameStack.size();
-    }
-
-    private boolean loopClosureReached() {
-        final TThread thread = getCurrentThread();
-        return configuration.getJumpBackInstructionAddress() == thread.frameStack.element().ip;
+        return getCurrentThread().topVirtualFrame().ip - 1;
     }
 
     private void typeGuard(IRValue given, TObject expectedTypeInstance) {
-        // if (true) return;
+        currentEffect = builder.guardBool(
+                builder.equals(
+                        builder.typeof(given),
+                        builder.type(expectedTypeInstance.getType())
+                ),
+                ip(),
+                sp()
+        );
+    }
 
-        irBuilder.push(given);
-        irBuilder.typeof();
+    private void closeLoop() {
+        // "preheader" control/effect: where the loop starts before first iteration
+        IRControl preHeaderCtrl = builder.startControl();
+        graph.setStartControl(preHeaderCtrl);
 
-        Type type = expectedTypeInstance.getType();
-        irBuilder.loadType(type);
+        // The "backedge" control/effect: what we have now after tracing one iteration
+        IRControl body = this.currentControl;
 
-        irBuilder.equals(true);
-        irBuilder.createGuard(ip(), sp());
+        LoopHeadNode loopHeadCtrl = new LoopHeadNode(graph, preHeaderCtrl);
+        LoopEndNode loopEndCtrl = new LoopEndNode(graph, body, loopHeadCtrl);
+        loopHeadCtrl.addBackedge(loopEndCtrl);
+        loopHeadCtrl.getSuccessors().add(body);
+
+        for (Map.Entry<Integer, IRValue> preLoopValue : builder.getSsa(body).entrySet()) {
+            int address = preLoopValue.getKey();
+
+            IRValue initialNode = preLoopValue.getValue(); // The node created at loop start
+            IRValue currentValAtEnd = builder.loadLocal(address); // The node created during iteration
+
+            // Create the Phi: it merges the 'before loop' value and 'end of loop' value
+            // Note: Phi nodes sit at LoopHeads
+            Phi phi = builder.phi(initialNode, currentValAtEnd);
+
+            // Any node inside the loop that was using the 'initialNode'
+            // must now use the 'phi' instead.
+            initialNode.replaceAllUsesWith(phi);
+
+            // Re-link: The phi's first input should actually be the OLD initialNode
+            // but we just replaced all uses! We must manually set the phi input back.
+            phi.getArgs().set(0, initialNode);
+            initialNode.getUsers().add(phi);
+        }
+
+        IRControl exitControl = builder.startControl();
+
+        this.currentControl = loopHeadCtrl;
     }
 
     private void complete() {
-        TThread thread = getCurrentThread();
-        JITCompiler jit = thread.getVM().getJitCompiler();
-
-        IRBlock trace = irBuilder.getRoot();
-        JITTask task = configuration.completeTrace(thread, trace);
-
-        jit.schedule(task);
-        thread.setInterpreter(profiler);
+        compProcess.compile();
+        getCurrentThread().setInterpreter(profiler);
     }
 
 }

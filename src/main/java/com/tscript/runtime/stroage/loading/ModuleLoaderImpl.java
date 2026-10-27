@@ -3,7 +3,6 @@ package com.tscript.runtime.stroage.loading;
 import com.tscript.runtime.core.*;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.Pool;
-import com.tscript.runtime.stroage.TypeArea;
 import com.tscript.runtime.typing.*;
 import com.tscript.runtime.utils.Conversion;
 import com.tscript.runtime.utils.Tuple;
@@ -12,7 +11,6 @@ import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
 
 public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
@@ -105,6 +103,10 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
                 functionArea,
                 typeArea);
 
+        for (LoadedFunctionArea.VirtualMetadataImpl metadata : functionArea.data) {
+            metadata.module = moduleProxy;
+        }
+
         return moduleProxy;
     }
 
@@ -171,7 +173,7 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
             int stackSize = Conversion.from2Bytes(reader.read(), reader.read());
             int locals = Conversion.from2Bytes(reader.read(), reader.read());
             byte[][] instructions = loadInstructions(reader);
-            area.data[id] = new LoadedFunctionArea.VirtualFunctionMetaData(name, params, stackSize, locals, instructions);
+            area.data[id] = new LoadedFunctionArea.VirtualMetadataImpl(name, stackSize, locals, instructions, params);
         }
 
         return area;
@@ -239,11 +241,11 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
 
             if (reader.read() != 0) {
                 int index = Conversion.from2Bytes(reader.read(), reader.read());
-                constructor = functionArea.loadFunction(index, module);
+                constructor = functionArea.loadFunction(index);
                 constructorVisibility = getVisibility(reader.read());
             }
 
-            Function staticBlock = loadSpecialTypeMethod(reader, functionArea, module);
+            Function staticBlock = loadSpecialTypeMethod(reader, functionArea);
 
             int staticMemberAmount = Conversion.from2Bytes(reader.read(), reader.read());
             Member[] staticMembers = readMembers(reader, staticMemberAmount);
@@ -267,10 +269,10 @@ public class ModuleLoaderImpl implements ModuleLoader, LoadingConstants {
         return area;
     }
 
-    private VirtualFunction loadSpecialTypeMethod(LazyReader reader, LoadedFunctionArea functionArea, Module module) throws ModuleLoadingException {
+    private VirtualFunction loadSpecialTypeMethod(LazyReader reader, LoadedFunctionArea functionArea) throws ModuleLoadingException {
         if (reader.read() == 0) return null;
         int index = Conversion.from2Bytes(reader.read(), reader.read());
-        return functionArea.loadFunction(index, module);
+        return functionArea.loadFunction(index);
     }
 
     private Member[] readMembers(LazyReader reader, int amount) throws ModuleLoadingException {

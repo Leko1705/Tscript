@@ -14,12 +14,11 @@ import java.util.Map;
 public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements ContainerAccessibleObject, IterableObject {
 
     public static final Type TYPE =
-            new Type.Builder("Range")
+            Type.newBuilder("Range")
                     .setParameters(Parameters.newInstance()
                             .add("begin", null)
                             .add("end", null))
-                    .setInstanceMaker(() -> new Range(0, 0))
-                    .setConstructor((func, thread, params) -> {
+                    .setConstructor((env, params) -> {
                         TObject from = params.get(0);
                         TObject to = params.get(1);
 
@@ -32,7 +31,7 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
                             fromVal = real.getValue().intValue();
                         }
                         else {
-                            thread.reportRuntimeError("Integer expected; got: " + from.getType());
+                            env.reportRuntimeError("Integer expected; got: " + from.getType());
                             return null;
                         }
 
@@ -43,14 +42,11 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
                             toVal = real.getValue().intValue();
                         }
                         else {
-                            thread.reportRuntimeError("Integer expected, got; " + from.getType());
+                            env.reportRuntimeError("Integer expected, got; " + from.getType());
                             return null;
                         }
 
-                        Range range = (Range) func.getOwner();
-                        range.value.setFirst(new TInteger(fromVal));
-                        range.value.setSecond(new TInteger(toVal));
-                        return range;
+                        return new Range(fromVal, toVal);
                     }).build();
 
     private final Map<String, Member> methods;
@@ -128,12 +124,10 @@ public class Range extends PrimitiveObject<Tuple<TInteger, TInteger>> implements
 
     private class TRangeIterator implements IteratorObject {
 
-        private static final Type type = new Type.Builder("RangeIterator")
-                .setConstructor((func, thread, params) -> Null.INSTANCE)
-                .setInstanceMaker(() -> {
-                    throw new AssertionError();
-                })
-                .setAbstract(true).build();
+        private static final Type type = Type.newBuilder("RangeIterator")
+                .setConstructor((env, params) -> { throw new AssertionError(); })
+                .setAbstract(true)
+                .build();
 
         private int curr = Range.this.getFrom();
         private final int border = Range.this.getTo();

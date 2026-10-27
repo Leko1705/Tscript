@@ -37,7 +37,7 @@ public class DebugInterpreter extends InterpreterDecorator {
 
     private boolean hasBreakingBreakpoint(int line) {
         Set<BreakPoint> breakpoints = getCurrentThread().getVM().getBreakPoints();
-        String currModuleName = getCurrentThread().frameStack.element().getModule().getCanonicalPath();
+        String currModuleName = getCurrentThread().topVirtualFrame().getModule().getCanonicalPath();
         for (BreakPoint breakPoint : breakpoints) {
             if (breakPoint.line == line && currModuleName.equals(breakPoint.moduleName)){
                 return true;
@@ -105,7 +105,7 @@ public class DebugInterpreter extends InterpreterDecorator {
 
                 try {
                     TThread thread = getCurrentThread();
-                    int line = thread.frameStack.element().line();
+                    int line = thread.topVirtualFrame().line();
                     debugger.onHalt(thread.getId(), getVMState(), line, observer);
                 }
                 catch (Exception e) {
@@ -176,8 +176,9 @@ public class DebugInterpreter extends InterpreterDecorator {
         private final List<ObjectState> locals = new ArrayList<>();
         private final List<ObjectState> stack = new ArrayList<>();
 
-        public FrameStateImp(Frame frame) {
-            this.name = frame.getName();
+        public FrameStateImp(Frame frame0) {
+            VirtualFrame frame = (VirtualFrame) frame0;
+            this.name = frame.getMetadata().name();
             this.line = frame.line();
 
             Map<TObject, ObjectState> buildCache = new HashMap<>();

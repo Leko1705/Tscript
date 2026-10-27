@@ -6,8 +6,6 @@ import com.tscript.runtime.debugger.BreakPoint;
 import com.tscript.runtime.debugger.DebugInterpreter;
 import com.tscript.runtime.debugger.Debugger;
 import com.tscript.runtime.jit.JITCompiler;
-import com.tscript.runtime.jit.caching.HashMapCache;
-import com.tscript.runtime.jit.compilers.*;
 import com.tscript.runtime.jit.tracing.Profiler;
 import com.tscript.runtime.stroage.Module;
 import com.tscript.runtime.stroage.loading.*;
@@ -73,6 +71,7 @@ public class TscriptVM implements VirtualMachine {
 
         // run the main thread
         Callable entryPoint = module.getEntryPoint();
+        if (entryPoint instanceof VirtualFunction vfunc) vfunc.setOwner(vfunc);
         TThread thread = spawnThread(entryPoint, List.of());
 
         jitCompiler.boot();
@@ -131,7 +130,7 @@ public class TscriptVM implements VirtualMachine {
             interpreterSupplier = t -> new Profiler(new BaseInterpreter(t));
         }
         else {
-            jitCompiler = new NoJIT();
+            jitCompiler = JITCompiler.disabled();
             interpreterSupplier = BaseInterpreter::new;
         }
     }
@@ -202,6 +201,6 @@ public class TscriptVM implements VirtualMachine {
     }
 
     private static JITCompiler getInitialJIT(){
-        return new JITCompilerImpl(new HashMapCache());
+        return new JITCompiler();
     }
 }

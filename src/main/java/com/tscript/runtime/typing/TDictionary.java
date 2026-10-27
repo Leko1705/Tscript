@@ -13,36 +13,29 @@ public class TDictionary extends PrimitiveObject<Map<TObject, TObject>>
         implements ContainerAccessibleObject, ContainerWriteableObject, IterableObject{
 
     public static final Type TYPE =
-            new Type
-                    .Builder("Dictionary")
+            Type.newBuilder("Dictionary")
                     .setParameters(Parameters.newInstance()
                             .add("other", Null.INSTANCE))
-                    .setInstanceMaker(TDictionary::new)
-                    .setConstructor((func, thread, params) -> {
+                    .setConstructor((env, params) -> {
                         TObject value = params.get(0);
 
-                        TDictionary dict = (TDictionary) func.getOwner();
-
-                        if (value == Null.INSTANCE)
-                            return dict;
-
-                        if (value instanceof TDictionary other){
-                            dict.value = new LinkedHashMap<>(other.value.size());
-                            return dict;
+                        if (value == Null.INSTANCE) {
+                            return new TDictionary();
                         }
 
-                        thread.reportRuntimeError("can not convert " + value.getType() + " to Dictionary");
+                        if (value instanceof TDictionary other){
+                            return new TDictionary(new LinkedHashMap<>(other.value));
+                        }
+
+                        env.reportRuntimeError("can not convert " + value.getType() + " to Dictionary");
                         return null;
                     })
                     .build();
 
     public static final Type ITR_TYPE =
-            new Type.Builder("DictionaryIterator")
+            Type.newBuilder("DictionaryIterator")
                     .setAbstract(true)
-                    .setInstanceMaker(() -> {
-                        throw new AssertionError();
-                    })
-                    .setConstructor((func, thread, params) -> Null.INSTANCE)
+                    .setConstructor((env, params) -> { throw new AssertionError(); })
                     .build();
 
     private final Map<String, Member> methods;

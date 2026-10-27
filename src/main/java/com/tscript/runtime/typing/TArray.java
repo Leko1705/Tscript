@@ -1,7 +1,6 @@
 package com.tscript.runtime.typing;
 
 
-import com.tscript.runtime.core.ALU;
 import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.jit.JITSensitive;
 import com.tscript.runtime.tni.Environment;
@@ -14,42 +13,35 @@ public class TArray extends PrimitiveObject<List<TObject>>
         implements ContainerWriteableObject, ContainerAccessibleObject, IterableObject {
 
     public static final Type TYPE =
-            new Type.Builder("Array")
+            Type.newBuilder("Array")
                     .setParameters(Parameters.newInstance()
                             .add("size_or_other", new TInteger(0))
                             .add("value", Null.INSTANCE))
-                    .setInstanceMaker(TArray::new)
-                    .setConstructor((func, thread, params) -> {
+                    .setConstructor((env, params) -> {
                         TObject size_or_other = params.get(0);
-                        TArray arr = (TArray) func.getOwner();
 
                         if (size_or_other instanceof TInteger integer) {
                             int count = integer.getValue();
                             TObject other = params.get(1);
                             ArrayList<TObject> list = new ArrayList<>(count);
                             for (int i = 0; i < count; i++) list.add(other);
-                            arr.value = list;
-                            return arr;
+                            return new TArray(list);
                         }
 
                         else if (size_or_other instanceof TArray other){
-                            arr.value = new ArrayList<>(other.getValue());
-                            return arr;
+                            return new TArray(other.getValue());
                         }
 
-                        thread.reportRuntimeError("can not convert " + size_or_other.getType() + " to Array");
+                        env.reportRuntimeError("can not convert " + size_or_other.getType() + " to Array");
                         return null;
                     })
                     .build();
 
     public static final Type ITR_TYPE =
-            new Type.Builder("ArrayIterator")
+            Type.newBuilder("ArrayIterator")
                     .setAbstract(true)
-                    .setInstanceMaker(() -> {
-                        throw new AssertionError();
-                    })
                     .addMember(Member.of(Visibility.PUBLIC, false, "concat", new ConcatStaticMethod()))
-                    .setConstructor((func, thread, params) -> Null.INSTANCE)
+                    .setConstructor((env, params) -> { throw new AssertionError(); })
                     .build();
 
     private final Map<String, Member> methods;

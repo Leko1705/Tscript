@@ -223,14 +223,14 @@ public class TscriptBytecode
             case XOR -> Opcode.XOR;
             case IDIV -> Opcode.IDIV;
             case POW -> Opcode.POW;
-            case SHIFT_AL -> Opcode.SLA;
+            case SHIFT_AL -> Opcode.SHL;
             case EQUALS -> Opcode.EQUALS;
             case NOT_EQUALS -> Opcode.NOT_EQUALS;
             case LESS -> Opcode.LT;
             case GREATER -> Opcode.GT;
             case LESS_EQ -> Opcode.LEQ;
             case GREATER_EQ -> Opcode.GEQ;
-            case SHIFT_AR -> Opcode.SRA;
+            case SHIFT_AR -> Opcode.SHR;
         };
         write(op);
     }
