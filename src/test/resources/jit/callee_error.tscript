@@ -1,0 +1,15 @@
+module callee_error;
+
+function thrower(x) {
+    if x > 250 then return x - null;
+    return x;
+}
+
+function caller(x) {
+    var y = thrower(x);
+    return y * 2;
+}
+
+var sum = 0;
+for var i in 0:300 do sum = sum + caller(i);
+print(sum);

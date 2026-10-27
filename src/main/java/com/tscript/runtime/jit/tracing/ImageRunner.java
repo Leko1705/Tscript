@@ -213,19 +213,23 @@ public final class ImageRunner {
      */
     @JITSensitive
     public static TObject invoke(TThread thread, ImageFrame caller, int line, TObject callee, TObject[] args) {
-        caller.syncLine(line);
         int depth = thread.frameStack.size();
+        int mark = caller.enter(thread, line);
         TObject result;
-
-        if (callee instanceof VirtualFunction function) {
-            result = invokeVirtual(thread, function, args);
+        try {
+            if (callee instanceof VirtualFunction function) {
+                result = invokeVirtual(thread, function, args);
+            }
+            else if (callee instanceof Callable callable) {
+                result = thread.call(callable, Arrays.asList(args));
+            }
+            else {
+                thread.reportRuntimeError(InternalRuntimeErrorMessages.notCallable(callee));
+                throw ImageAbortException.INSTANCE;
+            }
         }
-        else if (callee instanceof Callable callable) {
-            result = thread.call(callable, Arrays.asList(args));
-        }
-        else {
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.notCallable(callee));
-            throw ImageAbortException.INSTANCE;
+        finally {
+            caller.leave(thread, mark);
         }
 
         if (result == null || !thread.isRunning() || thread.frameStack.size() != depth) {

@@ -7,6 +7,7 @@ import com.tscript.runtime.typing.*;
 import com.tscript.runtime.utils.Conversion;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -133,6 +134,61 @@ public class TThread extends Thread implements Environment, TObject {
      */
     public int jitDepth = 0;
 
+    /*
+     * Shadow frames: compiled code of a function runs without an interpreter frame. While it
+     * calls out (e.g. into another function), it registers a shadow frame, so that error
+     * messages still list the compiled function. A shadow frame sits logically on top of the
+     * first `depth` frames of the frame stack.
+     */
+    private VirtualFunction.VirtualMetadata[] shadowMetadata = new VirtualFunction.VirtualMetadata[16];
+    private int[] shadowLines = new int[16];
+    private int[] shadowDepths = new int[16];
+    private int shadowSize = 0;
+
+    /**
+     * Registers a shadow frame for compiled code of the given function.
+     * @return a mark to pass to {@link #popShadowFrames(int)}
+     */
+    public int pushShadowFrame(VirtualFunction.VirtualMetadata metadata, int line) {
+        int mark = shadowSize;
+        if (shadowSize == shadowMetadata.length) {
+            shadowMetadata = Arrays.copyOf(shadowMetadata, shadowSize * 2);
+            shadowLines = Arrays.copyOf(shadowLines, shadowSize * 2);
+            shadowDepths = Arrays.copyOf(shadowDepths, shadowSize * 2);
+        }
+        shadowMetadata[shadowSize] = metadata;
+        shadowLines[shadowSize] = line;
+        shadowDepths[shadowSize] = frameStack.size();
+        shadowSize++;
+        return mark;
+    }
+
+    public int shadowFrameCount() {
+        return shadowSize;
+    }
+
+    public void popShadowFrames(int mark) {
+        while (shadowSize > mark) {
+            shadowMetadata[--shadowSize] = null;
+        }
+    }
+
+    private void appendShadowFrames(StringBuilder errorLog, int depth) {
+        while (shadowSize > 0 && shadowDepths[shadowSize - 1] >= depth) {
+            VirtualFunction.VirtualMetadata metadata = shadowMetadata[--shadowSize];
+            shadowMetadata[shadowSize] = null;
+            errorLog.append("in ").append(metadata.name()).append(" (");
+            errorLog.append("line: ").append(shadowLines[shadowSize]).append("; ");
+            errorLog.append("module: ").append(metadata.module().getCanonicalPath()).append(")\n");
+        }
+    }
+
+    private void discardShadowFrames(int depth) {
+        while (shadowSize > 0 && shadowDepths[shadowSize - 1] >= depth) {
+            shadowMetadata[--shadowSize] = null;
+        }
+    }
+
     private void startExecutionCycle(){
         while (running && frameStack.size() > frameStackExitThreshold){
             if (halt) performHalt();
@@ -256,6 +312,7 @@ public class TThread extends Thread implements Environment, TObject {
     public void reportRuntimeError(TObject object) {
         VirtualFrame vframe = topVirtualFrame();
         if (vframe.inUnsafeSpot()){
+            discardShadowFrames(frameStack.size());
             vframe.escapeError();
             vframe.push(object);
             return;
@@ -270,6 +327,7 @@ public class TThread extends Thread implements Environment, TObject {
         StringBuilder errorLog = new StringBuilder("error in ").append(threadName).append(": ");
         errorLog.append(msg).append('\n');
         do {
+            appendShadowFrames(errorLog, frameStack.size());
             Frame frame = frameStack.remove();
             errorLog.append("in ").append(frame.getMetadata().name());
 
@@ -284,6 +342,8 @@ public class TThread extends Thread implements Environment, TObject {
             }
             errorLog.append('\n');
         }while (!frameStack.isEmpty() && !topVirtualFrame().inUnsafeSpot());
+
+        appendShadowFrames(errorLog, frameStack.size());
 
         if (frameStack.isEmpty()){
             System.err.println(errorLog);

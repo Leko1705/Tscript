@@ -1,0 +1,16 @@
+module deeprec;
+
+function depth(n) {
+    if n == 0 then return 0;
+    return 1 + depth(n - 1);
+}
+
+function tail(n, acc) {
+    if n == 0 then return acc;
+    return tail(n - 1, acc + 1);
+}
+
+for var i in 0:300 do depth(i);
+print(depth(25000));
+print(tail(25000, 0));
+print(depth(40000));

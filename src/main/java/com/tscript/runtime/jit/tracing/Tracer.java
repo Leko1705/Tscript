@@ -196,6 +196,8 @@ public class Tracer extends InterpreterDecorator {
         metadata = top.getMetadata();
         loopHeaders = LoopAnalysis.loopHeaders(metadata);
         ip = top.ip - 1;
+        line = top.line();
+        builder.setLine(line);
 
         if (top.inUnsafeSpot()) {
             abort("can not trace inside a try block");

@@ -524,7 +524,7 @@ public class BaseInterpreter implements Interpreter {
     }
 
     private boolean isStackOverflowError(){
-        if (thread.frameStack.size() == 30_000){
+        if (thread.frameStack.size() + thread.shadowFrameCount() >= 30_000){
             thread.reportRuntimeError(InternalRuntimeErrorMessages.stackOverflowError());
             return true;
         }

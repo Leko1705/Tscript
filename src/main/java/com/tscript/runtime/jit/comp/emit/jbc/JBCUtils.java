@@ -165,17 +165,27 @@ public final class JBCUtils {
 
     @JITSensitive
     public static void storeGlobal(TThread thread, ImageFrame frame, int line, int index, TObject value) {
-        frame.syncLine(line);
         int depth = thread.frameStack.size();
-        frame.metadata.module().loadMember(index).set(value, thread);
+        int mark = frame.enter(thread, line);
+        try {
+            frame.metadata.module().loadMember(index).set(value, thread);
+        }
+        finally {
+            frame.leave(thread, mark);
+        }
         checkNoError(thread, depth);
     }
 
     @JITSensitive
     public static TObject getIterator(TThread thread, ImageFrame frame, int line, TObject candidate) {
         if (!(candidate instanceof IterableObject iterable)) {
-            frame.syncLine(line);
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.notIterable(candidate));
+            int mark = frame.enter(thread, line);
+            try {
+                thread.reportRuntimeError(InternalRuntimeErrorMessages.notIterable(candidate));
+            }
+            finally {
+                frame.leave(thread, mark);
+            }
             throw ImageAbortException.INSTANCE;
         }
         return iterable.iterator();
@@ -193,13 +203,19 @@ public final class JBCUtils {
 
     @JITSensitive
     public static TObject containerRead(TThread thread, ImageFrame frame, int line, TObject container, TObject key) {
-        frame.syncLine(line);
-        if (!(container instanceof ContainerAccessibleObject accessible)) {
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.notAccessible(container));
-            throw ImageAbortException.INSTANCE;
-        }
         int depth = thread.frameStack.size();
-        TObject result = accessible.readFromContainer(thread, key);
+        int mark = frame.enter(thread, line);
+        TObject result;
+        try {
+            if (!(container instanceof ContainerAccessibleObject accessible)) {
+                thread.reportRuntimeError(InternalRuntimeErrorMessages.notAccessible(container));
+                throw ImageAbortException.INSTANCE;
+            }
+            result = accessible.readFromContainer(thread, key);
+        }
+        finally {
+            frame.leave(thread, mark);
+        }
         if (result == null) throw ImageAbortException.INSTANCE;
         checkNoError(thread, depth);
         return result;
@@ -207,13 +223,18 @@ public final class JBCUtils {
 
     @JITSensitive
     public static void containerWrite(TThread thread, ImageFrame frame, int line, TObject container, TObject key, TObject value) {
-        frame.syncLine(line);
-        if (!(container instanceof ContainerWriteableObject writeable)) {
-            thread.reportRuntimeError(InternalRuntimeErrorMessages.notWriteable(container));
-            throw ImageAbortException.INSTANCE;
-        }
         int depth = thread.frameStack.size();
-        writeable.writeToContainer(thread, key, value);
+        int mark = frame.enter(thread, line);
+        try {
+            if (!(container instanceof ContainerWriteableObject writeable)) {
+                thread.reportRuntimeError(InternalRuntimeErrorMessages.notWriteable(container));
+                throw ImageAbortException.INSTANCE;
+            }
+            writeable.writeToContainer(thread, key, value);
+        }
+        finally {
+            frame.leave(thread, mark);
+        }
         checkNoError(thread, depth);
     }
 

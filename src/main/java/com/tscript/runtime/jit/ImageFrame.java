@@ -1,7 +1,9 @@
 package com.tscript.runtime.jit;
 
+import com.tscript.runtime.core.TThread;
 import com.tscript.runtime.core.VirtualFrame;
 import com.tscript.runtime.core.VirtualFunction;
+import com.tscript.runtime.jit.tracing.ImageAbortException;
 import com.tscript.runtime.typing.TObject;
 
 /**
@@ -54,12 +56,31 @@ public class ImageFrame {
     }
 
     /**
-     * Updates the line of the underlying interpreter frame (if there is one), so that error
-     * messages produced while running compiled code point to the right line.
+     * Must be called before compiled code performs an operation that may report a runtime error
+     * (e.g. calling a function): updates the line of the underlying interpreter frame, or, if
+     * there is none, registers a shadow frame so that error messages list this function.
+     * @return a mark to pass to {@link #leave(TThread, int)}
      */
     @JITSensitive
-    public void syncLine(int line) {
-        if (frame != null) frame.setLine(line);
+    public int enter(TThread thread, int line) {
+        if (frame != null) {
+            frame.setLine(line);
+            return -1;
+        }
+        return thread.pushShadowFrame(metadata, line);
+    }
+
+    /**
+     * Counterpart of {@link #enter(TThread, int)}.
+     * @throws ImageAbortException if a runtime error was reported and unwound the stack past
+     * this (frame less) compiled code. The interpreter continues where the error was caught.
+     */
+    @JITSensitive
+    public void leave(TThread thread, int mark) {
+        if (mark < 0) return;
+        boolean unwound = thread.shadowFrameCount() <= mark;
+        thread.popShadowFrames(mark);
+        if (unwound) throw ImageAbortException.INSTANCE;
     }
 
 }
