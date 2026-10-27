@@ -120,15 +120,29 @@ public class VirtualType implements Type {
             }
         }
 
-        TObject object = new VirtualObject(this, prepareInstanceMembers());
-        Function constructor = getConstructor();
+        VirtualObject object = newInstance();
+        if (constructor == null) return object;
 
-        if (constructor != null) {
-            constructor = constructor.dup();
-            constructor.setOwner(object);
-            constructor.eval(thread, params);
+        Function constructor = this.constructor.dup();
+        constructor.setOwner(object);
+        TObject result = constructor.eval(thread, params);
+        // a virtual constructor runs in its own frame (pushed by eval) and returns the object
+        // itself; returning it here as well would push it onto the stack of the constructor
+        return constructor.isVirtual() ? result : object;
+    }
+
+    /**
+     * Creates an uninitialized instance. Instances of classes that extend another class
+     * consist of one object per class of the hierarchy (see {@link VirtualObject#getSuper()}),
+     * the super objects are initialized by the super constructor calls.
+     */
+    private VirtualObject newInstance() {
+        VirtualObject object = new VirtualObject(this, prepareInstanceMembers());
+        if (superType instanceof VirtualType virtualSuperType) {
+            VirtualObject superObject = virtualSuperType.newInstance();
+            object.superObject = superObject;
+            superObject.subObject = object;
         }
-
         return object;
     }
 
