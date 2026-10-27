@@ -16,13 +16,13 @@ The new Tscript version now supports the `typeof` keyword, which can be used
 in two scenarios:<br>
 For type checking:
 ```javascript
-if (x typeof String){
+if x typeof String then {
     # x is a string
 }
 ```
 which is equivalent to:
 ```javascript
-if (Type(x) == String){
+if Type(x) == String then {
     # x is a string
 }
 ```
@@ -44,7 +44,7 @@ Tscript now supports switch-case statements:
 switch "Tommy" then {
     case "Tommy" do print("I love Cake!");
     case "Jane" do {
-        print("I love Chocklate!");
+        print("I love Chocolate!");
         print("Really!");
         break; # skip all remaining cases + default
     }
@@ -126,31 +126,44 @@ method, an object of that class is printed as the return value of this
 
 With the new Tscript implementation the `native` keyword is
 introduced. It allows to define functions that are implemented
-and executed from the underlying execution engine. <p>
-
-Assuming the underlying Virtual Machine is implemented in C,
-a native function, and it's implementation, might look like this::<br>
+and executed by the underlying execution engine (here: Java). <p>
 
 example.tscript:
 ```javascript
-native function print(x="");
+native function greet;
 
-print("hello world!"); # prints: hello world to the standard-output
+greet("Tscript"); # prints: hello Tscript!
 ```
 
-print.c:
+NativeGreet.java:
 ```java
-BaseObject* print(BaseObject* obj){
-    char* asString = obj_to_str(obj);
-    puts(asString);
-    return NULL;
+public class NativeGreet extends NativeFunction {
+
+    public String getName() {
+        return "greet";
+    }
+
+    public Parameters doGetParameters(Environment env) {
+        return Parameters.newInstance().add("name", new TString("world"));
+    }
+
+    public TObject evaluate(Environment env, List<TObject> arguments) {
+        String name = TNIUtils.toString(env, arguments.get(0));
+        if (name == null) return null; // error occurred
+        env.getCurrentThread().getVM().getOut().println("hello " + name + "!");
+        return Null.INSTANCE;
+    }
 }
 ```
+
+The parameters are defined on the native side, so they are not declared in Tscript.
+The implementation is registered in the project file with `native com.example.NativeGreet`.
+See [How to write Native Functions](hotwo/writing_native_functions.md) for the details.
 
 Native Functions can also be defined in classes.
 ```javascript
 class A {
-    public: native function print(x="");
+    public: native function greet;
 }
 ```
 
@@ -184,31 +197,38 @@ a.x = 4; # ERROR at runtime
 Tscript now supports the `import` keyword, allowing the usage of other files.<p>
 utils.tscript
 ```javascript
-native function print(x="");
+module utils;
+
+function hello(name="") {
+    print("hello " + name);
+}
 ```
 main.tscript
 ```javascript
-import utils;
-import utils.print; # This is also possible!
+module main;
 
-utils.print("hi!");
-print("hi again!");
+import utils;
+import utils.hello; # This is also possible!
+
+utils.hello("you!");
+hello("again!");
 ```
 
 You also may use the keyword `from` to specify your import.
 ```javascript
-from utils import print;
+from utils import hello;
 
-print("hi");
+hello("there");
 ```
 
 It's important to note that an import of a module, which is
-not imported jet, triggers the main function of that imported module
+not imported yet, triggers the main function of that imported module
 for initialization, similar to Python.
 
 In order to start a script or load a module properly it is required that each
 tscript file begins with `module <module-name> ;`.
-This module name can differ from the file name.<p>
+This module name can differ from the file name. Modules are always
+imported and run by their module name.<p>
 
 Imports are resolved dynamically at runtime.
 
@@ -238,8 +258,25 @@ var hex = 0xF; # equal to 15
 
 ### Shift Operators
 
-With the new Integer representation also comes the new shift operators:
+With the new Integer representation also come the new shift operators:
 ```javascript
-print(1 << 1); # prints: 2
-print(4 >> 1); # prints: 2
+print(1 << 1);   # prints: 2
+print(4 >> 1);   # prints: 2
 ```
+
+
+### JIT Compiler
+
+The virtual machine now contains a tracing just-in-time compiler. Frequently executed
+functions and loops are recorded, optimized (e.g. type specialization, inlining,
+removal of temporary objects, tail recursion to loops) and compiled to JVM bytecode,
+which makes hot code several times faster than in the interpreter.
+The JIT does not change the behaviour of a program: if an assumption of the compiled code
+does not hold any more, execution simply continues in the interpreter.
+
+The JIT is enabled by default and can be disabled in the project file:
+```
+jit off
+```
+
+See [JIT Compiler](docs/jit_compiler.md) for how it works, its configuration and benchmarks.

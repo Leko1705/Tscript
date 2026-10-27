@@ -12,19 +12,26 @@ of new features or feature changes.
 ## What's new?
 A list of all new features can be found [here](whats%20new.md).
 
-## Getting Stated
+The virtual machine also contains a tracing [JIT compiler](docs/jit_compiler.md),
+which makes frequently executed code several times faster than the interpreter.
 
-Set up a project as shown [here](/hotwo/project_setup.md). You may use [exampleProject](exampleProject) as
+## Getting Started
+
+Requirements: a JDK (developed and tested with Java 21). Gradle is downloaded by the wrapper.
+
+Set up a project as shown [here](hotwo/project_setup.md). You may use [exampleProject](exampleProject) as
 a template.
 
 Then run the project:
 
-#### Using Docker:
+#### Using Gradle:
 
 ```shell
-docker build -t tscript .
-docker run -p 8080:8080 tscript
+./gradlew run --args="-p exampleProject/project.tsrt"
 ```
+
+Relative paths in the project file are resolved against the working directory,
+so the example project is run from the repository root.
 
 #### From Java Code:
 ```java
@@ -43,7 +50,21 @@ public class Main {
 }
 ```
 
-## Often Asked Questions
+## Documentation
+
+How to:
+- [Set up a project](hotwo/project_setup.md)
+- [Use the compiler and VM from Java](hotwo/configure_compiler_and_vm.md)
+- [Write native functions](hotwo/writing_native_functions.md)
+- [Write a debugger](hotwo/writing_debuggers.md)
+
+Internals:
+- [Runtime specifications](docs/runtime_specifications.md)
+- [Bytecode instruction set](docs/tscript_bytecode_instructions.md)
+- [Object model](docs/object_model.md)
+- [JIT compiler](docs/jit_compiler.md)
+
+## Frequently Asked Questions
 
 ### Why are namespaces treated as Types?
 
@@ -61,26 +82,21 @@ namespace math {
 }
 ```
 
-This namespace gets compiled as:
+This namespace gets compiled like the following class:
 ```javascript
 abstract class math {
     public:
-        
+
     static const E = 2.718281828459045;
-    
+
     static function abs(x) {
         if x > 0 then return x;
         else return -x;
     }
-    
-    private:
-    constructor(){
-        throw "namespaces can not get instanted";
-    }
 }
 ```
 
-As we can see namespaces are transformed into non instantiable or inheritable
-classes with only static members.<br>
+As we can see namespaces are transformed into abstract (non instantiable)
+classes with only static members. Therefore `print(math);` prints `Type<math>`.<br>
 The same concept of to-Type-conversion also applies to enums, where
-the enums constants are static constants in that enum.
+the enum constants are static constants in that enum.

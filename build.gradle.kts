@@ -24,7 +24,7 @@ tasks.test {
 }
 
 application {
-    mainClass.set("com.tscript.Main") // Replace with your main class
+    mainClass.set("com.tscript.cli.tscript")
 }
 
 tasks.jar {

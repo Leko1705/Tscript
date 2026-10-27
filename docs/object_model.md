@@ -4,8 +4,8 @@
 The *Tscript Virtual Machine* treats everything as an object.
 This includes primitives, Types, custom class objects, Threads, Modules,
 etc.<p>
-Even if the tscript runtime specifications does not specify
-the actual object model, it assumes a specific requirements.
+Even if the tscript runtime specifications do not specify
+the actual object model, they assume some specific requirements.
 
 
 ## Objects as Lists
@@ -22,7 +22,7 @@ A concrete object might look like this:
 
 ![image info](res/object_model_example.png)
 
-Any object (sub instances and super instanced) should
+Any object (sub instances and super instances) should
 hold a reference to its type object.
 
 The object creation process can be described with the following function:
@@ -34,7 +34,7 @@ function newObject(Type) {
     node.superInstance = null;
     
     if Type.superType != null then {
-        var superNode = newObject(Type.superType) # recursive build
+        var superNode = newObject(Type.superType); # recursive build
         node.superInstance = superNode;
         superNode.subInstance = node;
     }
@@ -65,5 +65,13 @@ To be more precise modules are loaded and held by the ModuleLoader.<p>
 A module holds all module related elements. This for example includes
 the Constant Pool, the Function Area and the Type Area (see runtime specifications).
 Since global variables and definitions are also module related they are also
-stored as members a module object. These members can then be accessed via imports
+stored as members of a module object. These members can then be accessed via imports
 from other Modules like common object member accesses.
+
+
+## Objects and the JIT Compiler
+
+The [JIT compiler](jit_compiler.md) relies on this object model: members of class instances
+are accessed at fixed indices (guarded by the exact types of the object and its super instances),
+and objects that never leave a compiled trace are not allocated at all. Such objects are only
+created if execution has to continue in the interpreter. This is not observable by the program.
